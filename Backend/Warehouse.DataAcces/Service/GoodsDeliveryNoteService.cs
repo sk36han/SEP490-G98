@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
@@ -218,33 +222,6 @@ namespace Warehouse.DataAcces.Service
                     throw new KeyNotFoundException($"Đơn vị tính với ID {line.UomId} không tồn tại.");
             }
 
-            // 7b. Validate preferred lots (optional)
-            var preferredLotIds = request.Lines
-                .Where(x => x.LotId.HasValue)
-                .Select(x => x.LotId!.Value)
-                .Distinct()
-                .ToList();
-            Dictionary<long, InventoryLot> preferredLotMap = new();
-            if (preferredLotIds.Count > 0)
-            {
-                preferredLotMap = await _context.InventoryLots
-                    .Where(l => preferredLotIds.Contains(l.LotId))
-                    .ToDictionaryAsync(l => l.LotId, l => l);
-
-                foreach (var line in request.Lines.Where(x => x.LotId.HasValue))
-                {
-                    var lotId = line.LotId!.Value;
-                    if (!preferredLotMap.TryGetValue(lotId, out var lot))
-                        throw new KeyNotFoundException($"Không tìm thấy lô #{lotId}.");
-                    if (lot.WarehouseId != request.WarehouseId)
-                        throw new InvalidOperationException($"Lô #{lotId} không thuộc kho xuất đã chọn.");
-                    if (lot.ItemId != line.ItemId)
-                        throw new InvalidOperationException($"Lô #{lotId} không khớp với vật tư ItemId={line.ItemId}.");
-                    if (!lot.IsActive || lot.Quantity <= 0)
-                        throw new InvalidOperationException($"Lô #{lotId} không còn khả dụng để xuất.");
-                }
-            }
-
             // 8. Validate ReleaseRequestLineIds belong to this RR + check RemainingToIssue
             var rrLines = releaseRequest.ReleaseRequestLines.ToDictionary(l => l.ReleaseRequestLineId, l => l);
 
@@ -378,12 +355,9 @@ namespace Warehouse.DataAcces.Service
                     unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
                 }
 
-                if (unitPrice <= 0 && inventories.TryGetValue(line.ItemId, out var invCost) && invCost.UnitCost > 0)
-                    unitPrice = invCost.UnitCost;
-
                 if (unitPrice <= 0)
                     throw new InvalidOperationException(
-                        $"Vật tư '{items[line.ItemId].ItemName}' không có giá xuất: kiểm tra lô tồn, giá trên yêu cầu xuất (UnitCostAtIssue) hoặc giá vốn tồn kho (UnitCost).");
+                        $"Vật tư '{items[line.ItemId].ItemName}' không có lô hàng nào hợp lệ và không có giá từ yêu cầu.");
 
                 totalDeliveredQty += line.ActualQty;
                 totalDeliveredAmount += line.ActualQty * unitPrice;
@@ -435,9 +409,6 @@ namespace Warehouse.DataAcces.Service
                     unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
                 }
 
-                if (unitPrice <= 0 && inventories.TryGetValue(line.ItemId, out var invCost2) && invCost2.UnitCost > 0)
-                    unitPrice = invCost2.UnitCost;
-
                 var gdnLine = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
@@ -446,7 +417,6 @@ namespace Warehouse.DataAcces.Service
                     ActualQty = line.ActualQty,
                     UomId = line.UomId,
                     ReleaseRequestLineId = line.ReleaseRequestLineId,
-                    LotId = line.LotId,
                     UnitPrice = unitPrice,
                     LineTotal = line.ActualQty * unitPrice,
                     RequiresCertificateCopy = line.RequiresCertificateCopy,
@@ -682,6 +652,84 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
+        public async Task<byte[]> ExportGdnPdfAsync(long gdnId, long userId)
+        {
+            _ = userId;
+            var data = await GetGDNDetailAsync(gdnId);
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(24);
+                    page.DefaultTextStyle(x => x.FontSize(10));
+
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Text("PHIEU XUAT KHO").Bold().FontSize(16).AlignCenter();
+                        col.Item().Text($"So phieu: {data.GdnCode}").AlignCenter();
+                        col.Item().Text($"Ngay xuat: {data.IssueDate:dd/MM/yyyy}").AlignCenter();
+                    });
+
+                    page.Content().Column(col =>
+                    {
+                        col.Spacing(8);
+                        col.Item().Text($"Nguoi nhan: {data.Receiver?.ReceiverName ?? "-"}");
+                        col.Item().Text($"Dia chi: {data.Receiver?.Address ?? "-"}");
+                        col.Item().Text($"Kho xuat: {data.WarehouseName ?? "-"}");
+                        col.Item().Text($"Yeu cau xuat: {data.ReleaseRequestCode ?? "-"}");
+                        col.Item().Text($"Trang thai: {data.Status}");
+                        col.Item().Text($"Ghi chu: {data.Note ?? "-"}");
+
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(c =>
+                            {
+                                c.ConstantColumn(24);
+                                c.RelativeColumn(3);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1.3f);
+                                c.RelativeColumn(1.6f);
+                            });
+
+                            static IContainer CellStyle(IContainer c) => c.Border(1).BorderColor(Colors.Grey.Lighten1).Padding(4);
+                            static IContainer HeadStyle(IContainer c) => CellStyle(c).Background(Colors.Grey.Lighten3);
+
+                            table.Header(h =>
+                            {
+                                h.Cell().Element(HeadStyle).Text("STT").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("Vat tu").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("DVT").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("SL xuat").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Don gia").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Thanh tien").SemiBold();
+                            });
+
+                            for (var i = 0; i < data.Lines.Count; i++)
+                            {
+                                var line = data.Lines[i];
+                                table.Cell().Element(CellStyle).Text((i + 1).ToString());
+                                table.Cell().Element(CellStyle).Text($"{line.ItemCode ?? ""} - {line.ItemName ?? ""}".Trim(' ', '-'));
+                                table.Cell().Element(CellStyle).Text(line.UomName ?? "-");
+                                table.Cell().Element(CellStyle).AlignRight().Text(line.ActualQty.ToString("N2", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.UnitPrice ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.LineTotal ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                            }
+                        });
+
+                        col.Item().AlignRight().Text($"Tong tien hang: {data.TotalDeliveredAmount:N0} VND").SemiBold();
+                        col.Item().AlignRight().Text($"Phi van chuyen: {data.ShippingFee:N0} VND");
+                        col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
+                    });
+
+                    page.Footer().AlignCenter().Text($"In luc {DateTime.Now:dd/MM/yyyy HH:mm}");
+                });
+            }).GeneratePdf();
+        }
+
         // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO ONLY) ====================
         private async Task ProcessGDNApprovalInventoryAsync(GoodsDeliveryNote gdn, long userId)
         {
@@ -739,40 +787,9 @@ namespace Warehouse.DataAcces.Service
                 decimal remainingQty = line.ActualQty;
                 long? firstLotId = null;
 
-                // Ưu tiên lô được chọn từ lúc tạo phiếu (nếu có)
-                if (line.LotId.HasValue)
-                {
-                    var preferredLot = lotsForItem.FirstOrDefault(lot => lot.LotId == line.LotId.Value);
-                    if (preferredLot == null || !preferredLot.IsActive || preferredLot.Quantity <= 0)
-                    {
-                        throw new InvalidOperationException(
-                            $"Lô #{line.LotId.Value} của vật tư '{line.Item?.ItemName ?? line.ItemId.ToString()}' không còn khả dụng để xuất.");
-                    }
-
-                    var preferredDeduct = Math.Min(preferredLot.Quantity, remainingQty);
-                    preferredLot.Quantity -= preferredDeduct;
-                    remainingQty -= preferredDeduct;
-
-                    if (preferredLot.Quantity == 0)
-                        preferredLot.IsActive = false;
-
-                    firstLotId = preferredLot.LotId;
-
-                    _context.InventoryTransactionLines.Add(new InventoryTransactionLine
-                    {
-                        InventoryTxnId = txn.InventoryTxnId,
-                        ItemId = line.ItemId,
-                        QtyChange = -preferredDeduct,
-                        UomId = line.UomId,
-                        LotId = preferredLot.LotId,
-                        Note = $"Xuất kho theo lô chỉ định GDN {gdn.Gdncode} - Lot #{preferredLot.LotId}"
-                    });
-                }
-
                 foreach (var lot in lotsForItem)
                 {
                     if (remainingQty <= 0) break;
-                    if (line.LotId.HasValue && lot.LotId == line.LotId.Value) continue;
 
                     var deductQty = Math.Min(lot.Quantity, remainingQty);
                     lot.Quantity -= deductQty;

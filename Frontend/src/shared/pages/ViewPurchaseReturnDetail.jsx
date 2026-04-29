@@ -33,6 +33,8 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import { getPurchaseReturnDetail, approvePurchaseReturn, refundPurchaseReturn, updatePurchaseReturn } from '../lib/purchaseReturnNoteService';
 import { getGRNDetail } from '../lib/goodReceiptNoteService';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import GRNListPopup from '../components/GRNListPopup';
 import { ConfirmDialog } from '@ui/dialogs';
 import '../styles/CreateSupplier.css';
@@ -40,9 +42,6 @@ import '../styles/CreateSupplier.css';
 const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 const MAX_REASON_LENGTH = 250;
 const MAX_NOTE_LENGTH = 250;
-
-/** Tạm ẩn card Hoàn tiền + dialog xác nhận hoàn tiền — đặt `true` để hiện lại */
-const SHOW_PR_REFUND_CARD = false;
 
 // --- Return status constants ---
 const RETURN_STATUS = {
@@ -60,15 +59,15 @@ const PAYMENT_STATUS = {
 
 // --- Return status config ---
 const RETURN_STATUS_CONFIG = {
-    [RETURN_STATUS.DRAFT]: { label: 'Nháp', color: '#6b7280', bg: '#e5e7eb', icon: <Clock size={16} /> },
+    [RETURN_STATUS.DRAFT]:     { label: 'Nháp', color: '#6b7280', bg: '#e5e7eb', icon: <Clock size={16} /> },
     [RETURN_STATUS.SUBMITTED]: { label: 'Chờ hoàn hàng', color: '#d97706', bg: '#fef3c7', icon: <Clock size={16} /> },
-    [RETURN_STATUS.PARTIAL]: { label: 'Hoàn hàng một phần', color: '#7c3aed', bg: '#ede9fe', icon: <Truck size={16} /> },
-    [RETURN_STATUS.COMPLETE]: { label: 'Hoàn hàng toàn bộ', color: '#10b981', bg: '#d1fae5', icon: <CheckCheck size={16} /> },
+    [RETURN_STATUS.PARTIAL]:   { label: 'Hoàn hàng một phần', color: '#7c3aed', bg: '#ede9fe', icon: <Truck size={16} /> },
+    [RETURN_STATUS.COMPLETE]:  { label: 'Hoàn hàng toàn bộ', color: '#10b981', bg: '#d1fae5', icon: <CheckCheck size={16} /> },
 };
 
 // --- Payment status config ---
 const PAYMENT_STATUS_CONFIG = {
-    [PAYMENT_STATUS.PENDING]: { label: 'Chờ hoàn tiền', color: '#d97706', bg: 'rgba(245,158,11,0.15)', icon: <Clock size={16} /> },
+    [PAYMENT_STATUS.PENDING]:  { label: 'Chờ hoàn tiền', color: '#d97706', bg: 'rgba(245,158,11,0.15)', icon: <Clock size={16} /> },
     [PAYMENT_STATUS.RECEIVED]: { label: 'Đã hoàn tiền', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> },
 };
 
@@ -332,7 +331,8 @@ const getPaymentStatus = (paymentConfirmed) => {
  * - Phần thanh toán chưa được xác nhận
  * KHÔNG phụ thuộc vào trạng thái hoàn hàng.
  */
-const canConfirmPayment = (paymentConfirmed) => {
+const canConfirmPayment = (paymentConfirmed, permissionRole) => {
+    if (permissionRole !== 'ACCOUNTANTS') return false;
     if (paymentConfirmed) return false;
     return true;
 };
@@ -430,6 +430,8 @@ export default function ViewPurchaseReturnDetail() {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
     const [detailData, setDetailData] = useState(MOCK_DETAIL);
     const [isEditing, setIsEditing] = useState(false);
@@ -555,10 +557,10 @@ export default function ViewPurchaseReturnDetail() {
     // Nút "Tạo phiếu trả hàng" chỉ hiện khi trạng thái Draft
     const canCreateReturnBtn = isDraftStatus;
     // Nút "Bắt đầu trả hàng" chỉ hiện khi trạng thái SUBMITTED (Chờ hoàn hàng)
-    const canStartReturnBtn = isSubmittedStatus;
+    const canStartReturnBtn = isSubmittedStatus && permissionRole === 'WAREHOUSE_KEEPER';
 
     // Nút "Xác nhận thanh toán": chỉ hiện sau khi đã bắt đầu/hoàn tất trả hàng (APPROVED) và chưa confirm payment
-    const canConfirmPaymentBtn = isReturnLocked && canConfirmPayment(paymentConfirmed);
+    const canConfirmPaymentBtn = isReturnLocked && canConfirmPayment(paymentConfirmed, permissionRole);
 
     const activeLines = isEditing ? draft.lines : detailData.lines;
     const subtotal = activeLines.reduce((sum, line) => sum + toNumber(line.totalPrice), 0);
@@ -856,7 +858,6 @@ export default function ViewPurchaseReturnDetail() {
             showToast(err?.response?.data?.message || err?.message || 'Không thể tạo phiếu trả hàng', 'error');
         } finally {
             setSubmitting(false);
-            setConfirmDialogType(null);
         }
     };
 
@@ -868,10 +869,18 @@ export default function ViewPurchaseReturnDetail() {
 
     // --- "Bắt đầu trả hàng" (SUBMITTED -> APPROVED) ---
     const handleStartReturn = () => {
+        if (permissionRole !== 'WAREHOUSE_KEEPER') {
+            showToast('Chỉ thủ kho mới được bắt đầu trả hàng.', 'error');
+            return;
+        }
         setConfirmDialogType('start');
     };
 
     const handleConfirmStartReturn = async () => {
+        if (permissionRole !== 'WAREHOUSE_KEEPER') {
+            showToast('Chỉ thủ kho mới được bắt đầu trả hàng.', 'error');
+            return;
+        }
         setConfirmDialogType(null);
         setSubmitting(true);
         try {
@@ -888,30 +897,37 @@ export default function ViewPurchaseReturnDetail() {
             showToast(err?.response?.data?.message || err?.message || 'Không thể bắt đầu trả hàng', 'error');
         } finally {
             setSubmitting(false);
-            setConfirmDialogType(null);
         }
     };
 
-    // --- "Xác nhận thanh toán" ---
-    const handleConfirmPayment = () => {
-        // Chỉ mở payment edit mode, chưa confirm ngay
-        setDraft((prev) => ({
-            ...prev,
-            refundReceiveStatus: 'received',
-            refundRecordedDate: detailData.refundRecordedDate || TODAY,
-        }));
+        // --- "Xác nhận thanh toán" ---
+        const handleConfirmPayment = () => {
+            if (permissionRole !== 'ACCOUNTANTS') {
+                showToast('Chỉ kế toán mới được xác nhận hoàn tiền.', 'error');
+                return;
+            }
+            // Chỉ mở payment edit mode, chưa confirm ngay
+            setDraft((prev) => ({
+                ...prev,
+                refundReceiveStatus: 'received',
+                refundRecordedDate: detailData.refundRecordedDate || TODAY,
+            }));
 
-        setErrors((prev) => {
-            const next = { ...prev };
-            delete next.refundRecordedDate;
-            return next;
-        });
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next.refundRecordedDate;
+                return next;
+            });
 
-        setIsEditingPayment(true);
-    };
+            setIsEditingPayment(true);
+        };
 
     // "Lưu và xác nhận" từ chế độ edit payment
     const handleSaveAndConfirmPayment = () => {
+        if (permissionRole !== 'ACCOUNTANTS') {
+            showToast('Chỉ kế toán mới được xác nhận hoàn tiền.', 'error');
+            return;
+        }
         // Validate refundRecordedDate khi đang ở received
         const refundRecordedDateError = validateRefundRecordedDate(
             draft.refundRecordedDate,
@@ -932,6 +948,10 @@ export default function ViewPurchaseReturnDetail() {
     };
 
     const handleConfirmRefundExecute = async () => {
+        if (permissionRole !== 'ACCOUNTANTS') {
+            showToast('Chỉ kế toán mới được xác nhận hoàn tiền.', 'error');
+            return;
+        }
         setConfirmDialogType(null);
         setSubmitting(true);
         try {
@@ -949,7 +969,6 @@ export default function ViewPurchaseReturnDetail() {
             showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận hoàn tiền', 'error');
         } finally {
             setSubmitting(false);
-            setConfirmDialogType(null);
         }
     };
 
@@ -1016,7 +1035,7 @@ export default function ViewPurchaseReturnDetail() {
                     confirmText="Bắt đầu trả hàng"
                 />
             )}
-            {SHOW_PR_REFUND_CARD && confirmDialogType === 'refund' && (
+            {confirmDialogType === 'refund' && (
                 <ConfirmDialog
                     open={Boolean(confirmDialogType)}
                     onClose={() => setConfirmDialogType(null)}
@@ -1107,26 +1126,26 @@ export default function ViewPurchaseReturnDetail() {
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                                     {isEditing && !isReturnLocked && (
                                         <>
-                                            <label
-                                                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#374151', fontWeight: 600 }}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={activeLines.length > 0 && activeLines.every((line) => toNumber(line.returnQty) === lineReturnCap(line))}
-                                                    onChange={(e) => toggleReturnAll(e.target.checked)}
-                                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                                                />
-                                                Trả toàn bộ
-                                            </label>
-                                            <button
-                                                type="button"
-                                                onClick={openProductSearch}
-                                                className="btn btn-sm"
-                                                style={{ fontSize: '14px', fontWeight: 600 }}
-                                            >
-                                                <Plus size={16} />
-                                                Thêm vật tư
-                                            </button>
+                                        <label
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#374151', fontWeight: 600 }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={activeLines.length > 0 && activeLines.every((line) => toNumber(line.returnQty) === lineReturnCap(line))}
+                                                onChange={(e) => toggleReturnAll(e.target.checked)}
+                                                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                            />
+                                            Trả toàn bộ
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={openProductSearch}
+                                            className="btn btn-sm"
+                                            style={{ fontSize: '14px', fontWeight: 600 }}
+                                        >
+                                            <Plus size={16} />
+                                            Thêm vật tư
+                                        </button>
                                         </>
                                     )}
                                     {canStartReturnBtn && !isEditing && (
@@ -1360,232 +1379,77 @@ export default function ViewPurchaseReturnDetail() {
                             )}
                         </div>
 
-                        {/* Tổng hợp phiếu trả — card riêng trong cột trái */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Tổng hợp phiếu trả</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
-                                        <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
-                                    </div>
-                                    <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
-                                        <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
-                                    </div>
+                        {/* Cột phải: Thông tin chung + Hoàn tiền */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Thông tin chung</h2>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <div className="form-field">
-                                        <label className="form-label">Phí xử lý trả hàng</label>
+                                        <label className="form-label">Người tạo</label>
                                         <div className="input-wrapper">
-                                            {isEditing ? (
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    name="feeAmount"
-                                                    value={draft.feeAmount}
-                                                    onChange={handleDraftChange}
-                                                    className={`form-input ${errors.feeAmount ? 'error' : ''}`}
-                                                    style={{ paddingLeft: '16px', paddingRight: '34px' }}
-                                                    placeholder="Nhập phí xử lý"
-                                                />
-                                            ) : (
-                                                <input
-                                                    type="text"
-                                                    readOnly
-                                                    value={formatCurrency(detailData.feeAmount)}
-                                                    className="form-input"
-                                                    style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
-                                                />
-                                            )}
-                                            {isEditing && (
-                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>₫</span>
-                                            )}
+                                            <User className="input-icon" size={16} />
+                                            <input type="text" value={detailData.createdByName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
-                                        {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
-                                        {!errors.feeAmount && isFeeAmountExceedSubtotal && (
-                                            <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
-                                        )}
                                     </div>
 
                                     <div className="form-field">
-                                        <label className="form-label">Lý do giảm trừ</label>
+                                        <label className="form-label">Ngày tạo</label>
                                         <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
+                                            <input type="text" value={formatDateTime(detailData.createdAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-field">
+                                        <label className="form-label">Phiếu nhập tham chiếu</label>
+                                        <div className="input-wrapper">
+                                            <FileText className="input-icon" size={16} />
+                                            <input type="text" value={detailData.relatedGRNCode || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-field">
+                                        <label className="form-label">Ngày trả hàng <span className="required-mark">*</span></label>
+                                        <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
                                             <input
-                                                type="text"
-                                                name="deductionReason"
-                                                value={isEditing ? draft.deductionReason : (detailData.deductionReason || '—')}
-                                                onChange={isEditing ? handleDraftChange : undefined}
-                                                readOnly={!isEditing}
-                                                className="form-input"
-                                                style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5', paddingLeft: '16px' }}
-                                                placeholder={isEditing ? 'Nhập lý do giảm trừ' : undefined}
+                                                type={isEditing && !isReturnLocked ? 'date' : 'text'}
+                                                name="returnDate"
+                                                value={isEditing && !isReturnLocked ? draft.returnDate : formatDate(detailData.returnDate)}
+                                                onChange={isEditing && !isReturnLocked ? handleDraftChange : undefined}
+                                                min={isEditing && !isReturnLocked ? (detailData.grnReceiptDate || '') : undefined}
+                                                readOnly={isReturnLocked || !isEditing}
+                                                className={`form-input ${errors.returnDate ? 'error' : ''}`}
+                                                style={{ backgroundColor: (isReturnLocked || !isEditing) ? '#f5f5f5' : '#fff' }}
                                             />
                                         </div>
-                                        {isEditing && (
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
-                                                {draft.deductionReason.length}/{MAX_NOTE_LENGTH}
-                                            </div>
-                                        )}
+                                        {errors.returnDate && <span className="error-message">{errors.returnDate}</span>}
                                     </div>
-                                </div>
 
-                                <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
-                                        <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
-                                        <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
+                                    <div className="form-field">
+                                        <label className="form-label">Kho trả</label>
+                                        <div className="input-wrapper">
+                                            <MapPin className="input-icon" size={16} />
+                                            <input type="text" value={detailData.warehouseName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
-                                        <span style={{ color: '#475569', fontWeight: 600 }}>Phí xử lý</span>
-                                        <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
-                                    </div>
-                                </div>
 
-                                <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
-                                    <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {/* end LEFT COLUMN wrapper */}
+                                    
 
-                    {/* Cột phải: Thông tin chung + Hoàn tiền */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thông tin chung</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div className="form-field">
-                                    <label className="form-label">Người tạo</label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={16} />
-                                        <input type="text" value={detailData.createdByName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Ngày tạo</label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input type="text" value={formatDateTime(detailData.createdAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Phiếu nhập tham chiếu</label>
-                                    <div className="input-wrapper">
-                                        <FileText className="input-icon" size={16} />
-                                        <input type="text" value={detailData.relatedGRNCode || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Ngày trả hàng <span className="required-mark">*</span></label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input
-                                            type={isEditing && !isReturnLocked ? 'date' : 'text'}
-                                            name="returnDate"
-                                            value={isEditing && !isReturnLocked ? draft.returnDate : formatDate(detailData.returnDate)}
-                                            onChange={isEditing && !isReturnLocked ? handleDraftChange : undefined}
-                                            min={isEditing && !isReturnLocked ? (detailData.grnReceiptDate || '') : undefined}
-                                            readOnly={isReturnLocked || !isEditing}
-                                            className={`form-input ${errors.returnDate ? 'error' : ''}`}
-                                            style={{ backgroundColor: (isReturnLocked || !isEditing) ? '#f5f5f5' : '#fff' }}
-                                        />
-                                    </div>
-                                    {errors.returnDate && <span className="error-message">{errors.returnDate}</span>}
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Kho trả</label>
-                                    <div className="input-wrapper">
-                                        <MapPin className="input-icon" size={16} />
-                                        <input type="text" value={detailData.warehouseName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                                    </div>
-                                </div>
-
-
-
-                                <div className="form-field">
-                                    <label className="form-label">Ngày duyệt</label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input type="text" value={formatDateTime(detailData.approvedAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                    <div className="form-field">
+                                        <label className="form-label">Ngày duyệt</label>
+                                        <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
+                                            <input type="text" value={formatDateTime(detailData.approvedAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Nhà cung cấp */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Nhà cung cấp</h2>
-                            </div>
-
-                            {detailData.supplierName ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
-                                    <div><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{displaySupplierField(detailData.supplierName)}</span></div>
-                                    <div><span style={{ fontWeight: 600 }}>Mã NCC: </span><span>{displaySupplierField(detailData.supplierCode)}</span></div>
-                                    <div><span style={{ fontWeight: 600 }}>SĐT: </span><span>{displaySupplierField(detailData.supplierPhone)}</span></div>
-                                    <div><span style={{ fontWeight: 600 }}>Email: </span><span>{displaySupplierField(detailData.supplierEmail)}</span></div>
-                                    <div><span style={{ fontWeight: 600 }}>Mã số thuế: </span><span>{displaySupplierField(detailData.supplierTaxCode)}</span></div>
-                                    <div>
-                                        <span style={{ fontWeight: 600 }}>Địa chỉ: </span>
-                                        <span>
-                                            {[
-                                                detailData.supplierAddressStreet,
-                                                detailData.supplierAddressWard,
-                                                detailData.supplierAddressDistrict,
-                                                detailData.supplierAddressProvince,
-                                            ]
-                                                .map((p) => (p != null && String(p).trim() !== '' ? String(p).trim() : null))
-                                                .filter(Boolean)
-                                                .join(', ') || '—'}
-                                        </span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{ color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }}>
-                                    Không có thông tin nhà cung cấp
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Ghi chú */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Ghi chú trả hàng</h2>
-                            </div>
-
-                            <div className="form-field">
-                                <label className="form-label">Ghi chú trả hàng</label>
-                                <textarea
-                                    name="reason"
-                                    value={isEditing && !isReturnLocked ? draft.reason : (detailData.reason || '—')}
-                                    onChange={isEditing && !isReturnLocked ? handleDraftChange : undefined}
-                                    readOnly={isReturnLocked || !isEditing}
-                                    rows={4}
-                                    className={`form-input ${errors.reason ? 'error' : ''}`}
-                                    style={{ resize: 'vertical', backgroundColor: (isReturnLocked || !isEditing) ? '#f5f5f5' : '#fff' }}
-                                />
-                                {errors.reason && <span className="error-message">{errors.reason}</span>}
-                                {isEditing && !isReturnLocked && (
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: '4px', fontWeight: 500 }}>
-                                        {draft.reason.length}/{MAX_REASON_LENGTH} ký tự
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {SHOW_PR_REFUND_CARD && (
+                            {/* Card Hoàn tiền */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Hoàn tiền</h2>
@@ -1709,8 +1573,8 @@ export default function ViewPurchaseReturnDetail() {
                                                     type="text"
                                                     value={
                                                         detailData.refundMethod === 'cash' ? 'Tiền mặt' :
-                                                            detailData.refundMethod === 'bank_transfer' ? 'Chuyển khoản' :
-                                                                detailData.refundMethod === 'card' ? 'Thanh toán thẻ' : '—'
+                                                        detailData.refundMethod === 'bank_transfer' ? 'Chuyển khoản' :
+                                                        detailData.refundMethod === 'card' ? 'Thanh toán thẻ' : '—'
                                                     }
                                                     readOnly
                                                     className="form-input"
@@ -1749,233 +1613,233 @@ export default function ViewPurchaseReturnDetail() {
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* PHẦN DƯỚI */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', alignItems: 'stretch', marginTop: '4px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '24px', alignItems: 'start' }}>
-                        <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Nhà cung cấp</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <Building2 size={14} color="#6b7280" />
-                                        <span style={{ fontWeight: 600 }}>Tên NCC: </span>
-                                        <span>{displaySupplierField(detailData.supplierName)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <ReceiptText size={14} color="#6b7280" />
-                                        <span style={{ fontWeight: 600 }}>Mã NCC: </span>
-                                        <span>{displaySupplierField(detailData.supplierCode)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <Phone size={14} color="#6b7280" />
-                                        <span style={{ fontWeight: 600 }}>SĐT: </span>
-                                        <span>{displaySupplierField(detailData.supplierPhone)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <Mail size={14} color="#6b7280" />
-                                        <span style={{ fontWeight: 600 }}>Email: </span>
-                                        <span>{displaySupplierField(detailData.supplierEmail)}</span>
-                                    </div>
-                                    <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <ReceiptText size={14} color="#6b7280" />
-                                        <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
-                                        <span>{displaySupplierField(detailData.supplierTaxCode)}</span>
-                                    </div>
-                                </div>
-                                <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                                    {[
-                                        { label: 'Tỉnh/Thành phố', value: detailData.supplierAddressProvince },
-                                        { label: 'Quận/Huyện', value: detailData.supplierAddressDistrict },
-                                        { label: 'Phường/Xã', value: detailData.supplierAddressWard },
-                                        { label: 'Địa chỉ cụ thể', value: detailData.supplierAddressStreet },
-                                    ].map(({ label, value }) => (
-                                        <div key={label}>
-                                            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
-                                            <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
-                                                {displaySupplierField(value)}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
-                                    <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
-                                    {[
-                                        detailData.supplierAddressStreet,
-                                        detailData.supplierAddressWard,
-                                        detailData.supplierAddressDistrict,
-                                        detailData.supplierAddressProvince,
-                                    ]
-                                        .map((p) => (p != null && String(p).trim() !== '' ? String(p).trim() : null))
-                                        .filter(Boolean)
-                                        .join(', ') || '—'}
-                                </div>
-                            </div>
                         </div>
+                    </div>
 
-                        <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Ghi chú trả hàng</h2>
+                    {/* PHẦN DƯỚI */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', alignItems: 'stretch', marginTop: '4px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '24px', alignItems: 'start' }}>
+                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Nhà cung cấp</h2>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Building2 size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Tên NCC: </span>
+                                            <span>{displaySupplierField(detailData.supplierName)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <ReceiptText size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Mã NCC: </span>
+                                            <span>{displaySupplierField(detailData.supplierCode)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Phone size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>SĐT: </span>
+                                            <span>{displaySupplierField(detailData.supplierPhone)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Mail size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Email: </span>
+                                            <span>{displaySupplierField(detailData.supplierEmail)}</span>
+                                        </div>
+                                        <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <ReceiptText size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
+                                            <span>{displaySupplierField(detailData.supplierTaxCode)}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                                        {[
+                                            { label: 'Tỉnh/Thành phố', value: detailData.supplierAddressProvince },
+                                            { label: 'Quận/Huyện', value: detailData.supplierAddressDistrict },
+                                            { label: 'Phường/Xã', value: detailData.supplierAddressWard },
+                                            { label: 'Địa chỉ cụ thể', value: detailData.supplierAddressStreet },
+                                        ].map(({ label, value }) => (
+                                            <div key={label}>
+                                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                                                <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
+                                                    {displaySupplierField(value)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
+                                        <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
+                                        {[
+                                            detailData.supplierAddressStreet,
+                                            detailData.supplierAddressWard,
+                                            detailData.supplierAddressDistrict,
+                                            detailData.supplierAddressProvince,
+                                        ]
+                                            .map((p) => (p != null && String(p).trim() !== '' ? String(p).trim() : null))
+                                            .filter(Boolean)
+                                            .join(', ') || '—'}
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="form-field">
-                                <label className="form-label">Ghi chú trả hàng</label>
-                                <textarea
-                                    name="reason"
-                                    value={isEditing && !isReturnLocked ? draft.reason : (detailData.reason || '—')}
-                                    onChange={isEditing && !isReturnLocked ? handleDraftChange : undefined}
-                                    readOnly={isReturnLocked || !isEditing}
-                                    rows={4}
-                                    className={`form-input ${errors.reason ? 'error' : ''}`}
-                                    style={{ resize: 'vertical', backgroundColor: (isReturnLocked || !isEditing) ? '#f5f5f5' : '#fff' }}
-                                />
-                                {errors.reason && <span className="error-message">{errors.reason}</span>}
-                                {isEditing && !isReturnLocked && (
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: '4px', fontWeight: 500 }}>
-                                        {draft.reason.length}/{MAX_REASON_LENGTH} ký tự
+                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Ghi chú trả hàng</h2>
+                                </div>
+
+                                <div className="form-field">
+                                    <label className="form-label">Ghi chú trả hàng</label>
+                                    <textarea
+                                        name="reason"
+                                        value={isEditing && !isReturnLocked ? draft.reason : (detailData.reason || '—')}
+                                        onChange={isEditing && !isReturnLocked ? handleDraftChange : undefined}
+                                        readOnly={isReturnLocked || !isEditing}
+                                        rows={4}
+                                        className={`form-input ${errors.reason ? 'error' : ''}`}
+                                        style={{ resize: 'vertical', backgroundColor: (isReturnLocked || !isEditing) ? '#f5f5f5' : '#fff' }}
+                                    />
+                                    {errors.reason && <span className="error-message">{errors.reason}</span>}
+                                    {isEditing && !isReturnLocked && (
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: '4px', fontWeight: 500 }}>
+                                            {draft.reason.length}/{MAX_REASON_LENGTH} ký tự
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Tổng hợp phiếu trả</h2>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
+                                        </div>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
+                                        </div>
                                     </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div className="form-field">
+                                            <label className="form-label">Phí xử lý trả hàng</label>
+                                            <div className="input-wrapper">
+                                                {isEditing ? (
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        name="feeAmount"
+                                                        value={draft.feeAmount}
+                                                        onChange={handleDraftChange}
+                                                        className={`form-input ${errors.feeAmount ? 'error' : ''}`}
+                                                        style={{ paddingLeft: '16px', paddingRight: '34px' }}
+                                                        placeholder="Nhập phí xử lý"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        readOnly
+                                                        value={formatCurrency(detailData.feeAmount)}
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
+                                                    />
+                                                )}
+                                                {isEditing && (
+                                                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
+                                                        ₫
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
+                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
+                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
+                                            )}
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="form-label">Lý do giảm trừ</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    name="deductionReason"
+                                                    value={isEditing ? draft.deductionReason : (detailData.deductionReason || '—')}
+                                                    onChange={isEditing ? handleDraftChange : undefined}
+                                                    readOnly={!isEditing}
+                                                    className="form-input"
+                                                    style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5', paddingLeft: '16px' }}
+                                                    placeholder={isEditing ? 'Nhập lý do giảm trừ' : undefined}
+                                                />
+                                            </div>
+                                            {isEditing && (
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
+                                                    {draft.deductionReason.length}/{MAX_NOTE_LENGTH}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
+                                            <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí xử lý</span>
+                                            <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
+                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Ảnh minh chứng</h2>
+                                </div>
+                                {(detailData.attachments || []).length > 0 ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+                                        {(detailData.attachments || []).map((att) => {
+                                            const href = toAbsoluteFileUrl(att.fileUrl);
+                                            return (
+                                                <a
+                                                    key={att.attachmentId ?? `${att.fileName}-${att.fileUrl}`}
+                                                    href={href || '#'}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '6px',
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '10px',
+                                                        padding: '12px',
+                                                        textDecoration: 'none',
+                                                        background: '#f8fafc',
+                                                    }}
+                                                >
+                                                    <span style={{ color: '#0f172a', fontWeight: 600, wordBreak: 'break-word' }}>{att.fileName || 'Tệp minh chứng'}</span>
+                                                    <span style={{ color: '#64748b', fontSize: '12px' }}>{att.attachmentType || 'EVIDENCE'}</span>
+                                                    <span style={{ color: '#2563eb', fontSize: '12px', fontWeight: 600 }}>{href ? 'Xem tệp' : 'Không có đường dẫn tệp'}</span>
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div style={{ color: '#64748b', fontSize: '14px' }}>Chưa có ảnh minh chứng.</div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Tổng hợp phiếu trả</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
-                                        <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
-                                    </div>
-                                    <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
-                                        <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div className="form-field">
-                                        <label className="form-label">Phí xử lý trả hàng</label>
-                                        <div className="input-wrapper">
-                                            {isEditing ? (
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    name="feeAmount"
-                                                    value={draft.feeAmount}
-                                                    onChange={handleDraftChange}
-                                                    className={`form-input ${errors.feeAmount ? 'error' : ''}`}
-                                                    style={{ paddingLeft: '16px', paddingRight: '34px' }}
-                                                    placeholder="Nhập phí xử lý"
-                                                />
-                                            ) : (
-                                                <input
-                                                    type="text"
-                                                    readOnly
-                                                    value={formatCurrency(detailData.feeAmount)}
-                                                    className="form-input"
-                                                    style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
-                                                />
-                                            )}
-                                            {isEditing && (
-                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
-                                                    ₫
-                                                </span>
-                                            )}
-                                        </div>
-                                        {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
-                                        {!errors.feeAmount && isFeeAmountExceedSubtotal && (
-                                            <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
-                                        )}
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Lý do giảm trừ</label>
-                                        <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                name="deductionReason"
-                                                value={isEditing ? draft.deductionReason : (detailData.deductionReason || '—')}
-                                                onChange={isEditing ? handleDraftChange : undefined}
-                                                readOnly={!isEditing}
-                                                className="form-input"
-                                                style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5', paddingLeft: '16px' }}
-                                                placeholder={isEditing ? 'Nhập lý do giảm trừ' : undefined}
-                                            />
-                                        </div>
-                                        {isEditing && (
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
-                                                {draft.deductionReason.length}/{MAX_NOTE_LENGTH}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
-                                        <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
-                                        <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
-                                        <span style={{ color: '#475569', fontWeight: 600 }}>Phí xử lý</span>
-                                        <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
-                                    </div>
-                                </div>
-
-                                <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
-                                    <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Ảnh minh chứng</h2>
-                            </div>
-                            {(detailData.attachments || []).length > 0 ? (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
-                                    {(detailData.attachments || []).map((att) => {
-                                        const href = toAbsoluteFileUrl(att.fileUrl);
-                                        return (
-                                            <a
-                                                key={att.attachmentId ?? `${att.fileName}-${att.fileUrl}`}
-                                                href={href || '#'}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '6px',
-                                                    border: '1px solid #e2e8f0',
-                                                    borderRadius: '10px',
-                                                    padding: '12px',
-                                                    textDecoration: 'none',
-                                                    background: '#f8fafc',
-                                                }}
-                                            >
-                                                <span style={{ color: '#0f172a', fontWeight: 600, wordBreak: 'break-word' }}>{att.fileName || 'Tệp minh chứng'}</span>
-                                                <span style={{ color: '#64748b', fontSize: '12px' }}>{att.attachmentType || 'EVIDENCE'}</span>
-                                                <span style={{ color: '#2563eb', fontSize: '12px', fontWeight: 600 }}>{href ? 'Xem tệp' : 'Không có đường dẫn tệp'}</span>
-                                            </a>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div style={{ color: '#64748b', fontSize: '14px' }}>Chưa có ảnh minh chứng.</div>
-                            )}
-                        </div>
                     </div>
-
                 </div>
             </div>
 

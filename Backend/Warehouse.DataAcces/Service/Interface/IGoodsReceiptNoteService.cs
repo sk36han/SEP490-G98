@@ -10,6 +10,7 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<GoodsReceiptNoteResponse> CreateGRNAsync(long userId, CreateGRNRequest request);
         Task<GoodsReceiptNoteResponse> ApproveGRNAsync(long grnId, long userId, ApproveGRNRequest request);
         Task<GRNDetailResponse> GetGRNDetailAsync(long grnId);
+        Task<byte[]> ExportGrnPdfAsync(long grnId, long userId);
         Task<ExcelImportResult> ImportAndMatchItemsAsync(Stream excelStream);
     }
 }

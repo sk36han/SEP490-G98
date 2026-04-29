@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Constants;
@@ -16,12 +17,18 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly IAuditLogService _auditLogService;
         private readonly INotificationService _notificationService;
+        private readonly IDocumentAttachmentService _documentAttachmentService;
 
-        public PurchaseOrderService(Mkiwms5Context context, IAuditLogService auditLogService, INotificationService notificationService)
+        public PurchaseOrderService(
+            Mkiwms5Context context,
+            IAuditLogService auditLogService,
+            INotificationService notificationService,
+            IDocumentAttachmentService documentAttachmentService)
         {
             _context = context;
             _auditLogService = auditLogService;
             _notificationService = notificationService;
+            _documentAttachmentService = documentAttachmentService;
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
@@ -312,11 +319,12 @@ namespace Warehouse.DataAcces.Service
                 po.PurchaseOrderId,
                 $"Tạo đơn mua hàng {po.Pocode}");
 
-            // Gửi thông báo cho Quản lý/Admin nếu đơn ở trạng thái chờ duyệt
+            // Gửi thông báo cho nhóm duyệt khi đơn ở trạng thái chờ duyệt.
+            // Đơn mua cần thông báo cho Sale Support.
             if (po.Status == "PENDING")
             {
                 await _notificationService.CreateForRolesAsync(
-                    new[] { UserRoleConstants.Admin, UserRoleConstants.Director },
+                    new[] { UserRoleConstants.Admin, UserRoleConstants.Director, UserRoleConstants.SaleSupport },
                     "Đơn mua hàng mới cần duyệt",
                     $"Đơn mua hàng {po.Pocode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt.",
                     "PurchaseOrder",
@@ -468,6 +476,68 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             return await GetPurchaseOrderByIdAsync(poId) ?? throw new Exception("Lỗi khi lấy thông tin PO");
+        }
+
+        public async Task<PurchaseOrderAttachmentUploadResponse> UploadPurchaseOrderAttachmentsAsync(
+            long purchaseOrderId,
+            long currentUserId,
+            IFormFile? quotationFile,
+            IFormFile? contractAppendixFile)
+        {
+            var po = await GetPurchaseOrderByIdAsync(purchaseOrderId);
+            if (po == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy đơn mua hàng.");
+            }
+
+            if (quotationFile == null && contractAppendixFile == null)
+            {
+                throw new InvalidOperationException("Vui lòng chọn ít nhất 1 tệp để tải lên.");
+            }
+
+            if (string.Equals(po.Status, "PENDING_ACC", StringComparison.OrdinalIgnoreCase)
+                && (quotationFile == null || contractAppendixFile == null))
+            {
+                throw new InvalidOperationException("Đơn gửi duyệt bắt buộc phải có đủ File báo giá và Hợp đồng nguyên tắc.");
+            }
+
+            string? quotationFileUrl = null;
+            string? contractAppendixFileUrl = null;
+
+            if (quotationFile != null)
+            {
+                quotationFileUrl = await _documentAttachmentService.UploadAttachmentAsync(
+                    "PR",
+                    purchaseOrderId,
+                    quotationFile,
+                    currentUserId,
+                    "QUOTATION");
+            }
+
+            if (contractAppendixFile != null)
+            {
+                contractAppendixFileUrl = await _documentAttachmentService.UploadAttachmentAsync(
+                    "PR",
+                    purchaseOrderId,
+                    contractAppendixFile,
+                    currentUserId,
+                    "CONTRACT_APPENDIX");
+            }
+
+            var uploadedFlags = $"quotation={(quotationFile != null ? "yes" : "no")}, contractAppendix={(contractAppendixFile != null ? "yes" : "no")}";
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.PurchaseOrder,
+                purchaseOrderId,
+                $"Tải tệp đính kèm cho đơn mua hàng {po.POCode}: {uploadedFlags}");
+
+            return new PurchaseOrderAttachmentUploadResponse
+            {
+                Message = "Tải tệp đính kèm thành công.",
+                QuotationFileUrl = quotationFileUrl,
+                ContractAppendixFileUrl = contractAppendixFileUrl
+            };
         }
 
         private async Task<string> GenerateNextPoCodeAsync()

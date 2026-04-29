@@ -42,8 +42,10 @@ namespace Warehouse.DataAcces.Service
 
             ValidateUserId(currentUserId);
             ValidateSpecName(request.SpecName);
+            ValidateDescription(request.Description);
 
             var specName = request.SpecName.Trim();
+            var description = request.Description.Trim();
 
             var all = await _packagingSpecRepository.GetAllAsync();
             if (all.Any(s => s.SpecName.Trim().Equals(specName, StringComparison.OrdinalIgnoreCase)))
@@ -52,7 +54,7 @@ namespace Warehouse.DataAcces.Service
             var spec = new PackagingSpec
             {
                 SpecName = specName,
-                Description = request.Description?.Trim(),
+                Description = description,
                 IsActive = true
             };
 
@@ -104,8 +106,10 @@ namespace Warehouse.DataAcces.Service
 
             ValidateUserId(currentUserId);
             ValidateSpecName(request.SpecName);
+            ValidateDescription(request.Description);
 
             var specName = request.SpecName.Trim();
+            var description = request.Description.Trim();
 
             var all = await _packagingSpecRepository.GetAllAsync();
             var spec = all.FirstOrDefault(s => s.PackagingSpecId == specId);
@@ -123,7 +127,7 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException($"Tên quy cách đóng gói '{specName}' đã tồn tại.");
 
             spec.SpecName = specName;
-            spec.Description = request.Description?.Trim();
+            spec.Description = description;
             spec.IsActive = request.IsActive;
 
             await _packagingSpecRepository.UpdateAsync(spec);
@@ -209,6 +213,18 @@ namespace Warehouse.DataAcces.Service
 
             if (!_specNameRegex.IsMatch(trimmed))
                 throw new ArgumentException("Tên quy cách đóng gói chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.), ký tự & và /.");
+        }
+
+        private static void ValidateDescription(string? description)
+        {
+            if (string.IsNullOrWhiteSpace(description))
+                throw new ArgumentException("Mô tả quy cách đóng gói không được để trống.");
+
+            var trimmed = description.Trim();
+            if (trimmed.Length < 2)
+                throw new ArgumentException("Mô tả phải có ít nhất 2 ký tự.");
+            if (trimmed.Length > 500)
+                throw new ArgumentException("Mô tả không được vượt quá 500 ký tự.");
         }
 
         // =====================================================================

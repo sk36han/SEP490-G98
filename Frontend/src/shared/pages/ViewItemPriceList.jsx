@@ -1,10 +1,10 @@
 /**
  * ViewItemPriceList - Giá bình quân gia quyền & Giá nhập
  * Dành cho: Kế Toán, Giám Đốc
- * Xem giá nhập và giá bình quân gia quyền theo từng vật tư trong kho
+ * Dữ liệu: GET /api/InventoryReport/weighted-average
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -14,59 +14,71 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Paper,
     Select,
     MenuItem,
     FormControl,
     InputLabel,
     Chip,
-    InputAdornment,
+    Button,
+    CircularProgress,
+    Alert,
 } from '@mui/material';
 import { DollarSign, TrendingUp, Package, Warehouse, RefreshCw } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
+import { getWarehouses } from '../lib/warehouseService';
+import { getWeightedAverageReport } from '../lib/inventoryReportService';
 import '../styles/ListView.css';
 
 const formatCurrency = (value) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 
-const COLUMNS = [
-    { id: 'stt',           label: 'STT',          width: 60  },
-    { id: 'itemCode',      label: 'Mã vật tư',    width: 140 },
-    { id: 'itemName',      label: 'Tên vật tư',   width: 280 },
-    { id: 'warehouseName', label: 'Kho',           width: 180 },
-    { id: 'purchasePrice', label: 'Giá nhập mới nhất', width: 160 },
-    { id: 'avgPrice',      label: 'Giá bình quân gia quyền', width: 180 },
-    { id: 'totalQty',      label: 'Tổng tồn',     width: 120 },
-    { id: 'totalValue',    label: 'Giá trị tồn kho', width: 160 },
-];
+const formatQty = (value) => {
+    const n = Number(value ?? 0);
+    if (!Number.isFinite(n)) return '0';
+    if (Number.isInteger(n)) return n.toLocaleString('vi-VN');
+    return n.toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+};
 
-// Mock data — thay bằng API khi backend sẵn sàng
-const MOCK_DATA = [
-    { itemId: 1,  itemCode: 'PEN-001',  itemName: 'Bút bi Thiên Long TL-057',  warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 3500,  avgPrice: 3420, totalQty: 500,  totalValue: 1710000  },
-    { itemId: 2,  itemCode: 'NOTE-001', itemName: 'Vở note 5 chấm A5',        warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 22000, avgPrice: 21500, totalQty: 120,  totalValue: 2580000  },
-    { itemId: 3,  itemCode: 'COVER-001', itemName: 'Bìa còng A4 10mm',       warehouseId: 2, warehouseName: 'Kho TP.HCM',  purchasePrice: 8500,  avgPrice: 8200, totalQty: 80,   totalValue: 656000   },
-    { itemId: 4,  itemCode: 'PAPER-001', itemName: 'Giấy A4 Double A 80gsm', warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 62000, avgPrice: 60000, totalQty: 45,   totalValue: 2700000  },
-    { itemId: 5,  itemCode: 'CLIP-001',  itemName: 'Kẹp giấy 33mm (hộp 50)', warehouseId: 3, warehouseName: 'Kho Đà Nẵng', purchasePrice: 18000, avgPrice: 17500, totalQty: 200,  totalValue: 3500000  },
-    { itemId: 6,  itemCode: 'GLUE-001',  itemName: 'Keo dán thiên long 15g',  warehouseId: 2, warehouseName: 'Kho TP.HCM',  purchasePrice: 7000,  avgPrice: 6800, totalQty: 350,  totalValue: 2380000  },
-    { itemId: 7,  itemCode: 'RULER-001', itemName: 'Thước kẻ 30cm nhựa trong',warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 5000,  avgPrice: 4900, totalQty: 150,  totalValue: 735000   },
-    { itemId: 8,  itemCode: 'ERASER-001', itemName: 'Tẩy thiên long 7122',     warehouseId: 3, warehouseName: 'Kho Đà Nẵng', purchasePrice: 4000,  avgPrice: 3900, totalQty: 400,  totalValue: 1560000  },
-    { itemId: 9,  itemCode: 'PEN-002',   itemName: 'Bút chì 2B Thiên Long',    warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 5000,  avgPrice: 4800, totalQty: 300,  totalValue: 1440000  },
-    { itemId: 10, itemCode: 'NOTE-002',  itemName: 'Sổ tay A5 200 trang',     warehouseId: 2, warehouseName: 'Kho TP.HCM',  purchasePrice: 35000, avgPrice: 34000, totalQty: 60,   totalValue: 2040000  },
+const COLUMNS = [
+    { id: 'stt', label: 'STT', width: 60 },
+    { id: 'itemCode', label: 'Mã vật tư', width: 140 },
+    { id: 'itemName', label: 'Tên vật tư', width: 280 },
+    { id: 'warehouseName', label: 'Kho', width: 180 },
+    { id: 'purchasePrice', label: 'Giá nhập mới nhất', width: 160 },
+    { id: 'avgPrice', label: 'Giá bình quân gia quyền', width: 180 },
+    { id: 'totalQty', label: 'Tổng tồn', width: 120 },
+    { id: 'totalValue', label: 'Giá trị tồn kho', width: 160 },
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [20, 50, 100];
 
 const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
-    <Box sx={{
-        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
-        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
-        display: 'flex', alignItems: 'center', gap: 2,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-    }}>
-        <Box sx={{
-            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+    <Box
+        sx={{
+            flex: '1 1 200px',
+            minWidth: 200,
+            bgcolor: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '14px',
+            p: 2.5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}
+    >
+        <Box
+            sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '12px',
+                bgcolor: bgColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+            }}
+        >
             <Icon size={22} color={color} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
@@ -78,91 +90,141 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
+const emptyReport = {
+    totalMaterials: 0,
+    totalInventory: 0,
+    averageWeightedPrice: 0,
+    totalInventoryValue: 0,
+    totalRecords: 0,
+    page: 1,
+    pageSize: 20,
+    items: [],
+};
+
 export default function ViewItemPriceList() {
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedKeyword, setDebouncedKeyword] = useState('');
     const [selectedWarehouse, setSelectedWarehouse] = useState('all');
-    const [page, setPage] = useState(0);
+    const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
 
-    const uniqueWarehouses = useMemo(() => {
-        const seen = new Set();
-        return MOCK_DATA.filter(d => { if (seen.has(d.warehouseId)) return false; seen.add(d.warehouseId); return true; })
-            .map(d => ({ warehouseId: d.warehouseId, warehouseName: d.warehouseName }));
+    const [warehouseOptions, setWarehouseOptions] = useState([]);
+    const [report, setReport] = useState(emptyReport);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedKeyword(searchTerm.trim()), 400);
+        return () => clearTimeout(t);
+    }, [searchTerm]);
+
+    const loadWarehouses = useCallback(async () => {
+        try {
+            const res = await getWarehouses({ pageNumber: 1, pageSize: 200 });
+            setWarehouseOptions(res?.items ?? []);
+        } catch {
+            setWarehouseOptions([]);
+        }
     }, []);
 
-    const filteredData = useMemo(() => {
-        let result = [...MOCK_DATA];
-        if (selectedWarehouse !== 'all') {
-            result = result.filter(d => d.warehouseId === Number(selectedWarehouse));
+    const fetchReport = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const warehouseId = selectedWarehouse === 'all' ? null : Number(selectedWarehouse);
+            const data = await getWeightedAverageReport({
+                keyword: debouncedKeyword || undefined,
+                warehouseId: warehouseId && warehouseId > 0 ? warehouseId : undefined,
+                page,
+                pageSize,
+            });
+            setReport(data);
+        } catch (err) {
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.detail ||
+                err?.message ||
+                'Không tải được báo cáo giá vật tư.';
+            setError(typeof msg === 'string' ? msg : 'Không tải được báo cáo giá vật tư.');
+            setReport(emptyReport);
+        } finally {
+            setLoading(false);
         }
-        if (searchTerm.trim()) {
-            const term = searchTerm.toLowerCase();
-            result = result.filter(d =>
-                (d.itemCode ?? '').toLowerCase().includes(term) ||
-                (d.itemName ?? '').toLowerCase().includes(term)
-            );
-        }
-        return result;
-    }, [searchTerm, selectedWarehouse]);
+    }, [debouncedKeyword, selectedWarehouse, page, pageSize]);
 
-    const summary = useMemo(() => {
-        const totalItems = filteredData.length;
-        const totalQty = filteredData.reduce((s, d) => s + d.totalQty, 0);
-        const totalValue = filteredData.reduce((s, d) => s + d.totalValue, 0);
-        const avgPrice = totalQty > 0 ? Math.round(totalValue / totalQty) : 0;
-        return { totalItems, totalQty, totalValue, avgPrice };
-    }, [filteredData]);
+    useEffect(() => {
+        loadWarehouses();
+    }, [loadWarehouses]);
 
-    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
-    const start = filteredData.length > 0 ? page * pageSize + 1 : 0;
-    const end = Math.min((page + 1) * pageSize, filteredData.length);
-    const paginatedData = filteredData.slice(page * pageSize, (page + 1) * pageSize);
+    useEffect(() => {
+        fetchReport();
+    }, [fetchReport]);
+
+    const totalPages = Math.max(1, Math.ceil((report.totalRecords || 0) / pageSize));
+    const start = report.totalRecords > 0 ? (page - 1) * pageSize + 1 : 0;
+    const end = Math.min(page * pageSize, report.totalRecords);
 
     const handleSearch = (e) => {
         setSearchTerm(e.target.value);
-        setPage(0);
+        setPage(1);
     };
 
     const handleWarehouseChange = (e) => {
         setSelectedWarehouse(e.target.value);
-        setPage(0);
+        setPage(1);
     };
 
     const handlePageSizeChange = (e) => {
         setPageSize(Number(e.target.value));
-        setPage(0);
+        setPage(1);
     };
 
+    const summary = useMemo(
+        () => ({
+            totalItems: report.totalMaterials,
+            totalQty: report.totalInventory,
+            avgPrice: report.averageWeightedPrice,
+            totalValue: report.totalInventoryValue,
+        }),
+        [report],
+    );
+
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            {/* Page Header */}
+        <Box
+            className="list-view"
+            sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}
+        >
             <Box sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <DollarSign size={20} color="#6b7280" />
-                    <Typography variant="h5" fontWeight={600} sx={{ fontSize: '20px', color: '#111827' }}>
+                    <Typography variant="h5" fontWeight={600} sx={{ fontSize: '22px', color: '#111827', lineHeight: 1.3 }}>
                         Giá bình quân gia quyền
                     </Typography>
                 </Box>
-                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.25 }}>
-                    Giá nhập & giá bình quân gia quyền theo vật tư trong kho
+                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
+                    Giá nhập mới nhất theo lô & đơn giá BQGQ theo từng vật tư — kho
                 </Typography>
             </Box>
 
-            {/* Main Content */}
-            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: 2.5, gap: 2 }}>
-                {/* Summary Cards */}
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', p: 2.5, gap: 2 }}>
+                {error && (
+                    <Alert severity="error" onClose={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
+
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <SummaryCard
                         icon={Package}
-                        label="Tổng vật tư"
-                        value={summary.totalItems.toLocaleString()}
+                        label="Tổng vật tư (bộ lọc)"
+                        value={summary.totalItems.toLocaleString('vi-VN')}
                         color="#6b7280"
                         bgColor="rgba(107,114,128,0.1)"
                     />
                     <SummaryCard
                         icon={TrendingUp}
                         label="Tổng tồn kho"
-                        value={summary.totalQty.toLocaleString()}
+                        value={formatQty(summary.totalQty)}
                         color="#0284c7"
                         bgColor="rgba(2,132,199,0.1)"
                     />
@@ -182,117 +244,260 @@ export default function ViewItemPriceList() {
                     />
                 </Box>
 
-                {/* Filter Bar */}
                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
                     <SearchInput
                         placeholder="Tìm theo mã, tên vật tư…"
                         value={searchTerm}
                         onChange={handleSearch}
                         sx={{
-                            flex: '1 1 240px', minWidth: 200, maxWidth: 420,
+                            flex: '1 1 240px',
+                            minWidth: 200,
+                            maxWidth: 420,
                             '& .MuiOutlinedInput-root': {
-                                bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '10px',
-                                fontSize: '13px', '& fieldset': { border: 'none' },
+                                bgcolor: '#f3f4f6',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '10px',
+                                fontSize: '13px',
+                                '& fieldset': { border: 'none' },
                                 '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                '&.Mui-focused': { bgcolor: '#fff', borderColor: '#3b82f6', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
+                                '&.Mui-focused': {
+                                    bgcolor: '#fff',
+                                    borderColor: '#3b82f6',
+                                    boxShadow: '0 0 0 3px rgba(59,130,246,0.1)',
+                                },
                                 '& input::placeholder': { color: '#9ca3af', fontSize: '13px' },
                             },
                         }}
                     />
 
-                    <FormControl size="small" sx={{ minWidth: 180 }}>
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                        <InputLabel id="item-price-wh-label" sx={{ fontSize: '13px' }}>
+                            Kho
+                        </InputLabel>
                         <Select
+                            labelId="item-price-wh-label"
+                            label="Kho"
                             value={selectedWarehouse}
                             onChange={handleWarehouseChange}
                             sx={{
-                                borderRadius: '10px', fontSize: '13px', bgcolor: '#f3f4f6',
+                                borderRadius: '10px',
+                                fontSize: '13px',
+                                bgcolor: '#f3f4f6',
                                 border: '1px solid #e5e7eb',
                                 '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
                                 '&.Mui-focused': { bgcolor: '#fff', borderColor: '#3b82f6', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
                             }}
                         >
-                            <MenuItem value="all" sx={{ fontSize: '13px' }}>Tất cả kho</MenuItem>
-                            {uniqueWarehouses.map(w => (
-                                <MenuItem key={w.warehouseId} value={w.warehouseId} sx={{ fontSize: '13px' }}>
+                            <MenuItem value="all" sx={{ fontSize: '13px' }}>
+                                Tất cả kho
+                            </MenuItem>
+                            {warehouseOptions.map((w) => (
+                                <MenuItem key={w.warehouseId} value={String(w.warehouseId)} sx={{ fontSize: '13px' }}>
+                                    {w.warehouseCode ? `${w.warehouseCode} — ` : ''}
                                     {w.warehouseName}
                                 </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
+
+                    <Button
+                        variant="outlined"
+                        startIcon={<RefreshCw size={16} />}
+                        onClick={fetchReport}
+                        disabled={loading}
+                        sx={{
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            borderColor: 'rgba(0,0,0,0.1)',
+                            ml: { xs: 0, sm: 'auto' },
+                        }}
+                    >
+                        Tải lại
+                    </Button>
                 </Box>
 
-                {/* Table */}
-                <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
-                    {paginatedData.length === 0 ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, color: 'text.secondary' }}>
+                <Box
+                    sx={{
+                        flex: 1,
+                        minHeight: 240,
+                        overflow: 'auto',
+                        bgcolor: '#fff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '12px',
+                        position: 'relative',
+                    }}
+                >
+                    {loading ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 10 }}>
+                            <CircularProgress size={36} sx={{ color: '#0284c7' }} />
+                        </Box>
+                    ) : report.items.length === 0 ? (
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                py: 8,
+                                color: 'text.secondary',
+                            }}
+                        >
                             <Package size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
-                            <Typography sx={{ fontSize: '14px' }}>Không có dữ liệu</Typography>
+                            <Typography sx={{ fontSize: '14px' }}>Không có dữ liệu tồn kho phù hợp bộ lọc</Typography>
                         </Box>
                     ) : (
-                        <Table size="small" stickyHeader sx={{ minWidth: '100%', tableLayout: 'fixed' }}>
-                            <TableHead>
-                                <TableRow>
-                                    {COLUMNS.map(col => (
-                                        <TableCell
-                                            key={col.id}
+                        <TableContainer>
+                            <Table size="small" stickyHeader sx={{ minWidth: '100%', tableLayout: 'fixed' }}>
+                                <TableHead>
+                                    <TableRow>
+                                        {COLUMNS.map((col) => (
+                                            <TableCell
+                                                key={col.id}
+                                                sx={{
+                                                    fontWeight: 600,
+                                                    fontSize: '12px',
+                                                    color: '#6b7280',
+                                                    bgcolor: '#fafafa',
+                                                    borderBottom: '2px solid #e5e7eb',
+                                                    width: col.width,
+                                                    whiteSpace: 'nowrap',
+                                                    py: 1.5,
+                                                    px: 2,
+                                                }}
+                                            >
+                                                {col.label}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {report.items.map((row, index) => (
+                                        <TableRow
+                                            key={`${row.itemId}-${row.warehouseId}`}
+                                            hover
                                             sx={{
-                                                fontWeight: 600, fontSize: '12px', color: '#6b7280',
-                                                bgcolor: '#fafafa', borderBottom: '1px solid #e5e7eb',
-                                                width: col.width, whiteSpace: 'nowrap', py: 1.5, px: 2,
+                                                '&:hover': { bgcolor: '#f9fafb' },
+                                                '&:last-child td': { borderBottom: 0 },
                                             }}
                                         >
-                                            {col.label}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {paginatedData.map((row, index) => (
-                                    <TableRow
-                                        key={`${row.itemId}-${row.warehouseId}`}
-                                        hover
-                                        sx={{ '&:hover': { bgcolor: '#f9fafb' }, '&:last-child td': { borderBottom: 0 } }}
-                                    >
-                                        <TableCell sx={{ textAlign: 'center', color: '#9ca3af', fontSize: '13px', py: 1.5, px: 2 }}>
-                                            {(page * pageSize) + index + 1}
-                                        </TableCell>
-                                        <TableCell sx={{ fontWeight: 500, color: '#374151', fontSize: '13px', py: 1.5, px: 2 }}>
-                                            {row.itemCode}
-                                        </TableCell>
-                                        <TableCell sx={{ color: '#374151', fontSize: '13px', py: 1.5, px: 2, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {row.itemName}
-                                        </TableCell>
-                                        <TableCell sx={{ color: '#6b7280', fontSize: '13px', py: 1.5, px: 2 }}>
-                                            <Chip
-                                                label={row.warehouseName}
-                                                size="small"
+                                            <TableCell
                                                 sx={{
-                                                    fontSize: '11px', height: '22px', bgcolor: '#f3f4f6',
-                                                    color: '#374151', border: 'none', borderRadius: '999px',
+                                                    textAlign: 'center',
+                                                    color: '#9ca3af',
+                                                    fontSize: '13px',
+                                                    py: 1.75,
+                                                    px: 2,
+                                                    borderBottom: '1px solid #f3f4f6',
                                                 }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={{ color: '#2563eb', fontWeight: 500, fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                            {formatCurrency(row.purchasePrice)}
-                                        </TableCell>
-                                        <TableCell sx={{ color: '#059669', fontWeight: 600, fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                            {formatCurrency(row.avgPrice)}
-                                        </TableCell>
-                                        <TableCell sx={{ color: '#374151', fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                            {row.totalQty.toLocaleString()}
-                                        </TableCell>
-                                        <TableCell sx={{ color: '#d97706', fontWeight: 600, fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                            {formatCurrency(row.totalValue)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                            >
+                                                {(page - 1) * pageSize + index + 1}
+                                            </TableCell>
+                                            <TableCell
+                                                sx={{
+                                                    fontWeight: 500,
+                                                    color: '#374151',
+                                                    fontSize: '13px',
+                                                    py: 1.75,
+                                                    px: 2,
+                                                    borderBottom: '1px solid #f3f4f6',
+                                                }}
+                                            >
+                                                {row.itemCode}
+                                            </TableCell>
+                                            <TableCell
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: '13px',
+                                                    py: 1.75,
+                                                    px: 2,
+                                                    maxWidth: 280,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    borderBottom: '1px solid #f3f4f6',
+                                                }}
+                                                title={row.itemName}
+                                            >
+                                                {row.itemName}
+                                            </TableCell>
+                                            <TableCell sx={{ py: 1.75, px: 2, borderBottom: '1px solid #f3f4f6' }}>
+                                                <Chip
+                                                    label={row.warehouseName}
+                                                    size="small"
+                                                    sx={{
+                                                        fontSize: '11px',
+                                                        height: '22px',
+                                                        bgcolor: '#f3f4f6',
+                                                        color: '#374151',
+                                                        border: 'none',
+                                                        borderRadius: '999px',
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                sx={{
+                                                    color: '#2563eb',
+                                                    fontWeight: 500,
+                                                    fontSize: '13px',
+                                                    py: 1.75,
+                                                    px: 2,
+                                                    textAlign: 'right',
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                    borderBottom: '1px solid #f3f4f6',
+                                                }}
+                                            >
+                                                {formatCurrency(row.latestImportPrice)}
+                                            </TableCell>
+                                            <TableCell
+                                                sx={{
+                                                    color: '#059669',
+                                                    fontWeight: 600,
+                                                    fontSize: '13px',
+                                                    py: 1.75,
+                                                    px: 2,
+                                                    textAlign: 'right',
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                    borderBottom: '1px solid #f3f4f6',
+                                                }}
+                                            >
+                                                {formatCurrency(row.weightedAveragePrice)}
+                                            </TableCell>
+                                            <TableCell
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: '13px',
+                                                    py: 1.75,
+                                                    px: 2,
+                                                    textAlign: 'right',
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                    borderBottom: '1px solid #f3f4f6',
+                                                }}
+                                            >
+                                                {formatQty(row.totalInventory)}
+                                            </TableCell>
+                                            <TableCell
+                                                sx={{
+                                                    color: '#d97706',
+                                                    fontWeight: 600,
+                                                    fontSize: '13px',
+                                                    py: 1.75,
+                                                    px: 2,
+                                                    textAlign: 'right',
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                    borderBottom: '1px solid #f3f4f6',
+                                                }}
+                                            >
+                                                {formatCurrency(row.inventoryValue)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
                     )}
                 </Box>
 
-                {/* Pagination */}
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2, flexShrink: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2, flexShrink: 0, flexWrap: 'wrap' }}>
                     <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
                         Số dòng / trang:
                     </Typography>
@@ -300,41 +505,53 @@ export default function ViewItemPriceList() {
                         <Select
                             value={pageSize}
                             onChange={handlePageSizeChange}
-                            sx={{ height: 32, fontSize: '13px', borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' } }}
+                            sx={{
+                                height: 32,
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' },
+                            }}
                         >
-                            {ROWS_PER_PAGE_OPTIONS.map(n => (
-                                <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
+                            {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>
+                                    {n}
+                                </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
                     <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                        {start}–{end} / {filteredData.length}
+                        {start}–{end} / {report.totalRecords} (Trang {page}/{totalPages})
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <button
-                            disabled={page <= 0}
-                            onClick={() => setPage(p => p - 1)}
-                            style={{
-                                minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
-                                backgroundColor: page <= 0 ? '#f9fafb' : '#fff', cursor: page <= 0 ? 'default' : 'pointer',
-                                color: page <= 0 ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
-                            }}
-                        >
-                            ‹
-                        </button>
-                        <button
-                            disabled={end >= filteredData.length || filteredData.length === 0}
-                            onClick={() => setPage(p => p + 1)}
-                            style={{
-                                minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
-                                backgroundColor: (end >= filteredData.length || filteredData.length === 0) ? '#f9fafb' : '#fff',
-                                cursor: (end >= filteredData.length || filteredData.length === 0) ? 'default' : 'pointer',
-                                color: (end >= filteredData.length || filteredData.length === 0) ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
-                            }}
-                        >
-                            ›
-                        </button>
-                    </Box>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={page <= 1 || loading}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        sx={{
+                            minWidth: 36,
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            borderColor: 'rgba(0,0,0,0.1)',
+                        }}
+                    >
+                        Trước
+                    </Button>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={page >= totalPages || loading || report.totalRecords === 0}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        sx={{
+                            minWidth: 36,
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            borderColor: 'rgba(0,0,0,0.1)',
+                        }}
+                    >
+                        Sau
+                    </Button>
                 </Box>
             </Box>
         </Box>

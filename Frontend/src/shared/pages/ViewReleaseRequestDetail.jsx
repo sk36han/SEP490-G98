@@ -90,7 +90,7 @@ function ReleaseRequestAttachmentsCard({ attachments, isQuotationFlow }) {
             {isQuotationFlow && (
                 <Typography variant="body2" sx={{ color: '#64748b', mb: 1.5, lineHeight: 1.55 }}>
                     Khi <strong>Chốt báo giá</strong>, hệ thống tự xuất Excel và cập nhật <strong>Báo giá chính thức</strong> bên dưới.
-                    Trước <strong>Gửi duyệt</strong>, hãy vào <strong>Chỉnh sửa RR</strong> để tải thêm <strong>HĐNT</strong> và <strong>PLHĐ</strong> (nếu có) — mục đính kèm trên form chỉnh sửa.
+                    Trước <strong>Gửi duyệt</strong>, cần có thêm <strong>HĐNT</strong> và có thể kèm <strong>PLHĐ</strong>.
                 </Typography>
             )}
             <Box
@@ -230,6 +230,9 @@ export default function ViewReleaseRequestDetail() {
     const [processing, setProcessing] = useState(false);
     const [importing, setImporting] = useState(false);
     const [sendingQuotation, setSendingQuotation] = useState(false);
+    const [uploadingContractFiles, setUploadingContractFiles] = useState(false);
+    const [contractFile, setContractFile] = useState(null);
+    const [appendixFile, setAppendixFile] = useState(null);
     const [enablingQuotationFlow, setEnablingQuotationFlow] = useState(false);
     const [showCcField, setShowCcField] = useState(false);
     const [showBccField, setShowBccField] = useState(false);
@@ -294,6 +297,30 @@ export default function ViewReleaseRequestDetail() {
             showToast(msg, 'error');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleUploadContractFiles = async () => {
+        if (!data?.releaseRequestId) return;
+        if (!contractFile && !appendixFile) {
+            showToast('Vui lòng chọn ít nhất 1 tệp để tải lên.', 'warning');
+            return;
+        }
+        try {
+            setUploadingContractFiles(true);
+            await uploadReleaseRequestAttachments(data.releaseRequestId, {
+                contractFile,
+                appendixFile,
+            });
+            showToast('Đã tải tệp đính kèm thành công.', 'success');
+            setContractFile(null);
+            setAppendixFile(null);
+            await fetchDetail();
+        } catch (err) {
+            const msg = err?.message || err?.response?.data?.message || 'Không thể tải tệp đính kèm.';
+            showToast(msg, 'error');
+        } finally {
+            setUploadingContractFiles(false);
         }
     };
 
@@ -1196,7 +1223,59 @@ Trân trọng,`;
 
                             {/* Tệp đính kèm — ẩn với role TK */}
                             {!hideSensitiveForWarehouseKeeper && (Boolean(data.isQuotationFlow) || (Array.isArray(data.attachments) && data.attachments.length > 0)) && (
-                                <ReleaseRequestAttachmentsCard attachments={data.attachments ?? []} isQuotationFlow={Boolean(data.isQuotationFlow)} />
+                                <>
+                                    <ReleaseRequestAttachmentsCard attachments={data.attachments ?? []} isQuotationFlow={Boolean(data.isQuotationFlow)} />
+                                    {Boolean(data.isQuotationFlow) && data.status === 'DRAFT' && (
+                                        <div className="info-section" style={{ margin: 0 }}>
+                                            <div className="section-header-with-toggle">
+                                                <h2 className="section-title">
+                                                    <Upload size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                                    Bổ sung HĐNT/PLHĐ
+                                                </h2>
+                                            </div>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                                <Typography variant="body2" sx={{ color: '#64748b' }}>
+                                                    Bạn có thể tải trực tiếp tệp HĐNT và PLHĐ tại đây trước khi bấm gửi duyệt.
+                                                </Typography>
+
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                    <Typography sx={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                        Hợp đồng nguyên tắc (HĐNT)
+                                                    </Typography>
+                                                    <input
+                                                        type="file"
+                                                        onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                                                        disabled={uploadingContractFiles}
+                                                    />
+                                                </Box>
+
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                    <Typography sx={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                        Phụ lục hợp đồng (PLHĐ)
+                                                    </Typography>
+                                                    <input
+                                                        type="file"
+                                                        onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
+                                                        disabled={uploadingContractFiles}
+                                                    />
+                                                </Box>
+
+                                                <Box>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-secondary"
+                                                        onClick={handleUploadContractFiles}
+                                                        disabled={uploadingContractFiles || (!contractFile && !appendixFile)}
+                                                    >
+                                                        {uploadingContractFiles
+                                                            ? <><Loader size={15} className="spin" />Đang tải tệp...</>
+                                                            : <><Upload size={15} />Tải tệp đính kèm</>}
+                                                    </button>
+                                                </Box>
+                                            </Box>
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {/* Lịch sử duyệt */}

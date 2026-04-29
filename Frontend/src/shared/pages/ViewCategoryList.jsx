@@ -2,7 +2,6 @@
  * Danh sách Danh mục sản phẩm – kết nối API CategoryController.
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { formatDateOnlyUtc } from '../lib/dateUtils';
 import { usePolling } from '../hooks/usePolling';
 import PollingManager from '../lib/pollingManager';
 import {
@@ -95,8 +94,6 @@ const ViewCategoryList = () => {
     const [totalItems, setTotalItems] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
-    const [filterDateFrom, setFilterDateFrom] = useState('');
-    const [filterDateTo, setFilterDateTo] = useState('');
     const [filterAnchor, setFilterAnchor] = useState(null);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
     const [columnsAnchor, setColumnsAnchor] = useState(null);
@@ -107,7 +104,6 @@ const ViewCategoryList = () => {
     const allColumns = [
         { id: 'categoryName', label: 'Tên', sortable: true },
         { id: 'itemCount', label: 'Số lượng vật tư', sortable: true },
-        { id: 'createdAt', label: 'Ngày tạo', sortable: true },
         { id: 'isActive', label: 'Trạng thái', sortable: true },
     ];
 
@@ -468,7 +464,7 @@ const ViewCategoryList = () => {
                     <CategoryFilterPopup
                         open={Boolean(filterAnchor)}
                         onClose={() => setFilterAnchor(null)}
-                        initialValues={{ isActive: filterStatus === 'active' ? true : filterStatus === 'inactive' ? false : null, fromDate: filterDateFrom, toDate: filterDateTo }}
+                        initialValues={{ isActive: filterStatus === 'active' ? true : filterStatus === 'inactive' ? false : null }}
                         onApply={handleFilterApply}
                     />
 
@@ -808,8 +804,7 @@ const ViewCategoryList = () => {
                                                                         {c.categoryName}
                                                                     </Box>
                                                                 )}
-                                                                {colId === 'itemCount' && '0'}
-                                                                {colId === 'createdAt' && (c.createdAt ? formatDateOnlyUtc(c.createdAt) : '—')}
+                                                                {colId === 'itemCount' && Number(c.itemCount ?? 0).toLocaleString('vi-VN')}
                                                                 {colId === 'isActive' && (
                                                                     <Chip
                                                                         label={c.isActive ? '• Hoạt động' : '• Tạm dừng'}

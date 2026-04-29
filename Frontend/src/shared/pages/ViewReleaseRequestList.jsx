@@ -113,21 +113,21 @@ function getDisplayLifecycleStatus(status, lifecycleStatus, isQuotationFlow) {
 }
 
 const RR_COLUMNS = [
-    { id: 'stt',                  label: 'STT',                     sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
-    { id: 'releaseRequestCode',   label: 'Mã yêu cầu xuất hàng',    sortable: true,  getValue: (row) => row.releaseRequestCode ?? '' },
-    { id: 'requestedByName',      label: 'Nhân viên yêu cầu',        sortable: true,  getValue: (row) => row.requestedByName ?? '' },
-    { id: 'receiverName',         label: 'Người nhận',               sortable: true,  getValue: (row) => row.receiverName ?? '' },
-    { id: 'companyName',          label: 'Công ty',                  sortable: false, getValue: (row) => row.companyName ?? '' },
-    { id: 'warehouseName',        label: 'Kho xuất',                 sortable: true,  getValue: (row) => row.warehouseName ?? '' },
+    { id: 'stt', label: 'STT', sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
+    { id: 'releaseRequestCode', label: 'Mã yêu cầu xuất hàng', sortable: true, getValue: (row) => row.releaseRequestCode ?? '' },
+    { id: 'requestedByName', label: 'Nhân viên yêu cầu', sortable: true, getValue: (row) => row.requestedByName ?? '' },
+    { id: 'receiverName', label: 'Người nhận', sortable: true, getValue: (row) => row.receiverName ?? '' },
+    { id: 'companyName', label: 'Công ty', sortable: false, getValue: (row) => row.companyName ?? '' },
+    { id: 'warehouseName', label: 'Kho xuất', sortable: true, getValue: (row) => row.warehouseName ?? '' },
 
-    { id: 'requestedDate',        label: 'Ngày yêu cầu',             sortable: true,  getValue: (row) => row.requestedDate ?? '' },
-    { id: 'expectedDate',         label: 'Ngày xuất dự kiến',        sortable: true,  getValue: (row) => row.expectedDate ?? '' },
-    { id: 'totalItems',           label: 'Tổng vật tư',             sortable: false, getValue: (row) => row.totalItems ?? 0 },
-    { id: 'totalRequestedQty',   label: 'Tổng số lượng',           sortable: false, getValue: (row) => row.totalRequestedQty ?? 0 },
-    { id: 'status',              label: 'Trạng thái',               sortable: true,  getValue: (row) => row.status ?? '' },
-    { id: 'quotationStatus',     label: 'Trạng thái báo giá',       sortable: false, getValue: (row) => row.quotationStatus ?? '' },
-    { id: 'lifecycleStatus',     label: 'Tình trạng xuất',          sortable: false, getValue: (row) => row.lifecycleStatus ?? '' },
-    { id: 'createdAt',            label: 'Ngày tạo',                 sortable: true,  getValue: (row) => row.createdAt ?? '' },
+    { id: 'requestedDate', label: 'Ngày yêu cầu', sortable: true, getValue: (row) => row.requestedDate ?? '' },
+    { id: 'expectedDate', label: 'Ngày xuất dự kiến', sortable: true, getValue: (row) => row.expectedDate ?? '' },
+    { id: 'totalItems', label: 'Tổng vật tư', sortable: false, getValue: (row) => row.totalItems ?? 0 },
+    { id: 'totalRequestedQty', label: 'Tổng số lượng', sortable: false, getValue: (row) => row.totalRequestedQty ?? 0 },
+    { id: 'status', label: 'Trạng thái', sortable: true, getValue: (row) => row.status ?? '' },
+    { id: 'quotationStatus', label: 'Trạng thái báo giá', sortable: false, getValue: (row) => row.quotationStatus ?? '' },
+    { id: 'lifecycleStatus', label: 'Tình trạng xuất', sortable: false, getValue: (row) => row.lifecycleStatus ?? '' },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
 ];
 
 const ALL_COLUMN_IDS = RR_COLUMNS.map((c) => c.id);
@@ -267,7 +267,7 @@ export default function ViewReleaseRequestList() {
         let newOrderBy, newOrder;
         if (orderBy === id) {
             if (order === 'asc') { newOrder = 'desc'; newOrderBy = id; }
-            else                  { newOrder = 'asc';  newOrderBy = null; }
+            else { newOrder = 'asc'; newOrderBy = null; }
         } else { newOrderBy = id; newOrder = 'asc'; }
         setOrderBy(newOrderBy); setOrder(newOrder); setPage(0);
         localStorage.setItem(LS_SORT, JSON.stringify({ orderBy: newOrderBy, order: newOrder }));

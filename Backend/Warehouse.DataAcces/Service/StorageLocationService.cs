@@ -417,11 +417,15 @@ namespace Warehouse.DataAcces.Service
             if (duplicate)
                 throw new InvalidOperationException("Mã vị trí đã tồn tại trong kho này.");
 
+            if (request.MaxCapacityQty.HasValue && request.MaxCapacityQty.Value <= 0)
+                throw new InvalidOperationException("Sức chứa tối đa phải lớn hơn 0 hoặc để trống.");
+
             var entity = new StorageLocation
             {
                 WarehouseId = request.WarehouseId,
                 LocationCode = code,
                 LocationName = request.LocationName?.Trim(),
+                MaxCapacityQty = request.MaxCapacityQty,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -470,16 +474,21 @@ namespace Warehouse.DataAcces.Service
             if (duplicate)
                 throw new InvalidOperationException("Mã vị trí đã tồn tại trong kho này.");
 
+            if (request.MaxCapacityQty.HasValue && request.MaxCapacityQty.Value <= 0)
+                throw new InvalidOperationException("Sức chứa tối đa phải lớn hơn 0 hoặc để trống.");
+
             var oldValues = JsonSerializer.Serialize(new
             {
                 entity.LocationCode,
                 entity.LocationName,
-                entity.IsActive
+                entity.IsActive,
+                entity.MaxCapacityQty
             });
 
             entity.LocationCode = newCode;
             entity.LocationName = request.LocationName?.Trim();
             entity.IsActive = request.IsActive;
+            entity.MaxCapacityQty = request.MaxCapacityQty;
             entity.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -488,7 +497,8 @@ namespace Warehouse.DataAcces.Service
             {
                 entity.LocationCode,
                 entity.LocationName,
-                entity.IsActive
+                entity.IsActive,
+                entity.MaxCapacityQty
             });
 
             await _auditLogService.LogAsync(
@@ -555,7 +565,8 @@ namespace Warehouse.DataAcces.Service
             WarehouseName = entity.Warehouse?.WarehouseName,
             LocationCode = entity.LocationCode,
             LocationName = entity.LocationName,
-            IsActive = entity.IsActive
+            IsActive = entity.IsActive,
+            MaxCapacityQty = entity.MaxCapacityQty
         };
     }
 }

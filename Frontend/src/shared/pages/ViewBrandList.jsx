@@ -39,6 +39,7 @@ import {
 import { Plus, Filter, Columns, Package, X, GripVertical, AlertCircle, Tag } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import BrandFilterPopup from '../components/BrandFilterPopup';
+import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -1273,6 +1274,8 @@ const ViewBrandList = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </Box>
     );
 
@@ -1286,8 +1289,12 @@ const ViewBrandList = () => {
             setAddForm({ brandName: '' });
             fetchList();
             PollingManager.triggerRefreshByFetchKey('Brand');
+            showToast('Tạo thương hiệu thành công.', 'success');
         } catch (err) {
-            const msg = err?.response?.data?.message || err?.message || 'Không thể tạo thương hiệu';
+            const isDuplicate = err?.response?.status === 409;
+            const msg = isDuplicate
+                ? 'Tên thương hiệu đã tồn tại.'
+                : (err?.response?.data?.message || err?.message || 'Không thể tạo thương hiệu');
             showToast(msg, 'error');
         } finally {
             setAddSubmitting(false);
@@ -1308,6 +1315,7 @@ const ViewBrandList = () => {
             setEditBrandId(null);
             fetchList();
             PollingManager.triggerRefreshByFetchKey('Brand');
+            showToast('Cập nhật thương hiệu thành công.', 'success');
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không thể cập nhật thương hiệu';
             showToast(msg, 'error');

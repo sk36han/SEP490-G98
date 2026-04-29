@@ -15,10 +15,12 @@ namespace Warehouse.Entities.ModelRequest
         public string SpecName { get; set; } = null!;
 
         /// <summary>
-        /// Mô tả quy cách đóng gói (Tùy chọn)
+        /// Mô tả quy cách đóng gói — bắt buộc
         /// </summary>
+        [Required(ErrorMessage = "Mô tả quy cách đóng gói không được để trống.")]
+        [MinLength(2, ErrorMessage = "Mô tả phải có ít nhất 2 ký tự.")]
         [MaxLength(500, ErrorMessage = "Mô tả không được vượt quá 500 ký tự.")]
-        public string? Description { get; set; }
+        public string Description { get; set; } = null!;
     }
 }
 

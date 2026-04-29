@@ -1,7 +1,7 @@
 /*
  * Danh sách Quy cách đóng gói.
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePolling } from '../hooks/usePolling';
 import PollingManager from '../lib/pollingManager';
 import {
@@ -31,10 +31,19 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    TextField,
 } from '@mui/material';
 import { Plus, Filter, Columns, Package, X, GripVertical } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
-import { getPackagingSpecList, createPackagingSpec, updatePackagingSpec, getPackagingSpecById } from '../lib/packagingSpecService';
+import Toast from '../../components/Toast/Toast';
+import { useToast } from '../hooks/useToast';
+import {
+    getPackagingSpecList,
+    createPackagingSpec,
+    updatePackagingSpec,
+    getPackagingSpecById,
+    validatePackagingSpecFields,
+} from '../lib/packagingSpecService';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -84,6 +93,7 @@ const bodyCellBaseSx = {
 const ViewPackagingSpecList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const { toast, showToast, clearToast } = useToast();
 
     const [allRows, setAllRows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -99,15 +109,26 @@ const ViewPackagingSpecList = () => {
 
     // Add dialog
     const [addDialogOpen, setAddDialogOpen] = useState(false);
-    const [addForm, setAddForm] = useState({ specName: '' });
+    const [addForm, setAddForm] = useState({ specName: '', description: '' });
+    const [addFieldErrors, setAddFieldErrors] = useState({});
     const [addSubmitting, setAddSubmitting] = useState(false);
 
     // Edit dialog
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editId, setEditId] = useState(null);
-    const [editForm, setEditForm] = useState({ specName: '', isActive: true });
+    const [editForm, setEditForm] = useState({ specName: '', description: '', isActive: true });
+    const [editFieldErrors, setEditFieldErrors] = useState({});
     const [editLoading, setEditLoading] = useState(false);
     const [editSubmitting, setEditSubmitting] = useState(false);
+
+    const addFormValid = useMemo(
+        () => validatePackagingSpecFields(addForm.specName, addForm.description).valid,
+        [addForm.specName, addForm.description],
+    );
+    const editFormValid = useMemo(
+        () => validatePackagingSpecFields(editForm.specName, editForm.description).valid,
+        [editForm.specName, editForm.description],
+    );
 
     // Column management
     const allColumns = [
@@ -272,16 +293,27 @@ const ViewPackagingSpecList = () => {
 
     // Add
     const handleAdd = async () => {
-        const name = (addForm.specName || '').trim();
-        if (!name || name.length < 2) return;
+        const v = validatePackagingSpecFields(addForm.specName, addForm.description);
+        if (!v.valid) {
+            setAddFieldErrors(v.errors);
+            return;
+        }
+        setAddFieldErrors({});
         setAddSubmitting(true);
         try {
-            await createPackagingSpec({ specName: name });
+            await createPackagingSpec({
+                specName: addForm.specName.trim(),
+                description: addForm.description.trim(),
+            });
+            showToast('Tạo quy cách đóng gói thành công.', 'success');
             setAddDialogOpen(false);
-            setAddForm({ specName: '' });
+            setAddForm({ specName: '', description: '' });
             fetchList();
             PollingManager.triggerRefreshByFetchKey('PackagingSpec');
-        } catch { } finally {
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không tạo được quy cách đóng gói.';
+            showToast(msg, 'error');
+        } finally {
             setAddSubmitting(false);
         }
     };
@@ -289,29 +321,52 @@ const ViewPackagingSpecList = () => {
     // Edit
     const handleOpenEdit = async (row) => {
         setEditId(row.packagingSpecId);
+        setEditFieldErrors({});
         setEditLoading(true);
         setEditDialogOpen(true);
-        setEditForm({ specName: row.specName || '', isActive: row.isActive ?? true });
+        setEditForm({
+            specName: row.specName || '',
+            description: row.description || '',
+            isActive: row.isActive ?? true,
+        });
         try {
             const detail = await getPackagingSpecById(row.packagingSpecId);
-            setEditForm({ specName: detail.specName || '', isActive: detail.isActive ?? true });
-        } catch { } finally {
+            setEditForm({
+                specName: detail.specName || '',
+                description: detail.description || '',
+                isActive: detail.isActive ?? true,
+            });
+        } catch {
+            showToast('Không tải được chi tiết quy cách.', 'error');
+        } finally {
             setEditLoading(false);
         }
     };
 
     const handleEdit = async () => {
-        const name = (editForm.specName || '').trim();
-        if (!name || name.length < 2) return;
+        const v = validatePackagingSpecFields(editForm.specName, editForm.description);
+        if (!v.valid) {
+            setEditFieldErrors(v.errors);
+            return;
+        }
+        setEditFieldErrors({});
         setEditSubmitting(true);
         try {
-            await updatePackagingSpec(editId, { specName: name, isActive: editForm.isActive });
+            await updatePackagingSpec(editId, {
+                specName: editForm.specName.trim(),
+                description: editForm.description.trim(),
+                isActive: editForm.isActive,
+            });
+            showToast('Cập nhật quy cách đóng gói thành công.', 'success');
             setEditDialogOpen(false);
-            setEditForm({ specName: '', isActive: true });
+            setEditForm({ specName: '', description: '', isActive: true });
             setEditId(null);
             fetchList();
             PollingManager.triggerRefreshByFetchKey('PackagingSpec');
-        } catch { } finally {
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không cập nhật được quy cách đóng gói.';
+            showToast(msg, 'error');
+        } finally {
             setEditSubmitting(false);
         }
     };
@@ -357,7 +412,7 @@ const ViewPackagingSpecList = () => {
                                 </IconButton>
                             </Tooltip>
                         </Box>
-                        <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => setAddDialogOpen(true)} sx={{ fontSize: 13, fontWeight: 500, textTransform: 'none', borderRadius: 10, minHeight: 38, px: 2.5, bgcolor: '#0284c7', boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)', '&:hover': { bgcolor: '#0369a1', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)' } }}>
+                        <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => { setAddFieldErrors({}); setAddForm({ specName: '', description: '' }); setAddDialogOpen(true); }} sx={{ fontSize: 13, fontWeight: 500, textTransform: 'none', borderRadius: 10, minHeight: 38, px: 2.5, bgcolor: '#0284c7', boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)', '&:hover': { bgcolor: '#0369a1', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)' } }}>
                             Thêm quy cách
                         </Button>
                     </Box>
@@ -486,35 +541,83 @@ const ViewPackagingSpecList = () => {
             </Box>
 
             {/* Add Dialog */}
-            <Dialog open={addDialogOpen} onClose={() => { if (!addSubmitting) { setAddDialogOpen(false); setAddForm({ specName: '' }); } }} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
+            <Dialog open={addDialogOpen} onClose={() => { if (!addSubmitting) { setAddDialogOpen(false); setAddForm({ specName: '', description: '' }); setAddFieldErrors({}); } }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
                 <DialogTitle component="span" sx={{ px: 3, py: 2.5, borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography component="span" sx={{ fontWeight: 600, fontSize: '18px' }}>Thêm quy cách đóng gói</Typography>
-                    <IconButton onClick={() => { setAddDialogOpen(false); setAddForm({ specName: '' }); }} disabled={addSubmitting} size="small" sx={{ color: 'text.secondary' }}><X size={20} /></IconButton>
+                    <IconButton onClick={() => { setAddDialogOpen(false); setAddForm({ specName: '', description: '' }); setAddFieldErrors({}); }} disabled={addSubmitting} size="small" sx={{ color: 'text.secondary' }}><X size={20} /></IconButton>
                 </DialogTitle>
                 <DialogContent sx={{ px: 3, pt: 2, pb: 2.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 1 }}>Tên quy cách đóng gói</Typography>
-                    <Box component="input" type="text" value={addForm.specName} onChange={(e) => setAddForm({ specName: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }} placeholder="Nhập tên quy cách đóng gói" sx={{ width: '100%', border: 'none', outline: 'none', borderBottom: '1px solid rgba(0,0,0,0.1)', pb: 1, fontSize: '14px', '&:focus': { borderBottom: '1px solid #0284c7' }, '&::placeholder': { color: '#9ca3af' } }} />
+                    <TextField
+                        label="Tên quy cách đóng gói"
+                        value={addForm.specName}
+                        onChange={(e) => setAddForm((p) => ({ ...p, specName: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+                        placeholder="Nhập tên quy cách"
+                        fullWidth
+                        size="small"
+                        error={Boolean(addFieldErrors.specName)}
+                        helperText={addFieldErrors.specName || ' '}
+                        FormHelperTextProps={{ sx: { mt: 0, minHeight: 20 } }}
+                        sx={{ mb: 1 }}
+                    />
+                    <TextField
+                        label="Mô tả"
+                        value={addForm.description}
+                        onChange={(e) => setAddForm((p) => ({ ...p, description: e.target.value }))}
+                        placeholder="Mô tả quy cách (bắt buộc)"
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        size="small"
+                        required
+                        error={Boolean(addFieldErrors.description)}
+                        helperText={addFieldErrors.description || 'Tối thiểu 2 ký tự, tối đa 500 ký tự.'}
+                        FormHelperTextProps={{ sx: { mt: 0 } }}
+                    />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, py: 2.5, borderTop: '1px solid rgba(0,0,0,0.06)', gap: 1.5 }}>
-                    <Button onClick={() => { setAddDialogOpen(false); setAddForm({ specName: '' }); }} disabled={addSubmitting} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', color: 'text.secondary' }}>Hủy</Button>
-                    <Button onClick={handleAdd} variant="contained" disabled={addSubmitting || (addForm.specName || '').trim().length < 2} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', borderRadius: '8px', boxShadow: 'none' }}>Tạo</Button>
+                    <Button onClick={() => { setAddDialogOpen(false); setAddForm({ specName: '', description: '' }); setAddFieldErrors({}); }} disabled={addSubmitting} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', color: 'text.secondary' }}>Hủy</Button>
+                    <Button onClick={handleAdd} variant="contained" disabled={addSubmitting || !addFormValid} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', borderRadius: '8px', boxShadow: 'none' }}>Tạo</Button>
                 </DialogActions>
             </Dialog>
 
             {/* Edit Dialog */}
-            <Dialog open={editDialogOpen} onClose={() => { if (!editSubmitting) { setEditDialogOpen(false); setEditForm({ specName: '', isActive: true }); setEditId(null); } }} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
+            <Dialog open={editDialogOpen} onClose={() => { if (!editSubmitting) { setEditDialogOpen(false); setEditForm({ specName: '', description: '', isActive: true }); setEditFieldErrors({}); setEditId(null); } }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
                 <DialogTitle component="span" sx={{ px: 3, py: 2.5, borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography component="span" sx={{ fontWeight: 600, fontSize: '18px' }}>Sửa quy cách đóng gói</Typography>
-                    <IconButton onClick={() => { setEditDialogOpen(false); setEditForm({ specName: '', isActive: true }); setEditId(null); }} disabled={editSubmitting} size="small" sx={{ color: 'text.secondary' }}><X size={20} /></IconButton>
+                    <IconButton onClick={() => { setEditDialogOpen(false); setEditForm({ specName: '', description: '', isActive: true }); setEditFieldErrors({}); setEditId(null); }} disabled={editSubmitting} size="small" sx={{ color: 'text.secondary' }}><X size={20} /></IconButton>
                 </DialogTitle>
                 <DialogContent sx={{ px: 3, pt: 2, pb: 2.5 }}>
                     {editLoading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={24} /></Box>
                     ) : (
                         <>
-                            <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>Tên quy cách đóng gói</Typography>
-                            <Box component="input" type="text" value={editForm.specName} onChange={(e) => setEditForm((p) => ({ ...p, specName: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') handleEdit(); }} sx={{ width: '100%', border: 'none', outline: 'none', borderBottom: '1px solid rgba(0,0,0,0.1)', pb: 1, fontSize: '14px', mb: 2, '&:focus': { borderBottom: '1px solid #2563eb' } }} />
-
+                            <TextField
+                                label="Tên quy cách đóng gói"
+                                value={editForm.specName}
+                                onChange={(e) => setEditForm((p) => ({ ...p, specName: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleEdit(); } }}
+                                fullWidth
+                                size="small"
+                                error={Boolean(editFieldErrors.specName)}
+                                helperText={editFieldErrors.specName || ' '}
+                                FormHelperTextProps={{ sx: { mt: 0, minHeight: 20 } }}
+                                sx={{ mb: 1 }}
+                            />
+                            <TextField
+                                label="Mô tả"
+                                value={editForm.description}
+                                onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                                fullWidth
+                                multiline
+                                minRows={3}
+                                size="small"
+                                required
+                                error={Boolean(editFieldErrors.description)}
+                                helperText={editFieldErrors.description || 'Tối thiểu 2 ký tự, tối đa 500 ký tự.'}
+                                FormHelperTextProps={{ sx: { mt: 0 } }}
+                                sx={{ mb: 2 }}
+                            />
                             <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>Trạng thái</Typography>
                             <Box component="select" value={String(editForm.isActive)} onChange={(e) => setEditForm((p) => ({ ...p, isActive: e.target.value === 'true' }))} sx={{ width: '100%', border: 'none', outline: 'none', borderBottom: '1px solid rgba(0,0,0,0.1)', pb: 1, fontSize: '14px', color: editForm.isActive ? '#10b981' : '#ef4444', fontWeight: 500, cursor: 'pointer', '&:focus': { borderBottom: '1px solid #2563eb' } }}>
                                 <option value="true" style={{ color: '#10b981' }}>Hoạt động</option>
@@ -524,10 +627,12 @@ const ViewPackagingSpecList = () => {
                     )}
                 </DialogContent>
                 <DialogActions sx={{ px: 3, py: 2.5, borderTop: '1px solid rgba(0,0,0,0.06)', gap: 1.5 }}>
-                    <Button onClick={() => { setEditDialogOpen(false); setEditForm({ specName: '', isActive: true }); setEditId(null); }} disabled={editSubmitting} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', color: 'text.secondary' }}>Hủy</Button>
-                    <Button onClick={handleEdit} variant="contained" disabled={editSubmitting || editLoading || (editForm.specName || '').trim().length < 2} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', borderRadius: '8px', boxShadow: 'none' }}>Lưu</Button>
+                    <Button onClick={() => { setEditDialogOpen(false); setEditForm({ specName: '', description: '', isActive: true }); setEditFieldErrors({}); setEditId(null); }} disabled={editSubmitting} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', color: 'text.secondary' }}>Hủy</Button>
+                    <Button onClick={handleEdit} variant="contained" disabled={editSubmitting || editLoading || !editFormValid} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', borderRadius: '8px', boxShadow: 'none' }}>Lưu</Button>
                 </DialogActions>
             </Dialog>
+
+            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </Box>
     );
 };

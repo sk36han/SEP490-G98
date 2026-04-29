@@ -355,6 +355,7 @@ export default function ViewPurchaseOrderList() {
                 fromDate: filters.fromDate,
                 toDate: filters.toDate,
                 requestedByName: filters.creator,
+                responsibleUserName: filters.responsiblePerson,
             });
 
             const items = Array.isArray(result?.items) ? result.items : [];

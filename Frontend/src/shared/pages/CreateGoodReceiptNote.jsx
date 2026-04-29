@@ -113,6 +113,11 @@ const formatLocationQty = (value) => {
     return Number.isInteger(qty) ? String(qty) : qty.toString();
 };
 
+const formatCapacityText = (value) => {
+    if (value == null || value === '') return 'KGH';
+    return formatLocationQty(value);
+};
+
 const normalizeSummaryQtyText = (text) =>
     (text || '').replace(/\b(\d+)\.0+\b/g, '$1');
 
@@ -793,6 +798,28 @@ const CreateGoodReceiptNote = () => {
             showToast('Không được chọn trùng vị trí kho cho nhiều dòng trong cùng phiếu nhập!', 'error');
             return;
         }
+
+        const locationMap = new Map(
+            locationOptions.map((loc) => [String(loc.locationId), loc]),
+        );
+        for (const line of lines) {
+            const loc = locationMap.get(String(line.locationId));
+            if (!loc) continue;
+            const maxCap = Number(loc.maxCapacityQty);
+            if (!Number.isFinite(maxCap)) continue;
+
+            const currentQty = Number(loc.currentQty) || 0;
+            const incomingQty = Number(line.receivedQty) || 0;
+            const afterQty = currentQty + incomingQty;
+            if (afterQty > maxCap) {
+                showToast(
+                    `Vị trí ${loc.locationCode} vượt sức chứa tối đa (${formatLocationQty(maxCap)}). ` +
+                    `Hiện có ${formatLocationQty(currentQty)}, nhập thêm ${formatLocationQty(incomingQty)} sẽ thành ${formatLocationQty(afterQty)}.`,
+                    'error',
+                );
+                return;
+            }
+        }
         try {
             setSubmitting(true);
             if (formData.isPaid && !formData.paymentMethod) {
@@ -1322,6 +1349,7 @@ const CreateGoodReceiptNote = () => {
                                                                         {loc.locationCode}
                                                                         {loc.locationName ? ` - ${loc.locationName}` : ''}
                                                                         {` | Tồn: ${formatLocationQty(loc.currentQty)}`}
+                                                                        {` | Max: ${formatCapacityText(loc.maxCapacityQty)}`}
                                                                         {loc.currentItemsSummary ? ` (${normalizeSummaryQtyText(loc.currentItemsSummary)})` : ''}
                                                                     </option>
                                                                 ))}

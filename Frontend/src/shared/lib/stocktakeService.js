@@ -29,6 +29,8 @@ import authService from './authService';
 
 function mapStocktakeRow(row) {
     if (row == null || typeof row !== 'object') return null;
+    const plannedAt = row.plannedAt ?? row.PlannedAt ?? null;
+    const createdAtRaw = row.createdAt ?? row.CreatedAt ?? null;
     return {
         id: row.id ?? row.Id ?? row.stocktakeId ?? row.StocktakeId,
         stocktakeId: row.stocktakeId ?? row.StocktakeId,
@@ -38,13 +40,14 @@ function mapStocktakeRow(row) {
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
         status: row.status ?? row.Status ?? '',
         mode: row.mode ?? row.Mode ?? '',
-        plannedAt: row.plannedAt ?? row.PlannedAt ?? null,
+        plannedAt,
         startedAt: row.startedAt ?? row.StartedAt ?? null,
         endedAt: row.endedAt ?? row.EndedAt ?? null,
         createdBy: row.createdBy ?? row.CreatedBy,
         createdById: row.createdBy ?? row.CreatedBy ?? null,
         createdByName: row.createdByName ?? row.CreatedByName ?? '',
-        createdAt: row.createdAt ?? row.CreatedAt ?? null,
+        // Một số endpoint Stocktake chưa trả CreatedAt, fallback sang PlannedAt để cột "Ngày tạo" không trống.
+        createdAt: createdAtRaw ?? plannedAt,
         note: row.note ?? row.Note ?? null,
         // Progress fields
         totalLines: row.totalLines ?? row.TotalLines ?? 0,

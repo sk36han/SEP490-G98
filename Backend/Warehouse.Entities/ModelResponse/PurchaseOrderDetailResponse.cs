@@ -59,4 +59,11 @@ namespace Warehouse.Entities.ModelResponse
         public bool RequiresCo { get; set; } // Yêu cầu CO
         public bool RequiresCq { get; set; } // Yêu cầu CQ
     }
+
+    public class PurchaseOrderAttachmentUploadResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public string? QuotationFileUrl { get; set; }
+        public string? ContractAppendixFileUrl { get; set; }
+    }
 }

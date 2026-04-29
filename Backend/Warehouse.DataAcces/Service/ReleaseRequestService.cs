@@ -168,6 +168,14 @@ namespace Warehouse.DataAcces.Service
             // 10. Tạo các dòng vật tư và thực hiện giữ hàng (ReservedQty)
             foreach (var line in request.Lines)
             {
+                if (line.UnitPrice.HasValue
+                    && unitCostsDb.TryGetValue(line.ItemId, out var weightedAvgCost)
+                    && line.UnitPrice.Value < weightedAvgCost)
+                {
+                    throw new InvalidOperationException(
+                        $"Đơn giá của vật tư '{items[line.ItemId].ItemName}' không được nhỏ hơn giá bình quân gia quyền ({weightedAvgCost}).");
+                }
+
                 decimal unitPrice = line.UnitPrice ?? (unitCostsDb.TryGetValue(line.ItemId, out var cost) ? cost : 0);
 
                 var rrLine = new ReleaseRequestLine
@@ -439,6 +447,7 @@ namespace Warehouse.DataAcces.Service
                     Note = l.Note,
                     ApprovedQty = l.ApprovedQty,
                     AllocatedQty = l.AllocatedQty,
+                    IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus,
                     StockQty = stockQtys.TryGetValue(l.ItemId, out var sq) ? sq : 0,
                     CostPrice = costPrices.TryGetValue(l.ItemId, out var cp) ? cp : 0,
@@ -572,10 +581,7 @@ namespace Warehouse.DataAcces.Service
 
                     // Kiểm tra hồ sơ bắt buộc khi gửi duyệt (Kiểm tra trong database)
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a =>
-                        a.DocType == "GIR"
-                        && a.DocId == id
-                        && (a.AttachmentType == "CO" || a.AttachmentType == "CONTRACT"));
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
 
                     if (!hasQuotation) throw new InvalidOperationException("Vui lòng tải lên tài liệu Báo giá trước khi gửi duyệt.");
                     if (!hasContract) throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi gửi duyệt.");
@@ -665,6 +671,17 @@ namespace Warehouse.DataAcces.Service
                 // 9b. Cập nhật dòng cũ + thêm dòng mới
                 foreach (var lineReq in request.Lines)
                 {
+                    if (lineReq.UnitPrice.HasValue
+                        && unitCostsDb.TryGetValue(lineReq.ItemId, out var weightedAvgCost)
+                        && lineReq.UnitPrice.Value < weightedAvgCost)
+                    {
+                        var itemName = items.TryGetValue(lineReq.ItemId, out var item)
+                            ? item.ItemName
+                            : $"ID {lineReq.ItemId}";
+                        throw new InvalidOperationException(
+                            $"Đơn giá của vật tư '{itemName}' không được nhỏ hơn giá bình quân gia quyền ({weightedAvgCost}).");
+                    }
+
                     decimal unitPrice = lineReq.UnitPrice ?? (unitCostsDb.TryGetValue(lineReq.ItemId, out var cost) ? cost : 0);
 
                     if (lineReq.ReleaseRequestLineId.HasValue && lineReq.ReleaseRequestLineId > 0)
@@ -1014,10 +1031,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     // Kiểm tra hồ sơ bắt buộc khi duyệt
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a =>
-                        a.DocType == "GIR"
-                        && a.DocId == id
-                        && (a.AttachmentType == "CO" || a.AttachmentType == "CONTRACT"));
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
 
                     if (!hasQuotation) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Báo giá.");
                     if (!hasContract) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Hợp đồng.");

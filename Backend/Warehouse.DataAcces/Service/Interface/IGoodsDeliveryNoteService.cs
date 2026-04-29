@@ -14,5 +14,6 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<GDNDetailResponse> GetGDNDetailAsync(long gdnId);
         Task<GoodsDeliveryNoteResponse> IssueGDNAsync(long gdnId, long userId, WarehouseIssueRequest request);
         Task<GoodsDeliveryNoteResponse> ConfirmDeliveryAsync(long gdnId, long userId, IFormFile evidenceFile, string note);
+        Task<byte[]> ExportGdnPdfAsync(long gdnId, long userId);
     }
 }

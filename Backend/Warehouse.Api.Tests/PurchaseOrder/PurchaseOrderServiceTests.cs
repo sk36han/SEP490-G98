@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service;
 using Warehouse.Entities.ModelRequest;
@@ -15,6 +16,7 @@ public class PurchaseOrderServiceTests : IDisposable
     private readonly PurchaseOrderService _service;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
     private readonly Mock<INotificationService> _mockNotificationService;
+    private readonly Mock<IDocumentAttachmentService> _mockDocumentAttachmentService;
 
     public PurchaseOrderServiceTests()
     {
@@ -27,8 +29,22 @@ public class PurchaseOrderServiceTests : IDisposable
         // Mock dependencies
         _mockAuditLogService = new Mock<IAuditLogService>();
         _mockNotificationService = new Mock<INotificationService>();
+        _mockDocumentAttachmentService = new Mock<IDocumentAttachmentService>();
+        _mockDocumentAttachmentService
+            .Setup(x => x.UploadAttachmentAsync(
+                It.IsAny<string>(),
+                It.IsAny<long>(),
+                It.IsAny<IFormFile>(),
+                It.IsAny<long>(),
+                It.IsAny<string>()))
+            .ReturnsAsync((string docType, long docId, IFormFile file, long userId, string attachmentType)
+                => $"https://files.test/{docType}/{docId}/{attachmentType}/{file.FileName}");
         
-        _service = new PurchaseOrderService(_context, _mockAuditLogService.Object, _mockNotificationService.Object);
+        _service = new PurchaseOrderService(
+            _context,
+            _mockAuditLogService.Object,
+            _mockNotificationService.Object,
+            _mockDocumentAttachmentService.Object);
 
         SeedData();
     }
@@ -118,6 +134,13 @@ public class PurchaseOrderServiceTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
+    }
+
+    private static IFormFile BuildFile(string fileName, string content = "dummy")
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        var stream = new MemoryStream(bytes);
+        return new FormFile(stream, 0, bytes.Length, "file", fileName);
     }
 
     // =========================================================
@@ -748,5 +771,216 @@ public class PurchaseOrderServiceTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result.ExpectedDeliveryDate.Should().BeNull();
+    }
+
+    // =========================================================
+    // UploadPurchaseOrderAttachmentsAsync Tests
+    // =========================================================
+
+    [Fact]
+    public async Task UploadAttachments_POKhongTonTai_ThrowException()
+    {
+        var quotation = BuildFile("quotation.pdf");
+        var act = async () => await _service.UploadPurchaseOrderAttachmentsAsync(999, 1, quotation, null);
+
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("*Không tìm thấy đơn mua hàng*");
+    }
+
+    [Fact]
+    public async Task UploadAttachments_KhongCoFile_ThrowException()
+    {
+        var po = await _service.CreatePurchaseOrderAsync(1, new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        });
+
+        var act = async () => await _service.UploadPurchaseOrderAttachmentsAsync(po.PurchaseOrderId, 1, null, null);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*ít nhất 1 tệp*");
+    }
+
+    [Fact]
+    public async Task UploadAttachments_PendingAcc_ThieuMotFile_ThrowException()
+    {
+        var poEntity = new WarehouseModel.PurchaseOrder
+        {
+            Pocode = "PO-PENDING-ACC",
+            RequestedBy = 1,
+            SupplierId = 1,
+            WarehouseId = 1,
+            Status = "PENDING_ACC",
+            LifecycleStatus = "PendingRcv",
+            TotalAmount = 1000000,
+            DiscountAmount = 0,
+            NetAmount = 1000000,
+            CurrentStageNo = 1,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.PurchaseOrders.Add(poEntity);
+        await _context.SaveChangesAsync();
+
+        var quotation = BuildFile("quotation.pdf");
+        var act = async () => await _service.UploadPurchaseOrderAttachmentsAsync(poEntity.PurchaseOrderId, 1, quotation, null);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*bắt buộc phải có đủ*");
+    }
+
+    [Fact]
+    public async Task UploadAttachments_ThanhCong_TraVeUrl()
+    {
+        var po = await _service.CreatePurchaseOrderAsync(1, new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        });
+
+        var quotation = BuildFile("quotation.pdf");
+        var contract = BuildFile("contract.pdf");
+
+        var result = await _service.UploadPurchaseOrderAttachmentsAsync(po.PurchaseOrderId, 1, quotation, contract);
+
+        result.Message.Should().Be("Tải tệp đính kèm thành công.");
+        result.QuotationFileUrl.Should().NotBeNull();
+        result.ContractAppendixFileUrl.Should().NotBeNull();
+
+        _mockAuditLogService.Verify(a => a.LogAsync(
+            1,
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            po.PurchaseOrderId,
+            It.Is<string>(m => m.Contains("Tải tệp đính kèm cho đơn mua hàng") && m.Contains("quotation=yes") && m.Contains("contractAppendix=yes")),
+            It.IsAny<string>(),
+            It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UploadAttachments_Draft_ChiQuotation_ThanhCong()
+    {
+        var po = await _service.CreatePurchaseOrderAsync(1, new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        });
+
+        var quotation = BuildFile("quotation-only.pdf");
+
+        var result = await _service.UploadPurchaseOrderAttachmentsAsync(po.PurchaseOrderId, 1, quotation, null);
+
+        result.Message.Should().Be("Tải tệp đính kèm thành công.");
+        result.QuotationFileUrl.Should().NotBeNull();
+        result.ContractAppendixFileUrl.Should().BeNull();
+
+        _mockAuditLogService.Verify(a => a.LogAsync(
+            1,
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            po.PurchaseOrderId,
+            It.Is<string>(m => m.Contains("quotation=yes") && m.Contains("contractAppendix=no")),
+            It.IsAny<string>(),
+            It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UploadAttachments_PendingAcc_DuHaiFile_ThanhCong()
+    {
+        var poEntity = new WarehouseModel.PurchaseOrder
+        {
+            Pocode = "PO-PENDING-ACC-OK",
+            RequestedBy = 1,
+            SupplierId = 1,
+            WarehouseId = 1,
+            Status = "PENDING_ACC",
+            LifecycleStatus = "PendingRcv",
+            TotalAmount = 1000000,
+            DiscountAmount = 0,
+            NetAmount = 1000000,
+            CurrentStageNo = 1,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.PurchaseOrders.Add(poEntity);
+        await _context.SaveChangesAsync();
+
+        var quotation = BuildFile("quotation.pdf");
+        var contract = BuildFile("contract.pdf");
+
+        var result = await _service.UploadPurchaseOrderAttachmentsAsync(poEntity.PurchaseOrderId, 1, quotation, contract);
+
+        result.QuotationFileUrl.Should().NotBeNull();
+        result.ContractAppendixFileUrl.Should().NotBeNull();
+
+        _mockDocumentAttachmentService.Verify(s => s.UploadAttachmentAsync("PR", poEntity.PurchaseOrderId, quotation, 1, "QUOTATION"), Times.Once);
+        _mockDocumentAttachmentService.Verify(s => s.UploadAttachmentAsync("PR", poEntity.PurchaseOrderId, contract, 1, "CONTRACT_APPENDIX"), Times.Once);
+    }
+
+    [Fact]
+    public async Task UploadAttachments_PendingAcc_ThieuFile_KhongGhiAuditLog()
+    {
+        var poEntity = new WarehouseModel.PurchaseOrder
+        {
+            Pocode = "PO-PENDING-ACC-NOLOG",
+            RequestedBy = 1,
+            SupplierId = 1,
+            WarehouseId = 1,
+            Status = "PENDING_ACC",
+            LifecycleStatus = "PendingRcv",
+            TotalAmount = 1000000,
+            DiscountAmount = 0,
+            NetAmount = 1000000,
+            CurrentStageNo = 1,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.PurchaseOrders.Add(poEntity);
+        await _context.SaveChangesAsync();
+
+        var quotation = BuildFile("quotation.pdf");
+        var act = async () => await _service.UploadPurchaseOrderAttachmentsAsync(poEntity.PurchaseOrderId, 1, quotation, null);
+        await act.Should().ThrowAsync<InvalidOperationException>();
+
+        _mockAuditLogService.Verify(a => a.LogAsync(
+            It.IsAny<long>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            poEntity.PurchaseOrderId,
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UploadAttachments_DocumentServiceThrowArgumentException_Propagate()
+    {
+        var po = await _service.CreatePurchaseOrderAsync(1, new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        });
+
+        var quotation = BuildFile("quotation.pdf");
+        _mockDocumentAttachmentService
+            .Setup(s => s.UploadAttachmentAsync("PR", po.PurchaseOrderId, quotation, 1, "QUOTATION"))
+            .ThrowsAsync(new ArgumentException("File không hợp lệ"));
+
+        var act = async () => await _service.UploadPurchaseOrderAttachmentsAsync(po.PurchaseOrderId, 1, quotation, null);
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*không hợp lệ*");
     }
 }
