@@ -634,7 +634,7 @@ const CreatePurchaseOrder = () => {
 
         try {
             setSubmitting(true);
-            const payload = preparePOPayload(formData, lines, discountAmount, 'PENDING_ACC');
+            const payload = preparePOPayload(formData, lines, discountAmount, 'Pending');
             const res = await createPurchaseOrder(payload);
             let uploadWarning = '';
             if (res?.purchaseOrderId && (quotationFile || contractAppendixFile)) {

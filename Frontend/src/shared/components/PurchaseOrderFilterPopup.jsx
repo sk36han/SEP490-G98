@@ -5,7 +5,7 @@ import { ListFilterPopupShell, LIST_FILTER_INPUT_SX, LIST_FILTER_LABEL_SX } from
 const APPROVAL_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
     { value: 'DRAFT', label: 'Bản nháp' },
-    { value: 'PENDING_ACC', label: 'Chờ duyệt' },
+    { value: 'Pending', label: 'Chờ duyệt' },
     { value: 'APPROVED', label: 'Đã duyệt' },
     { value: 'REJECTED', label: 'Từ chối' },
 ];

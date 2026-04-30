@@ -515,7 +515,7 @@ const ViewPurchaseOrderDetail = () => {
         ? orderData.totalOrderedQty
         : orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
 
-    const isPending = orderData.approvalStatus === 'PENDING_ACC' || orderData.approvalStatus === 'PENDING';
+    const isPending = orderData.approvalStatus === 'PENDING';
     const canApprove = (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR') && isPending;
 
     const isPendingGrnCheckedForCurrentPO =

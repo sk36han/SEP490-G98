@@ -1550,10 +1550,10 @@ const CreateGoodReceiptNote = () => {
                                                     <span style={{
                                                         fontWeight: 500,
                                                         color: selectedPODetails.status === 'APPROVED' ? '#10b981' :
-                                                            selectedPODetails.status === 'PENDING_ACC' ? '#f59e0b' : '#ef4444'
+                                                            selectedPODetails.status === 'PENDING' ? '#f59e0b' : '#ef4444'
                                                     }}>
                                                         {selectedPODetails.status === 'APPROVED' ? 'Đã duyệt' :
-                                                            selectedPODetails.status === 'PENDING_ACC' ? 'Chờ duyệt' :
+                                                            selectedPODetails.status === 'PENDING' ? 'Chờ duyệt' :
                                                                 selectedPODetails.status === 'REJECTED' ? 'Từ chối' : 'Bị lỗi status'}
                                                     </span>
                                                 </div>

@@ -566,8 +566,6 @@ export default function ViewPurchaseOrderList() {
                     status === 'APPROVED' ||
                     status === 'REJECTED' ||
                     status === 'PENDING' ||
-                    status === 'PENDING_ACC' ||
-                    status === 'PENDING_DIR' ||
                     isOwnDraft
                 );
             }
@@ -809,7 +807,7 @@ export default function ViewPurchaseOrderList() {
                         label="Chờ duyệt"
                         value={summarySource
                             .filter((r) =>
-                                ['PENDING', 'PENDING_ACC', 'PENDING_DIR'].includes(
+                                ['PENDING'].includes(
                                     upper(r.approvalStatus)
                                 )
                             )

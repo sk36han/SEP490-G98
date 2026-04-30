@@ -232,7 +232,6 @@ export const DISCOUNT_TYPES = {
 export const PO_STATUS = {
     DRAFT: 'DRAFT',
     PENDING: 'PENDING',
-    PENDING_ACC: 'PENDING_ACC',
     APPROVED: 'APPROVED',
     REJECTED: 'REJECTED',
 };
