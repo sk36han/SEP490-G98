@@ -348,7 +348,7 @@ const CreateReceiver = () => {
             showToast('Tạo người nhận thành công!', 'success');
 
             setTimeout(() => {
-                navigate('/receivers');
+                navigate(-1);
             }, 900);
         } catch (error) {
             const msg = error?.response?.data?.message || error?.message || 'Đã xảy ra lỗi khi tạo người nhận.';
@@ -359,7 +359,7 @@ const CreateReceiver = () => {
     };
 
     const handleCancel = () => {
-        navigate('/receivers');
+        navigate(-1);
     };
 
     /* ── Render ── */

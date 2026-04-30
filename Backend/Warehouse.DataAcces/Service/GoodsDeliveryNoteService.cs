@@ -528,15 +528,6 @@ namespace Warehouse.DataAcces.Service
                 .OrderBy(da => da.StageNo)
                 .ToListAsync();
 
-            var auditLogs = await _context.AuditLogs
-                .Include(a => a.ActorUser)
-                .Where(a =>
-                    (a.EntityType == AuditEntity.GoodsDeliveryNote && a.EntityId == gdnId) ||
-                    (a.EntityType == AuditEntity.ReleaseRequest && a.EntityId == gdn.ReleaseRequestId))
-                .ToListAsync();
-
-            var historyEvents = BuildGdnHistoryEvents(gdn, approvals, auditLogs);
-
             var lines = gdn.GoodsDeliveryNoteLines.Select(l => 
             {
                 var rrLine = gdn.ReleaseRequest?.ReleaseRequestLines?.FirstOrDefault(rl => rl.ReleaseRequestLineId == l.ReleaseRequestLineId);
@@ -657,88 +648,8 @@ namespace Warehouse.DataAcces.Service
                     ActionBy = a.ActionBy,
                     ActionByName = a.ActionByNavigation?.FullName,
                     ActionAt = a.ActionAt
-                }).ToList(),
-                HistoryEvents = historyEvents
+                }).ToList()
             };
-        }
-
-        private static List<OutboundHistoryEventResponse> BuildGdnHistoryEvents(
-            GoodsDeliveryNote gdn,
-            List<DocumentApproval> approvals,
-            List<AuditLog> auditLogs)
-        {
-            var events = new List<OutboundHistoryEventResponse>();
-
-            if (gdn.SubmittedAt.HasValue)
-            {
-                events.Add(new OutboundHistoryEventResponse
-                {
-                    EventType = "GDN_SUBMITTED",
-                    Title = "Gửi duyệt phiếu xuất kho",
-                    Description = gdn.Gdncode,
-                    OccurredAt = gdn.SubmittedAt.Value,
-                    Source = "GDN",
-                    SourceId = gdn.Gdnid,
-                    ActorUserId = gdn.CreatedBy,
-                    ActorName = gdn.CreatedByNavigation?.FullName
-                });
-            }
-
-            if (gdn.ApprovedAt.HasValue)
-            {
-                events.Add(new OutboundHistoryEventResponse
-                {
-                    EventType = "GDN_ISSUED",
-                    Title = "Xác nhận xuất kho",
-                    Description = gdn.Gdncode,
-                    OccurredAt = gdn.ApprovedAt.Value,
-                    Source = "GDN",
-                    SourceId = gdn.Gdnid
-                });
-            }
-
-            if (gdn.PostedAt.HasValue)
-            {
-                events.Add(new OutboundHistoryEventResponse
-                {
-                    EventType = "GDN_POSTED",
-                    Title = "Xác nhận giao hàng",
-                    Description = gdn.Gdncode,
-                    OccurredAt = gdn.PostedAt.Value,
-                    Source = "GDN",
-                    SourceId = gdn.Gdnid
-                });
-            }
-
-            events.AddRange(approvals.Select(a => new OutboundHistoryEventResponse
-            {
-                EventType = $"GDN_{a.Decision}",
-                Title = a.Decision == "APPROVE" ? "Duyệt phiếu xuất kho" : "Từ chối phiếu xuất kho",
-                Description = a.Reason,
-                OccurredAt = a.ActionAt,
-                Source = "GDN_APPROVAL",
-                SourceId = a.ApprovalId,
-                ActorUserId = a.ActionBy,
-                ActorName = a.ActionByNavigation?.FullName
-            }));
-
-            events.AddRange(auditLogs.Select(a => new OutboundHistoryEventResponse
-            {
-                EventType = $"{a.EntityType}_{a.Action}",
-                Title = $"{a.Action} {a.EntityType}",
-                Description = a.Detail,
-                OccurredAt = a.CreatedAt,
-                Source = "AUDIT",
-                SourceId = a.AuditLogId,
-                ActorUserId = a.ActorUserId,
-                ActorName = a.ActorUser?.FullName ?? a.ActorUser?.Username
-            }));
-
-            return events
-                .GroupBy(e => new { e.EventType, e.OccurredAt, e.Source, e.SourceId })
-                .Select(g => g.First())
-                .OrderByDescending(e => e.OccurredAt)
-                .ToList();
         }
 
         public async Task<byte[]> ExportGdnPdfAsync(long gdnId, long userId)
@@ -1223,12 +1134,7 @@ namespace Warehouse.DataAcces.Service
             {
                 foreach (var line in gdn.GoodsDeliveryNoteLines)
                 {
-                    // Keep persisted actual quantity if it was already edited on draft.
-                    // Only auto-fill from requested quantity when actual is still unset.
-                    if (line.ActualQty <= 0)
-                    {
-                        line.ActualQty = line.RequestedQty ?? 0;
-                    }
+                    line.ActualQty = line.RequestedQty ?? 0;
                     line.LineTotal = line.ActualQty * (line.UnitPrice ?? 0);
                     _context.Entry(line).State = EntityState.Modified;
                 }

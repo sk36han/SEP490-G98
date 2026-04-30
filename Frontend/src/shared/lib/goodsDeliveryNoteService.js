@@ -121,20 +121,6 @@ function mapGDNLine(line) {
     };
 }
 
-function mapHistoryEventRow(row) {
-    if (!row || typeof row !== 'object') return null;
-    return {
-        eventType: row.eventType ?? row.EventType ?? '',
-        title: row.title ?? row.Title ?? '',
-        description: row.description ?? row.Description ?? null,
-        occurredAt: row.occurredAt ?? row.OccurredAt ?? null,
-        source: row.source ?? row.Source ?? '',
-        sourceId: row.sourceId ?? row.SourceId ?? null,
-        actorUserId: row.actorUserId ?? row.ActorUserId ?? null,
-        actorName: row.actorName ?? row.ActorName ?? '',
-    };
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // 2. DETAIL
 // GET /api/GoodsDeliveryNote/{id}
@@ -146,12 +132,7 @@ function mapHistoryEventRow(row) {
  */
 export async function getGoodsDeliveryNoteDetail(id) {
     const response = await apiClient.get(`/GoodsDeliveryNote/${id}`);
-    const payload = getPayload(response?.data);
-    if (!payload || typeof payload !== 'object') return payload;
-    return {
-        ...payload,
-        historyEvents: (payload.historyEvents ?? payload.HistoryEvents ?? []).map(mapHistoryEventRow).filter(Boolean),
-    };
+    return getPayload(response?.data);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

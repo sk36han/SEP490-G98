@@ -248,7 +248,7 @@ namespace Warehouse.Api.ApiController
                     var existingAttachments = rr.Attachments?.Select(a => a.AttachmentType).ToList() ?? new List<string>();
                     
                     bool hasQuotation = existingAttachments.Contains("QUOTATION") || quotationFile != null;
-                    bool hasContract = existingAttachments.Contains("CONTRACT") || existingAttachments.Contains("CO") || contractFile != null;
+                    bool hasContract = existingAttachments.Contains("CONTRACT") || contractFile != null;
 
                     if (!hasQuotation || !hasContract)
                     {
@@ -263,7 +263,7 @@ namespace Warehouse.Api.ApiController
 
                 if (contractFile != null)
                 {
-                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, contractFile, currentUserId, "CO");
+                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, contractFile, currentUserId, "CONTRACT");
                 }
 
                 if (appendixFile != null)
@@ -289,7 +289,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("{id:long}/quotation/export-excel")]
-        [Authorize(Roles = "SP,KT,SE")]
+        [Authorize(Roles = "SP,KT,TK,SE")]
         public async Task<IActionResult> ExportQuotationExcel(long id, [FromBody] ExportRrQuotationExcelRequest request)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -301,7 +301,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("{id:long}/quotation/send-email")]
-        [Authorize(Roles = "SP,KT,SE")]
+        [Authorize(Roles = "SP,KT,TK,SE")]
         public async Task<IActionResult> SendQuotationEmail(long id, [FromBody] SendRrQuotationEmailRequest request)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -313,7 +313,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("{id:long}/quotation/import-excel")]
-        [Authorize(Roles = "SP,KT,SE")]
+        [Authorize(Roles = "SP,KT,TK,SE")]
         public async Task<IActionResult> ImportQuotationExcel(long id, IFormFile file)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -346,7 +346,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("{id:long}/quotation/confirm")]
-        [Authorize(Roles = "SP,KT,SE")]
+        [Authorize(Roles = "SP,KT,TK,SE")]
         public async Task<IActionResult> ConfirmQuotation(long id, [FromBody] ConfirmRrQuotationRequest request)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);

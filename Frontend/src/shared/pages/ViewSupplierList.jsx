@@ -27,7 +27,6 @@ import {
 import { StatusBadge } from '@ui/badges';
 import { Filter, CloudOff, Columns, Plus, GripVertical, Truck } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
-import { usePolling } from '../hooks/usePolling';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
 import { formatDateOnlyUtc } from '../lib/dateUtils';
@@ -80,6 +79,7 @@ const SUPPLIER_COLUMNS = [
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS        = SUPPLIER_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 const DEFAULT_PAGE_SIZE = 10;
+const POLLING_INTERVAL_MS = 15000;
 
 // ── Shared cell sx (matches ViewPurchaseOrderList exactly) ─────────────────
 const BODY_CELL_SX = {
@@ -372,7 +372,12 @@ export default function ViewSupplierList() {
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
-    usePolling('suppliers', () => fetchDataRef.current?.({ silent: true }));
+    useEffect(() => {
+        const id = setInterval(() => {
+            fetchDataRef.current?.({ silent: true });
+        }, POLLING_INTERVAL_MS);
+        return () => clearInterval(id);
+    }, []);
 
     // Client-side sort on current page data
     const sortedRows = useMemo(() => {

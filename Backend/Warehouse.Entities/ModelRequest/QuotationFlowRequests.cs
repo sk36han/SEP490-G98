@@ -32,6 +32,14 @@ public class ConfirmRrQuotationRequest
 {
     [MaxLength(500)]
     public string? Note { get; set; }
+
+    [Required]
+    [MaxLength(200)]
+    public string QuotationNo { get; set; } = null!;
+
+    [Required]
+    [MinLength(1)]
+    public List<RrQuotationNoteItemRequest> Notes { get; set; } = new();
 }
 
 public class ImportRrQuotationExcelRequest

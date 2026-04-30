@@ -145,28 +145,6 @@ const buildEmbeddedHistory = ({ data, approvals }) => {
         .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 };
 
-const normalizeHistoryType = (eventType = '') => {
-    const value = String(eventType).toUpperCase();
-    if (value.includes('REJECT')) return 'rejected';
-    if (value.includes('APPROVE')) return 'approved';
-    if (value.includes('ISSUE')) return 'issued';
-    if (value.includes('CREATE')) return 'created';
-    if (value.includes('SUBMIT')) return 'submitted';
-    return 'pending';
-};
-
-const mapHistoryEventsFromApi = (events = []) =>
-    (Array.isArray(events) ? events : [])
-        .filter((x) => x?.occurredAt || x?.OccurredAt)
-        .map((x) => ({
-            type: normalizeHistoryType(x.eventType ?? x.EventType),
-            title: x.title ?? x.Title ?? 'Cập nhật trạng thái',
-            at: x.occurredAt ?? x.OccurredAt,
-            actor: x.actorName ?? x.ActorName ?? UNKNOWN_ACTOR,
-            note: x.description ?? x.Description ?? '',
-        }))
-        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-
 const HistoryStep = ({ event, isLast }) => {
     const eventMeta = HISTORY_EVENT_META[event.type] ?? HISTORY_EVENT_META.pending;
     return (
@@ -244,7 +222,6 @@ export default function ViewGoodDeliveryNoteDetail() {
                     : [];
 
                 const approvals = (data.approvals ?? data.Approvals ?? []).map(mapApprovalStep);
-                const apiHistory = mapHistoryEventsFromApi(data.historyEvents ?? data.HistoryEvents ?? []);
 
                 setGdn({
                     gdnId: data.gdnId ?? id,
@@ -267,7 +244,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                     shippingFee: toNumber(data.shippingFee),
                     lines: mappedLines,
                     approvals,
-                    history: apiHistory.length > 0 ? apiHistory : buildEmbeddedHistory({ data, approvals }),
+                    history: buildEmbeddedHistory({ data, approvals }),
                 });
             }
         } catch (err) {

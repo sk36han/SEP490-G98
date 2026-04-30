@@ -72,7 +72,6 @@ export async function getReceivers(params = {}) {
             addressId: row.addressId ?? row.AddressId ?? null,
             companyId: row.companyId ?? row.CompanyId ?? null,
             isActive: row.isActive ?? row.IsActive ?? true,
-            createdAt: row.createdAt ?? row.CreatedAt ?? row.createdDate ?? row.CreatedDate ?? row.createdOn ?? row.CreatedOn ?? null,
         }));
     return {
         page: payload.page ?? payload.Page ?? 1,
@@ -217,8 +216,8 @@ export async function getReceiverDetail(id) {
         notes: raw.notes ?? raw.Notes ?? '',
         position: raw.position ?? raw.Position ?? '',
         isActive: raw.isActive ?? raw.IsActive ?? true,
-        createdAt: raw.createdAt ?? raw.CreatedAt ?? raw.createdDate ?? raw.CreatedDate ?? raw.createdOn ?? raw.CreatedOn ?? null,
-        updatedAt: raw.updatedAt ?? raw.UpdatedAt ?? raw.updatedDate ?? raw.UpdatedDate ?? raw.updatedOn ?? raw.UpdatedOn ?? null,
+        createdAt: raw.createdAt ?? raw.CreatedAt ?? null,
+        updatedAt: raw.updatedAt ?? raw.UpdatedAt ?? null,
         companyId: raw.companyId ?? raw.CompanyId ?? null,
         addressId: raw.addressId ?? raw.AddressId ?? null,
         companyName: raw.companyName ?? raw.CompanyName ?? raw.company?.companyName ?? raw.Company?.CompanyName ?? '',

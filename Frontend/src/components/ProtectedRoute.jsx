@@ -1,10 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import authService from '../shared/lib/authService';
-import {
-    getDefaultRouteByRole,
-    isPermissionRoleValid,
-} from '../shared/permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../shared/permissions/roleUtils';
 
 /**
  * ProtectedRoute - Bảo vệ route theo authentication và authorization
@@ -15,7 +12,8 @@ import {
 const ProtectedRoute = ({ children, allowedRoles = null }) => {
     const location = useLocation();
     const isAuthenticated = authService.isAuthenticated();
-    const permissionRole = authService.getPermissionRole();
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
@@ -27,11 +25,26 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
     }
 
     if (allowedRoles && allowedRoles.length > 0) {
+        const isAdminOnlyRoute =
+            allowedRoles.includes('ADMIN') && !allowedRoles.includes('DIRECTOR');
+
+        // Director được vào tất cả chức năng trừ Admin-only
+        if (permissionRole === 'DIRECTOR' && !isAdminOnlyRoute) {
+            return children;
+        }
+
         if (!allowedRoles.includes(permissionRole)) {
             console.warn(
                 `User with role ${permissionRole} tried to access ${location.pathname} but doesn't have permission`
             );
-            return <Navigate to={getDefaultRouteByRole(permissionRole)} replace />;
+
+            if (permissionRole === 'ADMIN') return <Navigate to="/admin/users" replace />;
+            if (permissionRole === 'DIRECTOR') return <Navigate to="/home" replace />;
+            if (permissionRole === 'WAREHOUSE_KEEPER') return <Navigate to="/products" replace />;
+            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/products" replace />;
+            if (permissionRole === 'SALE_ENGINEER') return <Navigate to="/products" replace />;
+            if (permissionRole === 'ACCOUNTANTS') return <Navigate to="/purchase-orders" replace />;
+            return <Navigate to="/products" replace />;
         }
     }
 

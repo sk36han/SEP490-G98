@@ -101,9 +101,6 @@ namespace Warehouse.Entities.ModelResponse
 
         // Lịch sử duyệt
         public List<GDNApprovalResponse> Approvals { get; set; } = new();
-
-        // Lịch sử xử lý outbound
-        public List<OutboundHistoryEventResponse> HistoryEvents { get; set; } = new();
     }
 
     public class GDNLineDetailResponse

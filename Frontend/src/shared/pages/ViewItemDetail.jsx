@@ -1,7 +1,7 @@
 /*
  * ViewItemDetail — Chi tiết vật tư (xem + edit inline tại chỗ).
  * Đã kiểm duyệt với DB: Items, ItemPrices, InventoryOnHand.
- * Full quyền Item (xem/sửa): WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER, ACCOUNTANTS.
+ * Sửa vật tư: WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER (kế toán chỉ xem; giá đầy đủ: kế toán/giám đốc).
  * UI refactor theo design language của ViewPurchaseReturnDetail.
  */
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
@@ -42,15 +42,17 @@ import { MOCK_INVENTORY_LOTS, getGrnCodeFromLineId, formatLotMoney, formatLotQua
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 import { useMasterData } from '../../app/context/MasterDataContext';
 import { createUom } from '../lib/uomService';
+import { createPackagingSpec, validatePackagingSpecFields } from '../lib/packagingSpecService';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
 
 // ─── Role helpers ─────────────────────────────────────────────────────────
 const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
-const canEditItem = (role) => ['DIRECTOR', 'WAREHOUSE_KEEPER'].includes(role);
+const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER'].includes(role);
 const canSeeFullPrices = (role) => role === 'ACCOUNTANTS' || role === 'DIRECTOR';
 const showStockBlockForRole = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS', 'DIRECTOR'].includes(role);
+const isActiveOption = (x) => (x?.isActive ?? x?.IsActive ?? true) === true;
 
 // ─── Formatters ───────────────────────────────────────────────────────────
 const formatPrice = (value) => {
@@ -421,23 +423,55 @@ function InlineCreateUomDialog({ open, onClose, onSubmit }) {
 
 // Inline CreatePackagingSpecDialog
 function InlineCreatePackagingSpecDialog({ open, onClose, onSubmit }) {
+    const { showToast } = useToast();
     const [specName, setSpecName] = useState('');
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
 
     useEffect(() => {
-        if (open) { setSpecName(''); setDescription(''); setSubmitting(false); }
+        if (open) {
+            setSpecName('');
+            setDescription('');
+            setSubmitting(false);
+            setFieldErrors({});
+        }
     }, [open]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const name = (specName || '').trim();
-        if (!name) return;
+        const v = validatePackagingSpecFields(specName, description);
+        if (!v.valid) {
+            setFieldErrors(v.errors);
+            const first = Object.values(v.errors)[0];
+            if (first) showToast(first, 'error');
+            return;
+        }
+        setFieldErrors({});
         setSubmitting(true);
         try {
-            await Promise.resolve(onSubmit({ packagingSpecId: null, specName: name, name, description: (description || '').trim() || null }));
+            const result = await createPackagingSpec({
+                specName: specName.trim(),
+                description: description.trim(),
+            });
+            const newId = result?.packagingSpecId ?? result?.PackagingSpecId;
+            const name = specName.trim();
+            await Promise.resolve(
+                onSubmit({
+                    packagingSpecId: newId,
+                    id: newId,
+                    specName: name,
+                    name,
+                    description: description.trim(),
+                }),
+            );
+            showToast('Tạo quy cách đóng gói thành công.', 'success');
             onClose();
-        } catch (_) {} finally { setSubmitting(false); }
+        } catch (err) {
+            showToast(err?.response?.data?.message ?? err?.message ?? 'Không tạo được quy cách đóng gói.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -445,12 +479,35 @@ function InlineCreatePackagingSpecDialog({ open, onClose, onSubmit }) {
             <DialogTitle>Tạo mới quy cách đóng gói</DialogTitle>
             <form onSubmit={handleSubmit}>
                 <DialogContent sx={{ pt: 2, pb: 1 }}>
-                    <TextField fullWidth size="small" label="Tên quy cách" value={specName}
-                        onChange={(e) => setSpecName(e.target.value)} required placeholder="VD: Hộp, Thùng carton"
-                        sx={editTextSx} InputLabelProps={{ shrink: true }} />
-                    <TextField fullWidth size="small" label="Mô tả (tùy chọn)" value={description}
-                        onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả quy cách"
-                        sx={editTextSx} InputLabelProps={{ shrink: true }} />
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label="Tên quy cách"
+                        value={specName}
+                        onChange={(e) => setSpecName(e.target.value)}
+                        required
+                        placeholder="VD: Hộp, Thùng carton"
+                        error={Boolean(fieldErrors.specName)}
+                        helperText={fieldErrors.specName || ' '}
+                        FormHelperTextProps={{ sx: { mt: 0, minHeight: 20 } }}
+                        sx={editTextSx}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label="Mô tả"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        required
+                        multiline
+                        minRows={2}
+                        placeholder="Mô tả quy cách (bắt buộc)"
+                        error={Boolean(fieldErrors.description)}
+                        helperText={fieldErrors.description || 'Tối thiểu 2 ký tự, tối đa 500 ký tự.'}
+                        sx={editTextSx}
+                        InputLabelProps={{ shrink: true }}
+                    />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={onClose} sx={{ textTransform: 'none' }} disabled={submitting}>Hủy</Button>
@@ -562,7 +619,13 @@ export default function ViewItemDetail() {
     }, []);
 
     useEffect(() => {
-        if (uoms) setLocalUomOptions(uoms.map((u) => ({ id: u.uomId ?? u.id, code: u.uomCode ?? u.code, name: u.uomName ?? u.name })));
+        if (uoms) {
+            setLocalUomOptions(
+                uoms
+                    .filter(isActiveOption)
+                    .map((u) => ({ id: u.uomId ?? u.id, code: u.uomCode ?? u.code, name: u.uomName ?? u.name })),
+            );
+        }
     }, [uoms]);
 
     useEffect(() => {
@@ -574,10 +637,16 @@ export default function ViewItemDetail() {
                     : Array.isArray(res?.items) ? res.items
                     : Array.isArray(res?.data) ? res.data
                     : Array.isArray(res) ? res : [];
-                if (!cancelled) setLocalSpecOptions(rows.map((s) => ({
-                    id: s.specificationId ?? s.paramId ?? s.ParamId ?? s.specId ?? s.id,
-                    name: s.specName ?? s.paramName ?? s.name,
-                })));
+                if (!cancelled) {
+                    setLocalSpecOptions(
+                        rows
+                            .filter(isActiveOption)
+                            .map((s) => ({
+                                id: s.specificationId ?? s.paramId ?? s.ParamId ?? s.specId ?? s.id,
+                                name: s.specName ?? s.paramName ?? s.name,
+                            })),
+                    );
+                }
             } catch { /* giữ rỗng nếu lỗi */ }
         })();
         return () => { cancelled = true; };
@@ -665,17 +734,21 @@ export default function ViewItemDetail() {
     const allPackOptions = [...localPackOptions];
     const allSpecOptions = [...localSpecOptions];
 
-    const categorySelectOptions = useMemo(() => masterCategories.map((o) => ({
-        value: String(o.categoryId),
-        label: o.categoryCode ? `${o.categoryCode} - ${o.categoryName}` : o.categoryName,
-    })), [masterCategories]);
+    const categorySelectOptions = useMemo(() => masterCategories
+        .filter(isActiveOption)
+        .map((o) => ({
+            value: String(o.categoryId),
+            label: o.categoryCode ? `${o.categoryCode} - ${o.categoryName}` : o.categoryName,
+        })), [masterCategories]);
 
-    const brandSelectOptions = useMemo(() => masterBrands.map((o) => ({
-        value: String(o.brandId),
-        label: o.brandName,
-    })), [masterBrands]);
+    const brandSelectOptions = useMemo(() => masterBrands
+        .filter(isActiveOption)
+        .map((o) => ({
+            value: String(o.brandId),
+            label: o.brandName,
+        })), [masterBrands]);
 
-    const uomSelectOptions = useMemo(() => allUomOptions.map((o) => ({
+    const uomSelectOptions = useMemo(() => allUomOptions.filter(isActiveOption).map((o) => ({
         value: String(o.id),
         label: o.name,
     })), [allUomOptions]);
@@ -685,7 +758,7 @@ export default function ViewItemDetail() {
         label: o.name,
     })), [allPackOptions]);
 
-    const specSelectOptions = useMemo(() => allSpecOptions.map((o) => ({
+    const specSelectOptions = useMemo(() => allSpecOptions.filter(isActiveOption).map((o) => ({
         value: String(o.id),
         label: o.name,
     })), [allSpecOptions]);

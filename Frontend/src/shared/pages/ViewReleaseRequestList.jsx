@@ -33,7 +33,7 @@ import { Plus, Filter, Columns, GripVertical, PackageOpen, Send, RefreshCw } fro
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
-import { formatDateOnly, formatDateTimeLines } from '../lib/dateUtils';
+import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/ListView.css';
@@ -103,47 +103,31 @@ const LifecycleChip = ({ lifecycleStatus }) => (
 
 function getDisplayLifecycleStatus(status, lifecycleStatus, isQuotationFlow) {
     const normalizedStatus = String(status ?? '').toUpperCase();
-    if (normalizedStatus === 'REJECTED') return 'REJECTED';
     if (normalizedStatus === 'DRAFT') {
-        return 'RR_DRAFT_PENDING_SUBMIT';
+        return isQuotationFlow ? null : 'RR_DRAFT_PENDING_SUBMIT';
     }
-    const hasLifecycle = String(lifecycleStatus ?? '').trim() !== '';
-    if (hasLifecycle) return lifecycleStatus;
-
-    if (['PENDING', 'PENDING_ACC', 'PENDING_DIR', 'APPROVED'].includes(normalizedStatus)) {
-        return 'RR_DRAFT_PENDING_SUBMIT';
-    }
-    if (normalizedStatus === 'CANCELLED') return null;
-    return isQuotationFlow ? null : 'RR_DRAFT_PENDING_SUBMIT';
-}
-
-function getDisplayQuotationStatus(status, quotationStatus) {
-    const normalizedStatus = String(status ?? '').toUpperCase();
+    if (normalizedStatus === 'PENDING_ACC') return 'PENDING_ACC';
     if (normalizedStatus === 'REJECTED') return 'REJECTED';
-    const normalizedQuotationStatus = String(quotationStatus ?? '').trim();
-    if (normalizedQuotationStatus) return normalizedQuotationStatus;
-    if (['PENDING_ACC', 'PENDING_DIR', 'APPROVED'].includes(normalizedStatus)) {
-        return 'QUOTATION_FILE_UPLOADED';
-    }
-    return null;
+    if (normalizedStatus !== 'APPROVED') return null;
+    return lifecycleStatus;
 }
 
 const RR_COLUMNS = [
-    { id: 'stt',                  label: 'STT',                     sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
-    { id: 'releaseRequestCode',   label: 'Mã yêu cầu xuất hàng',    sortable: true,  getValue: (row) => row.releaseRequestCode ?? '' },
-    { id: 'requestedByName',      label: 'Nhân viên yêu cầu',        sortable: true,  getValue: (row) => row.requestedByName ?? '' },
-    { id: 'receiverName',         label: 'Người nhận',               sortable: true,  getValue: (row) => row.receiverName ?? '' },
-    { id: 'companyName',          label: 'Công ty',                  sortable: false, getValue: (row) => row.companyName ?? '' },
-    { id: 'warehouseName',        label: 'Kho xuất',                 sortable: true,  getValue: (row) => row.warehouseName ?? '' },
+    { id: 'stt', label: 'STT', sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
+    { id: 'releaseRequestCode', label: 'Mã yêu cầu xuất hàng', sortable: true, getValue: (row) => row.releaseRequestCode ?? '' },
+    { id: 'requestedByName', label: 'Nhân viên yêu cầu', sortable: true, getValue: (row) => row.requestedByName ?? '' },
+    { id: 'receiverName', label: 'Người nhận', sortable: true, getValue: (row) => row.receiverName ?? '' },
+    { id: 'companyName', label: 'Công ty', sortable: false, getValue: (row) => row.companyName ?? '' },
+    { id: 'warehouseName', label: 'Kho xuất', sortable: true, getValue: (row) => row.warehouseName ?? '' },
 
-    { id: 'requestedDate',        label: 'Ngày yêu cầu',             sortable: true,  getValue: (row) => row.requestedDate ?? '' },
-    { id: 'expectedDate',         label: 'Ngày xuất dự kiến',        sortable: true,  getValue: (row) => row.expectedDate ?? '' },
-    { id: 'totalItems',           label: 'Tổng vật tư',             sortable: false, getValue: (row) => row.totalItems ?? 0 },
-    { id: 'totalRequestedQty',   label: 'Tổng số lượng',           sortable: false, getValue: (row) => row.totalRequestedQty ?? 0 },
-    { id: 'status',              label: 'Trạng thái',               sortable: true,  getValue: (row) => row.status ?? '' },
-    { id: 'quotationStatus',     label: 'Trạng thái báo giá',       sortable: false, getValue: (row) => row.quotationStatus ?? '' },
-    { id: 'lifecycleStatus',     label: 'Tình trạng xuất',          sortable: false, getValue: (row) => row.lifecycleStatus ?? '' },
-    { id: 'createdAt',            label: 'Ngày tạo',                 sortable: true,  getValue: (row) => row.createdAt ?? '' },
+    { id: 'requestedDate', label: 'Ngày yêu cầu', sortable: true, getValue: (row) => row.requestedDate ?? '' },
+    { id: 'expectedDate', label: 'Ngày xuất dự kiến', sortable: true, getValue: (row) => row.expectedDate ?? '' },
+    { id: 'totalItems', label: 'Tổng vật tư', sortable: false, getValue: (row) => row.totalItems ?? 0 },
+    { id: 'totalRequestedQty', label: 'Tổng số lượng', sortable: false, getValue: (row) => row.totalRequestedQty ?? 0 },
+    { id: 'status', label: 'Trạng thái', sortable: true, getValue: (row) => row.status ?? '' },
+    { id: 'quotationStatus', label: 'Trạng thái báo giá', sortable: false, getValue: (row) => row.quotationStatus ?? '' },
+    { id: 'lifecycleStatus', label: 'Tình trạng xuất', sortable: false, getValue: (row) => row.lifecycleStatus ?? '' },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
 ];
 
 const ALL_COLUMN_IDS = RR_COLUMNS.map((c) => c.id);
@@ -184,8 +168,7 @@ export default function ViewReleaseRequestList() {
     const navigate = useNavigate();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const currentUserId = authService.getCurrentUserId();
-    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'SALE_ENGINEER';
-    const canManageReleaseRequest = permissionRole === 'DIRECTOR' || permissionRole === 'SALE_ENGINEER';
+    const canCreate = permissionRole !== 'ACCOUNTANTS' && permissionRole !== 'WAREHOUSE_KEEPER';
 
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -229,22 +212,20 @@ export default function ViewReleaseRequestList() {
         }
     }, [columnOrder]);
 
-    const fetchData = useCallback(async ({ silent = false } = {}) => {
-        if (!silent) setLoading(true);
-        if (!silent) setError(null);
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
             const result = await getReleaseRequests({ page: page + 1, pageSize });
             setList(result.items || []);
             setTotalItems(Number(result.totalItems ?? 0));
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không tải được danh sách yêu cầu xuất hàng';
-            if (!silent) {
-                setError(msg);
-                setList([]);
-                setTotalItems(0);
-            }
+            setError(msg);
+            setList([]);
+            setTotalItems(0);
         } finally {
-            if (!silent) setLoading(false);
+            setLoading(false);
         }
     }, [page, pageSize]);
 
@@ -253,7 +234,7 @@ export default function ViewReleaseRequestList() {
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
-    const { refetch } = usePolling('releaseRequests', () => fetchDataRef.current?.({ silent: true }));
+    const { refetch } = usePolling('releaseRequests', () => fetchDataRef.current?.());
 
     const handleRefresh = useCallback(() => {
         refetch();
@@ -286,7 +267,7 @@ export default function ViewReleaseRequestList() {
         let newOrderBy, newOrder;
         if (orderBy === id) {
             if (order === 'asc') { newOrder = 'desc'; newOrderBy = id; }
-            else                  { newOrder = 'asc';  newOrderBy = null; }
+            else { newOrder = 'asc'; newOrderBy = null; }
         } else { newOrderBy = id; newOrder = 'asc'; }
         setOrderBy(newOrderBy); setOrder(newOrder); setPage(0);
         localStorage.setItem(LS_SORT, JSON.stringify({ orderBy: newOrderBy, order: newOrder }));
@@ -628,15 +609,12 @@ export default function ViewReleaseRequestList() {
                                                         }
 
                                                         if (col.id === 'releaseRequestCode') {
-                                                            const targetPath = canManageReleaseRequest
-                                                                ? `/release-request/${row.releaseRequestId}/edit`
-                                                                : `/release-request/${row.releaseRequestId}`;
                                                             return (
                                                                 <TableCell key={col.id} align="left">
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                         <Box component="a"
-                                                                            href={targetPath}
-                                                                            onClick={(e) => { e.preventDefault(); navigate(targetPath); }}
+                                                                            href={`/release-request/${row.releaseRequestId}`}
+                                                                            onClick={(e) => { e.preventDefault(); navigate(`/release-request/${row.releaseRequestId}`); }}
                                                                             sx={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
                                                                             title={row.releaseRequestCode}>
                                                                             {row.releaseRequestCode}
@@ -657,12 +635,13 @@ export default function ViewReleaseRequestList() {
                                                         }
 
                                                         if (col.id === 'quotationStatus') {
-                                                            const displayQuotationStatus = getDisplayQuotationStatus(row.status, row.quotationStatus);
+                                                            const quotationStatus = row.quotationStatus ?? '';
+                                                            const isQuotationFlow = Boolean(row.isQuotationFlow);
                                                             return (
                                                                 <TableCell key={col.id} align="left">
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                        {displayQuotationStatus ? (
-                                                                            <StatusBadge status={displayQuotationStatus} />
+                                                                        {isQuotationFlow && quotationStatus ? (
+                                                                            <StatusBadge status={quotationStatus} />
                                                                         ) : (
                                                                             <Box component="span" sx={{ color: '#d1d5db' }}>-</Box>
                                                                         )}
@@ -715,16 +694,15 @@ export default function ViewReleaseRequestList() {
                                                         if (DATE_COLUMN_IDS.includes(col.id)) {
                                                             const val = row[col.id];
                                                             if (col.id === 'createdAt') {
-                                                                const lines = formatDateTimeLines(val);
                                                                 return (
                                                                     <TableCell key={col.id} align="left" sx={{ color: '#6b7280', whiteSpace: 'pre-line' }}>
-                                                                        {lines ? `${lines.datePart}\n${lines.timePart}` : '-'}
+                                                                        {formatDateTimeNewlineUtc(val)}
                                                                     </TableCell>
                                                                 );
                                                             }
                                                             return (
                                                                 <TableCell key={col.id} align="left" sx={{ color: '#6b7280' }}>
-                                                                    {val ? formatDateOnly(val) : '-'}
+                                                                    {val ? formatDateOnlyUtc(val) : '-'}
                                                                 </TableCell>
                                                             );
                                                         }
