@@ -41,6 +41,8 @@ namespace Warehouse.DataAcces.Service
                 Username = user.Username,
                 FullName = user.FullName,
                 Phone = user.Phone,
+                Gender = user.Gender,
+                Dob = user.Dob,
                 IsActive = user.IsActive,
                 RoleName = user.UserRoleUser?.Role?.RoleName,
                 LastLoginAt = user.LastLoginAt,

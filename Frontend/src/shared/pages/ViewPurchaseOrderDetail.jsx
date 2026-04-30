@@ -515,7 +515,8 @@ const ViewPurchaseOrderDetail = () => {
         ? orderData.totalOrderedQty
         : orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
 
-    const isPending = orderData.approvalStatus === 'PENDING';
+    const normalizedApprovalStatus = String(orderData.approvalStatus || '').trim().toUpperCase();
+    const isPending = normalizedApprovalStatus.startsWith('PENDING');
     const canApprove = (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR') && isPending;
 
     const isPendingGrnCheckedForCurrentPO =
@@ -547,6 +548,11 @@ const ViewPurchaseOrderDetail = () => {
     };
 
     const handleConfirmAction = async () => {
+        if (!canApprove) {
+            showToast('Chỉ được duyệt/từ chối khi đơn ở trạng thái chờ duyệt.', 'warning');
+            return;
+        }
+
         if (confirmDialogType === 'reject' && !rejectionReason.trim()) {
             showToast('Vui lòng nhập lý do từ chối.', 'warning');
             return;
