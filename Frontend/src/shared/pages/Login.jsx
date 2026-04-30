@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
     Box,
@@ -36,6 +36,25 @@ const Login = () => {
     const location = useLocation();
     const { toast, showToast, clearToast } = useToast();
     const { login } = useAuth();
+    const redirectedRef = useRef(false);
+
+    useEffect(() => {
+        if (redirectedRef.current) return;
+        if (!authService.isFullyAuthenticated()) return;
+
+        const userInfo = authService.getUser();
+        const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+
+        if (!isPermissionRoleValid(permissionRole)) {
+            authService.logout();
+            showToast(ROLE_ERROR_MESSAGE, 'error');
+            return;
+        }
+
+        redirectedRef.current = true;
+        showToast('Bạn đã đăng nhập trong hệ thống.', 'info');
+        navigate(getDefaultRouteByRole(permissionRole), { replace: true });
+    }, [navigate, showToast]);
 
     useEffect(() => {
         if (location.state?.roleError) {
