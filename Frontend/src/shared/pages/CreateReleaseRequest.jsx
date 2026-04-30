@@ -28,6 +28,7 @@ import {
     getReleaseRequestDetail,
     updateReleaseRequest,
 } from '../lib/releaseRequestService';
+import { formatLocalDateOnly } from '../lib/dateUtils';
 import '../styles/CreateSupplier.css';
 const MAX_NOTE = 250;
 const MAX_LINE_NOTE = 500;
@@ -121,7 +122,7 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
     const [form, setForm] = useState({
         warehouseId: '',
         warehouseName: '',
-        expectedDate: new Date().toISOString().slice(0, 10),
+        expectedDate: formatLocalDateOnly(),
         purpose: '',
         note: '',
         isPartialDeliveryAllowed: true,

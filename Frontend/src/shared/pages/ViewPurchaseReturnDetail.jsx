@@ -71,66 +71,6 @@ const PAYMENT_STATUS_CONFIG = {
     [PAYMENT_STATUS.RECEIVED]: { label: 'Đã hoàn tiền', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> },
 };
 
-const MOCK_GRN_SOURCE = {
-    'GRN-2025-001': [
-        { grnLineId: 1, productId: 1, sku: 'PEN-001', productName: 'Bút bi Thiên Long TL-057', uom: 'Cây', receivedQty: 50, unitPrice: 3500 },
-        { grnLineId: 2, productId: 2, sku: 'NOTE-001', productName: 'Vở note 5 chấm A5', uom: 'Quyển', receivedQty: 20, unitPrice: 22000 },
-        { grnLineId: 3, productId: 3, sku: 'PAPER-001', productName: 'Giấy A4 Double A 80gsm', uom: 'Ram', receivedQty: 10, unitPrice: 62000 },
-        { grnLineId: 4, productId: 4, sku: 'MARK-001', productName: 'Bút lông bảng Thiên Long', uom: 'Cây', receivedQty: 12, unitPrice: 15000 },
-    ],
-    attachments: [],
-};
-
-const MOCK_DETAIL = {
-    purchaseReturnId: 1,
-    returnCode: 'PR-2025-001',
-    relatedGRNId: 1,
-    relatedGRNCode: 'GRN-2025-001',
-    grnReceiptDate: '2025-01-10',
-
-    supplierId: 101,
-    supplierCode: 'NCC-ABC',
-    supplierName: 'Công ty TNHH Vật tư ABC',
-    supplierPhone: '024.12345678',
-    supplierEmail: 'abc@vattu.com',
-    supplierTaxCode: '0101234567',
-    supplierAddressProvince: 'Hà Nội',
-    supplierAddressDistrict: null,
-    supplierAddressWard: null,
-    supplierAddressStreet: null,
-
-    warehouseId: 11,
-    warehouseName: 'Kho Hà Nội',
-
-    // --- Two independent confirmation flags ---
-    // returnConfirmed: false = Chờ trả hàng; true = Hoàn một phần / Hoàn toàn bộ
-    returnConfirmed: false,
-    // paymentConfirmed: false = Chờ hoàn tiền; true = Đã hoàn tiền
-    paymentConfirmed: false,
-
-    createdById: 1,
-    createdByName: 'Nguyễn Văn A',
-    createdAt: '2025-01-14T08:00:00',
-    approvedBy: null,
-    approvedAt: null,
-
-    returnDate: '2025-01-15',
-    reason: 'Hàng có lỗi in mờ và sai màu mực.',
-
-    feeAmount: 10000,
-    deductionReason: 'Trừ phí vận chuyển chiều trả.',
-
-    refundReceiveStatus: 'later',
-    refundMethod: 'cash',
-    refundRecordedDate: null,
-
-    lines: [
-        { grnLineId: 1, productId: 1, sku: 'PEN-001', productName: 'Bút bi Thiên Long TL-057', uom: 'Cây', receivedQty: 50, returnQty: 5, unitPrice: 3500, totalPrice: 17500 },
-        { grnLineId: 2, productId: 2, sku: 'NOTE-001', productName: 'Vở note 5 chấm A5', uom: 'Quyển', receivedQty: 20, returnQty: 2, unitPrice: 22000, totalPrice: 44000 },
-        { grnLineId: 3, productId: 3, sku: 'PAPER-001', productName: 'Giấy A4 Double A 80gsm', uom: 'Ram', receivedQty: 10, returnQty: 1, unitPrice: 62000, totalPrice: 62000 },
-    ],
-};
-
 const toNumber = (val) => {
     const n = Number(val);
     return Number.isNaN(n) ? 0 : n;
@@ -433,15 +373,15 @@ export default function ViewPurchaseReturnDetail() {
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
-    const [detailData, setDetailData] = useState(MOCK_DETAIL);
+    const [detailData, setDetailData] = useState(() => mapApiToLegacyState({ lines: [] }));
     const [isEditing, setIsEditing] = useState(false);
     const [isEditingPayment, setIsEditingPayment] = useState(false); // edit riêng phần hoàn tiền
-    const [draft, setDraft] = useState(() => getInitialDraftFromData(MOCK_DETAIL));
+    const [draft, setDraft] = useState(() => getInitialDraftFromData(mapApiToLegacyState({ lines: [] })));
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
-    const [grnSource, setGrnSource] = useState(MOCK_GRN_SOURCE);
+    const [grnSource, setGrnSource] = useState({});
 
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
@@ -1117,12 +1057,78 @@ export default function ViewPurchaseReturnDetail() {
                         </div>
                     </div>
 
-                    {/* PHẦN TRÊN */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '24px', alignItems: 'start' }}>
-                        {/* Cột trái: Chi tiết vật tư trả */}
-                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #e2e8f0' }}>
+                                    <h2 className="section-title" style={{ marginBottom: 6 }}>1. Nhà cung cấp</h2>
+                                    <p style={{ margin: '0 0 10px', fontSize: 12, color: '#64748b' }}>
+                                        Kiểm tra thông tin nhà cung cấp của phiếu nhập tham chiếu.
+                                    </p>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Building2 size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Tên NCC: </span>
+                                            <span>{displaySupplierField(detailData.supplierName)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <ReceiptText size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Mã NCC: </span>
+                                            <span>{displaySupplierField(detailData.supplierCode)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Phone size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>SĐT: </span>
+                                            <span>{displaySupplierField(detailData.supplierPhone)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Mail size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Email: </span>
+                                            <span>{displaySupplierField(detailData.supplierEmail)}</span>
+                                        </div>
+                                        <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <ReceiptText size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
+                                            <span>{displaySupplierField(detailData.supplierTaxCode)}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                                        {[
+                                            { label: 'Tỉnh/Thành phố', value: detailData.supplierAddressProvince },
+                                            { label: 'Quận/Huyện', value: detailData.supplierAddressDistrict },
+                                            { label: 'Phường/Xã', value: detailData.supplierAddressWard },
+                                            { label: 'Địa chỉ cụ thể', value: detailData.supplierAddressStreet },
+                                        ].map(({ label, value }) => (
+                                            <div key={label}>
+                                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                                                <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
+                                                    {displaySupplierField(value)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
+                                        <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
+                                        {[
+                                            detailData.supplierAddressStreet,
+                                            detailData.supplierAddressWard,
+                                            detailData.supplierAddressDistrict,
+                                            detailData.supplierAddressProvince,
+                                        ]
+                                            .map((p) => (p != null && String(p).trim() !== '' ? String(p).trim() : null))
+                                            .filter(Boolean)
+                                            .join(', ') || '—'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
-                                <h2 className="section-title">Chi tiết vật tư trả</h2>
+                                <h2 className="section-title">2. Chi tiết vật tư trả</h2>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                                     {isEditing && !isReturnLocked && (
                                         <>
@@ -1379,7 +1385,100 @@ export default function ViewPurchaseReturnDetail() {
                             )}
                         </div>
 
-                        {/* Cột phải: Thông tin chung + Hoàn tiền */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Tổng hợp phiếu trả</h2>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
+                                        </div>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div className="form-field">
+                                            <label className="form-label">Phí xử lý trả hàng</label>
+                                            <div className="input-wrapper">
+                                                {isEditing ? (
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        name="feeAmount"
+                                                        value={draft.feeAmount}
+                                                        onChange={handleDraftChange}
+                                                        className={`form-input ${errors.feeAmount ? 'error' : ''}`}
+                                                        style={{ paddingLeft: '16px', paddingRight: '34px' }}
+                                                        placeholder="Nhập phí xử lý"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        readOnly
+                                                        value={formatCurrency(detailData.feeAmount)}
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
+                                                    />
+                                                )}
+                                                {isEditing && (
+                                                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
+                                                        ₫
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
+                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
+                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
+                                            )}
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="form-label">Lý do giảm trừ</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    name="deductionReason"
+                                                    value={isEditing ? draft.deductionReason : (detailData.deductionReason || '—')}
+                                                    onChange={isEditing ? handleDraftChange : undefined}
+                                                    readOnly={!isEditing}
+                                                    className="form-input"
+                                                    style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5', paddingLeft: '16px' }}
+                                                    placeholder={isEditing ? 'Nhập lý do giảm trừ' : undefined}
+                                                />
+                                            </div>
+                                            {isEditing && (
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
+                                                    {draft.deductionReason.length}/{MAX_NOTE_LENGTH}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
+                                            <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí xử lý</span>
+                                            <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
+                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
@@ -1613,77 +1712,7 @@ export default function ViewPurchaseReturnDetail() {
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    </div>
-
-                    {/* PHẦN DƯỚI */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', alignItems: 'stretch', marginTop: '4px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '24px', alignItems: 'start' }}>
-                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Nhà cung cấp</h2>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Building2 size={14} color="#6b7280" />
-                                            <span style={{ fontWeight: 600 }}>Tên NCC: </span>
-                                            <span>{displaySupplierField(detailData.supplierName)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <ReceiptText size={14} color="#6b7280" />
-                                            <span style={{ fontWeight: 600 }}>Mã NCC: </span>
-                                            <span>{displaySupplierField(detailData.supplierCode)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Phone size={14} color="#6b7280" />
-                                            <span style={{ fontWeight: 600 }}>SĐT: </span>
-                                            <span>{displaySupplierField(detailData.supplierPhone)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Mail size={14} color="#6b7280" />
-                                            <span style={{ fontWeight: 600 }}>Email: </span>
-                                            <span>{displaySupplierField(detailData.supplierEmail)}</span>
-                                        </div>
-                                        <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <ReceiptText size={14} color="#6b7280" />
-                                            <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
-                                            <span>{displaySupplierField(detailData.supplierTaxCode)}</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                                        {[
-                                            { label: 'Tỉnh/Thành phố', value: detailData.supplierAddressProvince },
-                                            { label: 'Quận/Huyện', value: detailData.supplierAddressDistrict },
-                                            { label: 'Phường/Xã', value: detailData.supplierAddressWard },
-                                            { label: 'Địa chỉ cụ thể', value: detailData.supplierAddressStreet },
-                                        ].map(({ label, value }) => (
-                                            <div key={label}>
-                                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
-                                                <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
-                                                    {displaySupplierField(value)}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
-                                        <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
-                                        {[
-                                            detailData.supplierAddressStreet,
-                                            detailData.supplierAddressWard,
-                                            detailData.supplierAddressDistrict,
-                                            detailData.supplierAddressProvince,
-                                        ]
-                                            .map((p) => (p != null && String(p).trim() !== '' ? String(p).trim() : null))
-                                            .filter(Boolean)
-                                            .join(', ') || '—'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
+                            <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú trả hàng</h2>
                                 </div>
@@ -1705,99 +1734,6 @@ export default function ViewPurchaseReturnDetail() {
                                             {draft.reason.length}/{MAX_REASON_LENGTH} ký tự
                                         </div>
                                     )}
-                                </div>
-                            </div>
-
-                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng hợp phiếu trả</h2>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
-                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
-                                        </div>
-                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
-                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div className="form-field">
-                                            <label className="form-label">Phí xử lý trả hàng</label>
-                                            <div className="input-wrapper">
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        inputMode="numeric"
-                                                        name="feeAmount"
-                                                        value={draft.feeAmount}
-                                                        onChange={handleDraftChange}
-                                                        className={`form-input ${errors.feeAmount ? 'error' : ''}`}
-                                                        style={{ paddingLeft: '16px', paddingRight: '34px' }}
-                                                        placeholder="Nhập phí xử lý"
-                                                    />
-                                                ) : (
-                                                    <input
-                                                        type="text"
-                                                        readOnly
-                                                        value={formatCurrency(detailData.feeAmount)}
-                                                        className="form-input"
-                                                        style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
-                                                    />
-                                                )}
-                                                {isEditing && (
-                                                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
-                                                        ₫
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
-                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
-                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
-                                            )}
-                                        </div>
-
-                                        <div className="form-field">
-                                            <label className="form-label">Lý do giảm trừ</label>
-                                            <div className="input-wrapper">
-                                                <input
-                                                    type="text"
-                                                    name="deductionReason"
-                                                    value={isEditing ? draft.deductionReason : (detailData.deductionReason || '—')}
-                                                    onChange={isEditing ? handleDraftChange : undefined}
-                                                    readOnly={!isEditing}
-                                                    className="form-input"
-                                                    style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5', paddingLeft: '16px' }}
-                                                    placeholder={isEditing ? 'Nhập lý do giảm trừ' : undefined}
-                                                />
-                                            </div>
-                                            {isEditing && (
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: draft.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
-                                                    {draft.deductionReason.length}/{MAX_NOTE_LENGTH}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
-                                            <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
-                                            <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
-                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí xử lý</span>
-                                            <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
-                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
-                                    </div>
                                 </div>
                             </div>
 

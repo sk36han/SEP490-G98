@@ -75,13 +75,21 @@ const toAbsoluteFileUrl = (url) => {
 
 const parseTime = (value) => {
     if (!value) return 0;
-    const ts = new Date(value).getTime();
+    const raw = String(value);
+    const hasTimePart = /T\d{2}:\d{2}/.test(raw);
+    const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(raw);
+    const normalized = hasTimePart && !hasTimezone ? `${raw}Z` : raw;
+    const ts = new Date(normalized).getTime();
     return Number.isNaN(ts) ? 0 : ts;
 };
 
 const formatDateTime = (value) => {
     if (!value) return 'Đang cập nhật';
-    const d = new Date(value);
+    const raw = String(value);
+    const hasTimePart = /T\d{2}:\d{2}/.test(raw);
+    const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(raw);
+    const normalized = hasTimePart && !hasTimezone ? `${raw}Z` : raw;
+    const d = new Date(normalized);
     if (Number.isNaN(d.getTime())) return String(value);
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };

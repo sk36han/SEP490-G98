@@ -854,7 +854,10 @@ const CreateGoodReceiptNote = () => {
             showToast(`Tạo phiếu nhập kho thành công${result?.grnCode ? ` (${result.grnCode})` : ''}.`, 'success');
             const grnId = result?.grnId ?? result?.GrnId;
             setTimeout(
-                () => navigate(grnId ? `/good-receipt-notes/${grnId}` : '/good-receipt-notes'),
+                () =>
+                    navigate(grnId ? `/good-receipt-notes/${grnId}` : '/good-receipt-notes', {
+                        state: grnId ? { fromCreate: true } : undefined,
+                    }),
                 1500
             );
         } catch (error) {

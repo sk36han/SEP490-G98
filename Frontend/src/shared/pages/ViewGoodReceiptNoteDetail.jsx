@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { formatDateTime, formatDateOnly, formatTimeOnly } from '../lib/dateUtils';
 import {
     Button,
@@ -296,6 +296,7 @@ const SummaryMetric = ({ label, value }) => (
 
 const ViewGoodReceiptNoteDetail = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams();
     const { showToast } = useToastContext();
 
@@ -406,7 +407,13 @@ const ViewGoodReceiptNoteDetail = () => {
         fetchGRNDetail();
     }, [id, showToast]);
 
-    const handleBack = () => navigate(-1);
+    const handleBack = () => {
+        if (location.state?.fromCreate) {
+            navigate('/good-receipt-notes');
+            return;
+        }
+        navigate(-1);
+    };
 
     const openConfirmDialog = (type) => {
         setConfirmDialogType(type);

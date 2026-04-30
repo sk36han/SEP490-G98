@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
     getGoodsDeliveryNoteDetail,
     issueGoodsDeliveryNote,
@@ -227,6 +227,7 @@ const buildEmbeddedHistory = ({ data, approvals, rrData }) => {
 export default function ViewGoodDeliveryNoteDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { showToast } = useToastContext();
 
     const [gdn, setGdn] = useState(null);
@@ -395,12 +396,20 @@ export default function ViewGoodDeliveryNoteDetail() {
         confirm: 'Xác nhận hoàn thành phiếu',
     };
 
+    const handleBack = () => {
+        if (location.state?.fromCreate) {
+            navigate('/good-delivery-notes');
+            return;
+        }
+        navigate(-1);
+    };
+
     return (
         <div className="create-supplier-page gdn-detail-page">
             {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
-                    <button type="button" onClick={() => navigate(-1)} className="back-button">
+                    <button type="button" onClick={handleBack} className="back-button">
                         <ArrowLeft size={20} />
                         <span>Quay lại</span>
                     </button>
