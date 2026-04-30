@@ -52,7 +52,7 @@ const authService = {
 
             if (requiresOtp) {
                 if (rawUserId == null) {
-                    throw new Error('Phien dang nhap OTP khong hop le. Vui long thu lai.');
+                    throw new Error('Phiên đăng nhập OTP không hợp lệ. Vui lòng thử lại.');
                 }
                 localStorage.setItem('pendingUserId', String(rawUserId));
                 localStorage.setItem('pendingEmail', identifier);
@@ -60,12 +60,12 @@ const authService = {
                 return {
                     requiresOtp: true,
                     userId: rawUserId,
-                    message: message || 'Vui long kiem tra email de nhap ma OTP',
+                    message: message || 'Vui lòng kiểm tra email để nhập mã OTP.',
                 };
             }
 
             if (!accessToken) {
-                throw new Error(message || 'Dang nhap that bai: khong nhan duoc token.');
+                throw new Error(message || 'Đăng nhập thất bại: không nhận được token.');
             }
 
             localStorage.setItem('token', accessToken);
@@ -124,12 +124,12 @@ const authService = {
                 );
             }
             if (status === 500) {
-                throw new Error(detail || 'Loi dang nhap.');
+                throw new Error(detail || 'Lỗi đăng nhập.');
             } else {
                 throw new Error(
                     detail && !isRawHttpStatusMessage(detail)
                         ? detail
-                        : 'Loi dang nhap.'
+                        : 'Lỗi đăng nhập.'
                 );
             }
         }
@@ -139,7 +139,7 @@ const authService = {
         const userId = localStorage.getItem('pendingUserId');
         
         if (!userId) {
-            throw new Error('Session expired. Vui long dang nhap lai.');
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
         }
 
         try {
@@ -155,7 +155,7 @@ const authService = {
             const user = verifyData.user ?? verifyData.User;
 
             if (!accessToken) {
-                throw new Error('Xac thuc thanh cong nhung khong nhan duoc token. Vui long dang nhap lai.');
+                throw new Error('Xác thực thành công nhưng không nhận được token. Vui lòng đăng nhập lại.');
             }
 
             localStorage.setItem('token', accessToken);
@@ -202,11 +202,11 @@ const authService = {
                 throw new Error('Không kết nối được API. Hãy chạy backend và thử lại.');
             }
             if (error.response?.status === 400) {
-                throw new Error(error.response?.data?.message || 'Ma OTP khong hop le.');
+                throw new Error(error.response?.data?.message || 'Mã OTP không hợp lệ.');
             } else if (error.response?.status === 401) {
                 throw new Error('Mã OTP không đúng.');
             } else {
-                throw new Error(error.response?.data?.message || 'Xac thuc OTP that bai.');
+                throw new Error(error.response?.data?.message || 'Xác thực OTP thất bại.');
             }
         }
     },
@@ -314,7 +314,7 @@ const authService = {
             const response = await apiClient.post('/Auth/forgot-password', { email });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Khong the gui email.');
+            throw new Error(error.response?.data?.message || 'Không thể gửi email.');
         }
     },
 
@@ -336,7 +336,7 @@ const authService = {
             const response = await apiClient.get('/User/profile');
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Khong tai duoc thong tin.');
+            throw new Error(error.response?.data?.message || 'Không tải được thông tin.');
         }
     },
 
@@ -359,7 +359,7 @@ const authService = {
             }
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Khong cap nhat duoc.');
+            throw new Error(error.response?.data?.message || 'Không cập nhật được.');
         }
     },
 

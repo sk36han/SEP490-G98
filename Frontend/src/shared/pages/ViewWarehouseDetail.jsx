@@ -297,15 +297,12 @@ const ViewWarehouseDetail = () => {
         });
     }, [warehouse, stockFilter, lineSearchKeyword]);
 
-    /** Các lô thuộc đúng kho đang xem (ưu tiên dữ liệu backend, fallback mock) */
+    /** Các lô thuộc đúng kho đang xem (chỉ dùng dữ liệu backend) */
     const lotsForWarehouse = useMemo(() => {
         if (!warehouse?.warehouseId) return [];
         const wid = Number(warehouse.warehouseId);
         const backendLots = Array.isArray(warehouse.lots) ? warehouse.lots : [];
-        if (backendLots.length > 0) {
-            return backendLots.filter((l) => Number(l.warehouseId) === wid);
-        }
-        return MOCK_INVENTORY_LOTS.filter((l) => l.warehouseId === wid);
+        return backendLots.filter((l) => Number(l.warehouseId) === wid);
     }, [warehouse]);
 
     const lotsByItemId = useMemo(() => {

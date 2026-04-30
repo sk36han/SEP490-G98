@@ -202,6 +202,16 @@ const normalizeText = (value) =>
     value ? removeDiacritics(String(value).toLowerCase()) : '';
 
 const upper = (value) => String(value ?? '').toUpperCase();
+const normalizeApprovalStatusFilter = (value) => {
+    const normalized = upper(value);
+    if (!normalized) return undefined;
+    if (normalized === 'PENDING_ACC' || normalized === 'PENDING_DIR') return 'PENDING_ACC';
+    if (normalized === 'PENDING') return 'Pending';
+    if (normalized === 'APPROVED') return 'Approved';
+    if (normalized === 'REJECTED') return 'Rejected';
+    if (normalized === 'DRAFT') return 'Draft';
+    return undefined;
+};
 
 const mapPOItem = (item) => ({
     purchaseOrderId: item.purchaseOrderId ?? item.PurchaseOrderId ?? 0,
@@ -246,7 +256,16 @@ export default function ViewPurchaseOrderList() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState(() => {
         const saved = localStorage.getItem(LS_FILTER);
-        return saved ? JSON.parse(saved) : {};
+        if (!saved) return {};
+        try {
+            const parsed = JSON.parse(saved);
+            return {
+                ...parsed,
+                approvalStatus: normalizeApprovalStatusFilter(parsed?.approvalStatus),
+            };
+        } catch {
+            return {};
+        }
     });
 
     const activeFilterCount = useMemo(
@@ -332,7 +351,7 @@ export default function ViewPurchaseOrderList() {
             setFilterValues((prev) => {
                 const next = {
                     ...prev,
-                    approvalStatus: status || undefined,
+                    approvalStatus: normalizeApprovalStatusFilter(status),
                 };
                 localStorage.setItem(LS_FILTER, JSON.stringify(next));
                 return next;
@@ -566,6 +585,8 @@ export default function ViewPurchaseOrderList() {
                     status === 'APPROVED' ||
                     status === 'REJECTED' ||
                     status === 'PENDING' ||
+                    status === 'PENDING_ACC' ||
+                    status === 'PENDING_DIR' ||
                     isOwnDraft
                 );
             }
@@ -645,8 +666,12 @@ export default function ViewPurchaseOrderList() {
     const end = Math.min((safePage + 1) * pageSize, totalCount);
 
     const handleFilterApply = (values) => {
-        setFilterValues(values);
-        localStorage.setItem(LS_FILTER, JSON.stringify(values));
+        const normalizedValues = {
+            ...values,
+            approvalStatus: normalizeApprovalStatusFilter(values?.approvalStatus),
+        };
+        setFilterValues(normalizedValues);
+        localStorage.setItem(LS_FILTER, JSON.stringify(normalizedValues));
         setPage(0);
     };
 
@@ -807,7 +832,7 @@ export default function ViewPurchaseOrderList() {
                         label="Chờ duyệt"
                         value={summarySource
                             .filter((r) =>
-                                ['PENDING'].includes(
+                                ['PENDING', 'PENDING_ACC', 'PENDING_DIR'].includes(
                                     upper(r.approvalStatus)
                                 )
                             )
