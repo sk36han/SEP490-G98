@@ -80,7 +80,6 @@ import ViewReceiverDetail from '../shared/pages/ViewReceiverDetail';
 import CreateReceiver from '../shared/pages/CreateReceiver';
 import ViewNotificationsLive from '../shared/pages/ViewNotificationsLive';
 import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
-import SalesRevenueTarget from '../shared/pages/mockup/SalesRevenueTarget';
 import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
 import ViewSalesReportDetail from '../shared/pages/mockup/ViewSalesReportDetail';
 import { ROLE, ROLE_GROUPS } from '../shared/permissions/roleUtils';
@@ -165,9 +164,6 @@ const AppRoutes = () => (
 
         {/* ── Mockup: Inventory Alert Setup ── */}
         <Route path="/mockup/inventory-alert" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><InventoryAlertSetup /></MainLayout></ProtectedRoute>} />
-
-        {/* ── Mockup: Sales Revenue Target (Finance Alert) ── */}
-        <Route path="/mockup/sales-target" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><SalesRevenueTarget /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Báo cáo doanh số ── */}
         <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
