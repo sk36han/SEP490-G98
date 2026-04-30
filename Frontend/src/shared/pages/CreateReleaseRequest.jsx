@@ -612,7 +612,7 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
         };
     };
 
-    const handleSaveDraft = async (e) => {
+    const handleSaveDraft = async (e, forceQuotationFlow = false) => {
         e?.preventDefault();
         if (baseValidationError) {
             showToast(baseValidationError, 'error');
@@ -620,9 +620,10 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
         }
         setSavingDraft(true);
         try {
+            const nextIsQuotationFlow = forceQuotationFlow || Boolean(form.isQuotationFlow);
             const res = isEditMode
-                ? await updateReleaseRequest(editId, { ...buildPayload(), status: 'DRAFT' })
-                : await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
+                ? await updateReleaseRequest(editId, { ...buildPayload(), isQuotationFlow: nextIsQuotationFlow, status: 'DRAFT' })
+                : await createReleaseRequest({ ...buildPayload(), isQuotationFlow: nextIsQuotationFlow, status: 'DRAFT' });
             const rrId = Number(editId) || res?.releaseRequestId || res?.ReleaseRequestId;
             let uploadWarning = '';
             if (rrId && (quotationFile || contractFile || appendixFile)) {
@@ -637,20 +638,25 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                     uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
                 }
             }
+            const actionSuccessLabel = forceQuotationFlow
+                ? 'Tạo báo giá'
+                : (isEditMode ? 'Cập nhật nháp' : 'Lưu nháp');
             showToast(
                 uploadWarning
-                    ? `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công, nhưng upload file lỗi: ${uploadWarning}`
-                    : `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công!`,
+                    ? `${actionSuccessLabel} thành công, nhưng upload file lỗi: ${uploadWarning}`
+                    : `${actionSuccessLabel} thành công!`,
                 uploadWarning ? 'warning' : 'success'
             );
             const nextPath = (() => {
-                if (isEditMode) return `/release-request/${editId}`;
-                if (form.isQuotationFlow && rrId) return `/release-request/${rrId}`;
+                if (isEditMode) {
+                    return nextIsQuotationFlow ? `/release-request/${editId}?mode=quotation` : `/release-request/${editId}`;
+                }
+                if (nextIsQuotationFlow && rrId) return `/release-request/${rrId}?mode=quotation`;
                 return '/release-request';
             })();
             setTimeout(() => navigate(nextPath), 1200);
         } catch (err) {
-            const msg = err?.message || err?.response?.data?.message || 'Lưu nháp thất bại.';
+            const msg = err?.message || err?.response?.data?.message || (forceQuotationFlow ? 'Tạo báo giá thất bại.' : 'Lưu nháp thất bại.');
             showToast(msg, 'error');
         } finally {
             setSavingDraft(false);
@@ -715,7 +721,14 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                     : `${isEditMode ? 'Cập nhật RR' : 'Tạo yêu cầu xuất hàng'} thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}!`,
                 uploadWarning ? 'warning' : 'success'
             );
-            setTimeout(() => navigate(isEditMode ? `/release-request/${editId}` : '/release-request'), 1200);
+            const nextPath = (() => {
+                if (isEditMode) {
+                    return form.isQuotationFlow ? `/release-request/${editId}?mode=quotation` : `/release-request/${editId}`;
+                }
+                if (form.isQuotationFlow && rrId) return `/release-request/${rrId}?mode=quotation`;
+                return '/release-request';
+            })();
+            setTimeout(() => navigate(nextPath), 1200);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Tạo yêu cầu xuất hàng thất bại.';
             showToast(msg, 'error');
@@ -746,8 +759,14 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                         <X size={15} />Hủy
                     </button>
                     {!form.isQuotationFlow && (
-                        <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
-                            {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={!canSaveDraft || savingDraft || submitting}
+                            onClick={(e) => handleSaveDraft(e, true)}
+                            style={{ minWidth: 140 }}
+                        >
+                            {savingDraft ? <><Loader size={15} className="spinner" />Đang tạo...</> : <><Mail size={15} />Tạo báo giá</>}
                         </button>
                     )}
                     <button
@@ -1118,56 +1137,18 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                                         <input type="text" value={form.purpose} onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))} className="form-input" placeholder="Nhập lý do xuất hàng" />
                                     </div>
                                     <div className="form-field" style={{ margin: 0 }}>
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(form.isPartialDeliveryAllowed)}
-                                                onChange={(e) => setForm((prev) => ({ ...prev, isPartialDeliveryAllowed: e.target.checked }))}
-                                                style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: '#2196F3' }}
-                                            />
-                                            Cho phép xuất kho từng phần (không bắt buộc đủ tồn một lần khi gửi duyệt)
-                                        </label>
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                                            <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
-                                                Luồng báo giá
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className={form.isQuotationFlow ? 'btn btn-primary' : 'btn btn-secondary'}
-                                                onClick={() => setForm((prev) => ({ ...prev, isQuotationFlow: !prev.isQuotationFlow }))}
-                                                title="Bật/tắt luồng báo giá"
-                                            >
-                                                {form.isQuotationFlow ? 'Đang bật luồng báo giá' : 'Tạo báo giá'}
-                                            </button>
-                                        </div>
                                         <div
                                             style={{
-                                                marginTop: 10,
                                                 padding: '10px 12px',
                                                 borderRadius: 8,
-                                                background: form.isQuotationFlow ? 'rgba(37, 99, 235, 0.08)' : '#f8fafc',
-                                                border: form.isQuotationFlow
-                                                    ? '1px solid rgba(37, 99, 235, 0.25)'
-                                                    : '1px solid #e2e8f0',
+                                                background: '#f8fafc',
+                                                border: '1px solid #e2e8f0',
                                                 fontSize: 13,
-                                                color: form.isQuotationFlow ? '#1e3a8a' : '#64748b',
+                                                color: '#64748b',
                                                 lineHeight: 1.55,
                                             }}
                                         >
-                                            {form.isQuotationFlow ? (
-                                                <>
-                                                    Luồng báo giá đã bật.
-                                                    <br />
-                                                    Khi bấm <strong>Tạo & Gửi duyệt</strong>, bạn vẫn phải nhập đầy đủ thông tin bắt buộc của Yêu cầu báo giá
-                                                    (công ty, người nhận, kho, lý do, vật tư và tệp báo giá/hợp đồng). Hệ thống sẽ tự chốt báo giá khi gửi duyệt.
-                                                </>
-                                            ) : (
-                                                <>
-                                                    Bạn có thể bấm <strong>Tạo báo giá</strong> để chuyển sang luồng báo giá.
-                                                </>
-                                            )}
+                                            Xuất kho từng phần được hệ thống tự quản lý theo tồn kho thực tế.
                                         </div>
                                     </div>
                                 </div>

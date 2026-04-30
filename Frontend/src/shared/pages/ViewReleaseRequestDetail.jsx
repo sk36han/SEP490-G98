@@ -1,6 +1,6 @@
 // View Release Request Detail
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft, FileText, Package, MapPin, User,
     Phone, Mail, Briefcase, Calendar, Send, Edit, Loader, ImageIcon, Upload,
@@ -296,6 +296,7 @@ const InfoRow = ({ icon: Icon, label, value, fullWidth }) => (
 export default function ViewReleaseRequestDetail() {
     const navigate = useNavigate();
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
     const { toast, showToast, clearToast } = useToast();
 
     const [data, setData] = useState(null);
@@ -418,12 +419,12 @@ export default function ViewReleaseRequestDetail() {
     const canSubmit = data?.status === 'DRAFT';
     const canEdit = data?.status === 'DRAFT';
     const canQuotationActions = data?.status === 'DRAFT' && data?.isQuotationFlow && data?.quotationStatus !== 'CONFIRMED';
-    const canEnableQuotationFlow = data?.status === 'DRAFT' && !data?.isQuotationFlow;
     const shouldShowAmountOnly = data?.status === 'DRAFT';
 
     // Kế toán có thể duyệt / từ chối yêu cầu đang chờ duyệt
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    const canEnableQuotationFlow = data?.status === 'DRAFT' && !data?.isQuotationFlow && permissionRole === 'ACCOUNTANTS';
     /** TK (Thủ kho): không hiển thị tệp đính kèm, người nhận (và thông tin nhạy cảm liên quan). */
     const hideSensitiveForWarehouseKeeper = isWarehouseKeeper(permissionRole);
     const canApprove = data?.status === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS';
@@ -439,6 +440,12 @@ export default function ViewReleaseRequestDetail() {
             setActiveTab('amount');
         }
     }, [shouldShowAmountOnly, activeTab]);
+
+    useEffect(() => {
+        if (searchParams.get('mode') === 'quotation' && activeTab !== 'amount') {
+            setActiveTab('amount');
+        }
+    }, [searchParams, activeTab]);
 
     const handleCreateGDN = () => {
         navigate(`/good-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);
@@ -594,6 +601,10 @@ Trân trọng,`;
 
     const handleEnableQuotationFlow = async () => {
         if (!data?.releaseRequestId) return;
+        if (permissionRole !== 'ACCOUNTANTS') {
+            showToast('Bạn không có quyền bật luồng báo giá.', 'warning');
+            return;
+        }
         setEnablingQuotationFlow(true);
         try {
             await updateReleaseRequest(data.releaseRequestId, { isQuotationFlow: true });
