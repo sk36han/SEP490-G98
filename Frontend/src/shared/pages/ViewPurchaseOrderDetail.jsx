@@ -516,20 +516,20 @@ const ViewPurchaseOrderDetail = () => {
         : orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
 
     const isPending = orderData.approvalStatus === 'PENDING_ACC' || orderData.approvalStatus === 'PENDING';
-    const canApprove = permissionRole === 'ACCOUNTANTS' && isPending;
+    const canApprove = (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR') && isPending;
 
     const isPendingGrnCheckedForCurrentPO =
         Number(hasPendingGRNState.purchaseOrderId) === Number(orderData.purchaseOrderId);
 
     const showPendingGRNChip =
-        permissionRole === 'WAREHOUSE_KEEPER' &&
+        (permissionRole === 'WAREHOUSE_KEEPER' || permissionRole === 'DIRECTOR') &&
         orderData.approvalStatus === 'APPROVED' &&
         isPendingGrnCheckedForCurrentPO &&
         !hasPendingGRNState.checking &&
         hasPendingGRNState.hasPending;
 
     const canCreateGRN =
-        permissionRole === 'WAREHOUSE_KEEPER' &&
+        (permissionRole === 'WAREHOUSE_KEEPER' || permissionRole === 'DIRECTOR') &&
         orderData.approvalStatus === 'APPROVED' &&
         isPendingGrnCheckedForCurrentPO &&
         !hasPendingGRNState.checking &&
@@ -782,12 +782,14 @@ const ViewPurchaseOrderDetail = () => {
                             </div>
                             <div className="view-po-detail-status-row">
                                 <StatusBadge status={orderData.approvalStatus} />
-                                {orderData.lifecycleStatus != null && orderData.lifecycleStatus !== '' && (
-                                    <StatusBadge
-                                        status={orderData.lifecycleStatus}
-                                        label={LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]?.label}
-                                    />
-                                )}
+                                <StatusBadge
+                                    status={orderData.approvalStatus === 'APPROVED' ? (orderData.lifecycleStatus || 'PendingRcv') : 'PO_NO_GRN_ORDER'}
+                                    label={
+                                        orderData.approvalStatus === 'APPROVED'
+                                            ? LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]?.label
+                                            : undefined
+                                    }
+                                />
                             </div>
                         </div>
                     </div>

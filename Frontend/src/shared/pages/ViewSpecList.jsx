@@ -111,7 +111,7 @@ const ViewSpecList = () => {
     const [filterAnchor, setFilterAnchor] = useState(null);
     const [columnsAnchor, setColumnsAnchor] = useState(null);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
-    const [addForm, setAddForm] = useState({ specificationName: '', unit: '' });
+    const [addForm, setAddForm] = useState({ specificationCode: '', specificationName: '', unit: '' });
     const [addSubmitting, setAddSubmitting] = useState(false);
     const [addError, setAddError] = useState('');
     const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -311,22 +311,24 @@ const ViewSpecList = () => {
     const end = Math.min((page + 1) * pageSize, totalItems);
 
     const handleOpenAddSpec = () => {
-        setAddForm({ specificationName: '', unit: '' });
+        setAddForm({ specificationCode: '', specificationName: '', unit: '' });
         setAddDialogOpen(true);
     };
 
     const handleAddSpec = async () => {
+        const code = (addForm.specificationCode || '').trim();
         const name = (addForm.specificationName || '').trim();
-        if (!name) return;
+        if (!code || !name) return;
         setAddSubmitting(true);
         setAddError('');
         try {
             await createItemParameter({
+                paramCode: code,
                 specificationName: name,
                 unit: addForm.unit?.trim() || '',
             });
             setAddDialogOpen(false);
-            setAddForm({ specificationName: '', unit: '' });
+            setAddForm({ specificationCode: '', specificationName: '', unit: '' });
             showToast('Tạo thông số thành công!', 'success');
             PollingManager.triggerRefreshByFetchKey('Spec');
             await fetchList();
@@ -1063,7 +1065,7 @@ const ViewSpecList = () => {
                 open={addDialogOpen}
                 onClose={() => {
                     setAddDialogOpen(false);
-                    setAddForm({ specificationName: '', unit: '' });
+                    setAddForm({ specificationCode: '', specificationName: '', unit: '' });
                 }}
                 maxWidth="xs"
                 fullWidth
@@ -1099,7 +1101,7 @@ const ViewSpecList = () => {
                     <IconButton
                         onClick={() => {
                             setAddDialogOpen(false);
-                            setAddForm({ specificationName: '', unit: '' });
+                            setAddForm({ specificationCode: '', specificationName: '', unit: '' });
                         }}
                         size="small"
                         sx={{
@@ -1123,6 +1125,49 @@ const ViewSpecList = () => {
                             display: 'block',
                             mb: 1,
                             mt: 1,
+                        }}
+                    >
+                        Mã thông số
+                    </Typography>
+                    <Box
+                        component="input"
+                        type="text"
+                        value={addForm.specificationCode}
+                        onChange={(e) => setAddForm({ ...addForm, specificationCode: e.target.value })}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleAddSpec();
+                            }
+                        }}
+                        placeholder="Nhập mã thông số (VD: SPEC_LENGTH)"
+                        sx={{
+                            width: '100%',
+                            border: 'none',
+                            outline: 'none',
+                            borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+                            pb: 1,
+                            fontSize: '14px',
+                            color: 'text.primary',
+                            bgcolor: 'transparent',
+                            '&:focus': {
+                                borderBottom: '1px solid #0284c7',
+                            },
+                            '&::placeholder': {
+                                color: '#9ca3af',
+                                fontSize: '14px',
+                            },
+                        }}
+                    />
+
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            fontWeight: 500,
+                            fontSize: '12px',
+                            color: 'text.secondary',
+                            display: 'block',
+                            mb: 1,
+                            mt: 2.5,
                         }}
                     >
                         Tên thông số
@@ -1228,7 +1273,7 @@ const ViewSpecList = () => {
                     <Button
                         onClick={() => {
                             setAddDialogOpen(false);
-                            setAddForm({ specificationName: '', unit: '' });
+                            setAddForm({ specificationCode: '', specificationName: '', unit: '' });
                             setAddError('');
                         }}
                         size="small"
@@ -1248,7 +1293,7 @@ const ViewSpecList = () => {
                     <Button
                         onClick={handleAddSpec}
                         variant="contained"
-                        disabled={addSubmitting || !addForm.specificationName.trim()}
+                        disabled={addSubmitting || !addForm.specificationCode.trim() || !addForm.specificationName.trim()}
                         size="small"
                         sx={{
                             textTransform: 'none',

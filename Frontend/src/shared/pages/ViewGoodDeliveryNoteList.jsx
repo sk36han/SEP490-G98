@@ -41,7 +41,7 @@ import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
     <Box sx={{
         flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
         border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
@@ -52,7 +52,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
             width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-            <Icon size={22} color={color} />
+            {React.createElement(icon, { size: 22, color })}
         </Box>
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
@@ -63,33 +63,6 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const normalizeGdnStatus = (status) => {
-    const raw = String(status || '').trim();
-
-    const normalized = raw
-        .replace(/([a-z])([A-Z])/g, '$1_$2')
-        .replace(/[\s-]+/g, '_')
-        .toUpperCase();
-
-    const aliasMap = {
-        DRAFT: 'DRAFT',
-        PENDINGACC: 'PENDING_ACC',
-        PENDING_ACC: 'PENDING_ACC',
-        PENDINGDIR: 'PENDING_DIR',
-        PENDING_DIR: 'PENDING_DIR',
-        PENDINGISSUE: 'PENDING_ISSUE',
-        PENDING_ISSUE: 'PENDING_ISSUE',
-        APPROVED: 'APPROVED',
-        ISSUED: 'ISSUED',
-        DISPATCHED: 'ISSUED',
-        SIGNED: 'POSTED',
-        POSTED: 'POSTED',
-        REJECTED: 'REJECTED',
-        CANCELLED: 'CANCELLED',
-    };
-
-    return aliasMap[normalized] || normalized;
-};
 
 const GDN_COLUMNS = [
     { id: 'stt', label: 'STT', sortable: false, draggable: false },
@@ -165,18 +138,20 @@ export default function ViewGoodDeliveryNoteList() {
 
     const resetRef = useRef(false);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) setLoading(true);
+        if (!silent) setError(null);
         try {
             const result = await getGoodsDeliveryNotes({ page: page + 1, pageSize });
             setList(result.items || []);
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không tải được danh sách phiếu xuất hàng';
-            setError(msg);
-            setList([]);
+            if (!silent) {
+                setError(msg);
+                setList([]);
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [page, pageSize]);
 
@@ -185,7 +160,7 @@ export default function ViewGoodDeliveryNoteList() {
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
-    usePolling('goodDeliveryNotes', () => fetchDataRef.current?.());
+    usePolling('goodDeliveryNotes', () => fetchDataRef.current?.({ silent: true }));
 
     useEffect(() => {
         if (columnSelectorAnchor) {
@@ -197,7 +172,7 @@ export default function ViewGoodDeliveryNoteList() {
             }
             resetRef.current = false;
         };
-    }, [columnSelectorAnchor]);
+    }, [columnOrder, columnSelectorAnchor]);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -289,11 +264,6 @@ export default function ViewGoodDeliveryNoteList() {
     const handlePopupDragStart = (e, columnId) => {
         setDraggedPopupColumn(columnId);
         e.dataTransfer.effectAllowed = 'move';
-    };
-
-    const handlePopupDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
     };
 
     const handlePopupDrop = (e, targetColumnId) => {

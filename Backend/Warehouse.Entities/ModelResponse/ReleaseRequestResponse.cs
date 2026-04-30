@@ -91,6 +91,21 @@ namespace Warehouse.Entities.ModelResponse
 
         // Lịch sử duyệt
         public List<RRApprovalResponse> Approvals { get; set; } = new();
+
+        // Lịch sử xử lý outbound
+        public List<OutboundHistoryEventResponse> HistoryEvents { get; set; } = new();
+    }
+
+    public class OutboundHistoryEventResponse
+    {
+        public string EventType { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime OccurredAt { get; set; }
+        public string Source { get; set; } = string.Empty;
+        public long? SourceId { get; set; }
+        public long? ActorUserId { get; set; }
+        public string? ActorName { get; set; }
     }
 
     /// Lịch sử duyệt yêu cầu xuất kho

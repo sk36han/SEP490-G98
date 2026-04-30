@@ -19,7 +19,12 @@ import OtpDialog from '../../components/auth/OtpDialog';
 import authService from '../lib/authService';
 import { useAuth } from '../../app/context/AuthContext';
 import { useToast } from '../hooks/useToast';
-import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../permissions/roleUtils';
+import {
+    getDefaultRouteByRole,
+    getPermissionRole,
+    getRawRoleFromUser,
+    isPermissionRoleValid,
+} from '../permissions/roleUtils';
 
 // Roles that require OTP verification
 const OTP_REQUIRED_ROLES = ['ADMIN', 'DIRECTOR', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER'];
@@ -37,7 +42,7 @@ const Login = () => {
             showToast(ROLE_ERROR_MESSAGE, 'error');
             window.history.replaceState({}, '', location.pathname);
         }
-    }, [location.state?.roleError]);
+    }, [location.pathname, location.state?.roleError, showToast]);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -46,7 +51,6 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [otpDialogOpen, setOtpDialogOpen] = useState(false);
-    const [pendingUser, setPendingUser] = useState(null);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -94,7 +98,6 @@ const Login = () => {
                 } catch {
                     /* ignore */
                 }
-                setPendingUser(userInfo);
                 setOtpDialogOpen(true);
                 setLoading(false);
                 return;
@@ -102,26 +105,8 @@ const Login = () => {
 
             showToast('Đăng nhập thành công!', 'success');
 
-            // Chuyển hướng theo role: Admin → users, Director → Home, Sale/WH → vật tư, Kế toán → đơn mua
             setTimeout(() => {
-                switch (permissionRole) {
-                    case 'ADMIN':
-                        navigate('/admin/users'); // listUserAccount
-                        break;
-                    case 'DIRECTOR':
-                        navigate('/home'); // Home
-                        break;
-                    case 'ACCOUNTANTS':
-                        navigate('/purchase-orders');
-                        break;
-                    case 'WAREHOUSE_KEEPER':
-                    case 'SALE_SUPPORT':
-                    case 'SALE_ENGINEER':
-                        navigate('/products'); // ItemList
-                        break;
-                    default:
-                        navigate('/products');
-                }
+                navigate(getDefaultRouteByRole(permissionRole));
             }, 1000);
         } catch (error) {
             showToast(error.message, 'error');
@@ -143,30 +128,12 @@ const Login = () => {
         showToast('Đăng nhập thành công!', 'success');
         
         setTimeout(() => {
-            switch (permissionRole) {
-                case 'ADMIN':
-                    navigate('/admin/users');
-                    break;
-                case 'DIRECTOR':
-                    navigate('/home');
-                    break;
-                case 'ACCOUNTANTS':
-                    navigate('/purchase-orders');
-                    break;
-                case 'WAREHOUSE_KEEPER':
-                case 'SALE_SUPPORT':
-                case 'SALE_ENGINEER':
-                    navigate('/products');
-                    break;
-                default:
-                    navigate('/products');
-            }
+            navigate(getDefaultRouteByRole(permissionRole));
         }, 1000);
     };
 
     const handleOtpClose = () => {
         setOtpDialogOpen(false);
-        setPendingUser(null);
         authService.logout();
     };
 

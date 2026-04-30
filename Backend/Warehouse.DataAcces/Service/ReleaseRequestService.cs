@@ -396,6 +396,29 @@ namespace Warehouse.DataAcces.Service
                 })
                 .ToListAsync();
 
+            var relatedGdns = await _context.GoodsDeliveryNotes
+                .Where(g => g.ReleaseRequestId == id)
+                .Select(g => new RrRelatedGdnSnapshot
+                {
+                    Gdnid = g.Gdnid,
+                    Gdncode = g.Gdncode,
+                    CreatedBy = g.CreatedBy,
+                    SubmittedAt = g.SubmittedAt,
+                    ApprovedAt = g.ApprovedAt,
+                    PostedAt = g.PostedAt
+                })
+                .ToListAsync();
+
+            var gdnIds = relatedGdns.Select(g => g.Gdnid).ToList();
+            var auditLogs = await _context.AuditLogs
+                .Include(a => a.ActorUser)
+                .Where(a =>
+                    (a.EntityType == AuditEntity.ReleaseRequest && a.EntityId == id) ||
+                    (a.EntityType == AuditEntity.GoodsDeliveryNote && a.EntityId.HasValue && gdnIds.Contains(a.EntityId.Value)))
+                .ToListAsync();
+
+            var historyEvents = BuildReleaseRequestHistoryEvents(rr, approvals, relatedGdns, auditLogs);
+
             return new ReleaseRequestDetailResponse
             {
                 ReleaseRequestId = rr.ReleaseRequestId,
@@ -464,7 +487,8 @@ namespace Warehouse.DataAcces.Service
                     ActionBy = a.ActionBy,
                     ActionByName = a.ActionByNavigation?.FullName,
                     ActionAt = a.ActionAt
-                }).ToList()
+                }).ToList(),
+                HistoryEvents = historyEvents
             };
         }
 
@@ -572,6 +596,7 @@ namespace Warehouse.DataAcces.Service
 
             // 8.2. Cập nhật trạng thái và validate nếu gửi duyệt
             string oldStatus = rr.Status;
+            bool shouldNotifyAccountantOnSubmit = false;
             if (!string.IsNullOrEmpty(request.Status))
             {
                 if (request.Status == "PENDING_ACC" && oldStatus == "DRAFT")
@@ -581,13 +606,15 @@ namespace Warehouse.DataAcces.Service
 
                     // Kiểm tra hồ sơ bắt buộc khi gửi duyệt (Kiểm tra trong database)
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(
+                        a => a.DocType == "GIR" && a.DocId == id && (a.AttachmentType == "CONTRACT" || a.AttachmentType == "CO"));
 
                     if (!hasQuotation) throw new InvalidOperationException("Vui lòng tải lên tài liệu Báo giá trước khi gửi duyệt.");
                     if (!hasContract) throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi gửi duyệt.");
 
                     rr.Status = "PENDING_ACC";
                     rr.SubmittedAt = DateTime.UtcNow;
+                    shouldNotifyAccountantOnSubmit = true;
                 }
                 else
                 {
@@ -872,6 +899,24 @@ namespace Warehouse.DataAcces.Service
 
             await _context.SaveChangesAsync();
 
+            if (shouldNotifyAccountantOnSubmit)
+            {
+                var requesterName = await _context.Users
+                    .Where(u => u.UserId == rr.RequestedBy)
+                    .Select(u => u.FullName)
+                    .FirstOrDefaultAsync() ?? "Người dùng";
+
+                await _notificationService.CreateForRolesAsync(
+                    new[] { UserRoleConstants.Accountant },
+                    "Yêu cầu xuất kho mới chờ duyệt",
+                    $"Yêu cầu xuất kho {rr.ReleaseRequestCode} vừa được gửi duyệt bởi {requesterName}.",
+                    "Release",
+                    rr.ReleaseRequestId,
+                    rr.RequestedBy,
+                    NotificationTypes.NewRequest
+                );
+            }
+
             // 12. Trả về chi tiết sau cập nhật
             return await GetReleaseRequestByIdAsync(rr.ReleaseRequestId)
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
@@ -1031,7 +1076,8 @@ namespace Warehouse.DataAcces.Service
                 {
                     // Kiểm tra hồ sơ bắt buộc khi duyệt
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(
+                        a => a.DocType == "GIR" && a.DocId == id && (a.AttachmentType == "CONTRACT" || a.AttachmentType == "CO"));
 
                     if (!hasQuotation) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Báo giá.");
                     if (!hasContract) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Hợp đồng.");
@@ -1715,79 +1761,47 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<ReleaseRequestDetailResponse> ConfirmQuotationAsync(long id, long userId, ConfirmRrQuotationRequest request)
         {
-            var rr = await _context.ReleaseRequests.FirstOrDefaultAsync(x => x.ReleaseRequestId == id)
+            var rr = await _context.ReleaseRequests
+                .Include(x => x.ReleaseRequestLines)
+                .FirstOrDefaultAsync(x => x.ReleaseRequestId == id)
                 ?? throw new KeyNotFoundException("Không tìm thấy yêu cầu xuất kho.");
             if (rr.Status != "DRAFT" || !rr.IsQuotationFlow)
                 throw new InvalidOperationException("Chỉ chốt báo giá khi RR DRAFT và thuộc luồng báo giá.");
+            // Bắt buộc user phải upload lại báo giá chính thức trước khi chốt.
+            // Không tự động xuất + ghi đè file báo giá ở bước chốt để đảm bảo đúng file đã làm việc với khách.
+            var hasQuotationAttachment = await _context.DocumentAttachments
+                .AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
+            if (!hasQuotationAttachment)
+                throw new InvalidOperationException("Vui lòng tải lên file Báo giá chính thức trước khi chốt báo giá.");
 
-            var excelBytes = await ExportQuotationExcelAsync(id, userId, new ExportRrQuotationExcelRequest
-            {
-                QuotationNo = request.QuotationNo,
-                Notes = request.Notes
-            });
-            await ReplaceGirQuotationAttachmentAsync(id, userId, rr.ReleaseRequestCode, excelBytes);
+            var hasContractAttachment = await _context.DocumentAttachments
+                .AnyAsync(a => a.DocType == "GIR" && a.DocId == id && (a.AttachmentType == "CONTRACT" || a.AttachmentType == "CO"));
+            if (!hasContractAttachment)
+                throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi chốt báo giá.");
 
             rr.QuotationStatus = "CONFIRMED";
             rr.QuotationConfirmedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            var submitRequest = new UpdateReleaseRequestRequest
+            {
+                Status = "PENDING_ACC",
+                Lines = rr.ReleaseRequestLines.Select(l => new UpdateReleaseRequestLineRequest
+                {
+                    ReleaseRequestLineId = l.ReleaseRequestLineId,
+                    ItemId = l.ItemId,
+                    RequestedQty = l.RequestedQty,
+                    UomId = l.UomId,
+                    Note = l.Note,
+                    UnitPrice = l.UnitCostAtIssue,
+                    PackagingSpecId = l.PackagingSpecId
+                }).ToList()
+            };
+            var updated = await UpdateReleaseRequestAsync(id, userId, submitRequest);
+
             await _auditLogService.LogAsync(userId, "CONFIRM_QUOTATION", "ReleaseRequest", id, $"Chốt báo giá {rr.ReleaseRequestCode}. {request.Note}");
 
-            return await GetReleaseRequestByIdAsync(id)
-                ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
-        }
-
-        /// <summary>
-        /// Xóa các tệp đính kèm loại QUOTATION hiện có của RR, ghi đè bằng file Excel báo giá (bản chính thức sau chốt).
-        /// </summary>
-        private async Task ReplaceGirQuotationAttachmentAsync(long releaseRequestId, long userId, string releaseRequestCode, byte[] excelBytes)
-        {
-            var existing = await _context.DocumentAttachments
-                .Where(a => a.DocType == "GIR" && a.DocId == releaseRequestId && a.AttachmentType == "QUOTATION")
-                .ToListAsync();
-
-            foreach (var att in existing)
-            {
-                TryDeleteEvidenceFile(att.FileUrlOrPath);
-                _context.DocumentAttachments.Remove(att);
-            }
-
-            if (existing.Count > 0)
-                await _context.SaveChangesAsync();
-
-            var safeCode = string.IsNullOrWhiteSpace(releaseRequestCode) ? $"RR-{releaseRequestId}" : releaseRequestCode.Trim();
-            var fileName = $"{safeCode}-bao-gia-chinh-thuc.xlsx";
-            await using var ms = new MemoryStream(excelBytes, writable: false);
-            var formFile = new FormFile(ms, 0, excelBytes.Length, "quotationFile", fileName)
-            {
-                Headers = new HeaderDictionary(),
-                ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            };
-            await _documentAttachmentService.UploadAttachmentAsync("GIR", releaseRequestId, formFile, userId, "QUOTATION");
-        }
-
-        private void TryDeleteEvidenceFile(string? fileUrlOrPath)
-        {
-            if (string.IsNullOrWhiteSpace(fileUrlOrPath)) return;
-            var trimmed = fileUrlOrPath.Trim();
-            if (!trimmed.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) return;
-
-            var rel = trimmed.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-            var webRoot = _hostEnvironment.WebRootPath;
-            if (string.IsNullOrEmpty(webRoot))
-                webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            var fullPath = Path.GetFullPath(Path.Combine(webRoot, rel));
-            var rootFull = Path.GetFullPath(webRoot);
-            if (!fullPath.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase)) return;
-
-            try
-            {
-                if (File.Exists(fullPath))
-                    File.Delete(fullPath);
-            }
-            catch
-            {
-                // Bỏ qua nếu file đang bị khóa / không tồn tại
-            }
+            return updated;
         }
 
         /// <summary>
@@ -1907,6 +1921,7 @@ namespace Warehouse.DataAcces.Service
                 QuotationConfirmedAt = rr.QuotationConfirmedAt,
                 QuotationVersion = rr.QuotationVersion,
                 Attachments = attachments ?? new(),
+                HistoryEvents = new(),
                 Lines = rr.ReleaseRequestLines.Select(l => new ReleaseRequestLineResponse
                 {
                     ReleaseRequestLineId = l.ReleaseRequestLineId,
@@ -1928,6 +1943,149 @@ namespace Warehouse.DataAcces.Service
                     PackagingSpecName = items.ContainsKey(l.ItemId) && items[l.ItemId].PackagingSpec != null ? items[l.ItemId].PackagingSpec!.SpecName : null
                 }).ToList()
             };
+        }
+
+        private static List<OutboundHistoryEventResponse> BuildReleaseRequestHistoryEvents(
+            ReleaseRequest rr,
+            List<DocumentApproval> approvals,
+            List<RrRelatedGdnSnapshot> relatedGdns,
+            List<AuditLog> auditLogs)
+        {
+            var events = new List<OutboundHistoryEventResponse>();
+
+            events.Add(new OutboundHistoryEventResponse
+            {
+                EventType = "RR_CREATED",
+                Title = "Tạo yêu cầu xuất kho",
+                Description = rr.ReleaseRequestCode,
+                OccurredAt = rr.CreatedAt,
+                Source = "RR",
+                SourceId = rr.ReleaseRequestId,
+                ActorUserId = rr.RequestedBy,
+                ActorName = rr.RequestedByNavigation?.FullName
+            });
+
+            if (rr.SubmittedAt.HasValue)
+            {
+                events.Add(new OutboundHistoryEventResponse
+                {
+                    EventType = "RR_SUBMITTED",
+                    Title = "Gửi duyệt yêu cầu xuất kho",
+                    Description = rr.ReleaseRequestCode,
+                    OccurredAt = rr.SubmittedAt.Value,
+                    Source = "RR",
+                    SourceId = rr.ReleaseRequestId,
+                    ActorUserId = rr.RequestedBy,
+                    ActorName = rr.RequestedByNavigation?.FullName
+                });
+            }
+
+            if (rr.QuotationSentAt.HasValue)
+            {
+                events.Add(new OutboundHistoryEventResponse
+                {
+                    EventType = "QUOTATION_SENT",
+                    Title = "Gửi báo giá",
+                    Description = rr.ReleaseRequestCode,
+                    OccurredAt = rr.QuotationSentAt.Value,
+                    Source = "RR",
+                    SourceId = rr.ReleaseRequestId
+                });
+            }
+
+            if (rr.QuotationConfirmedAt.HasValue)
+            {
+                events.Add(new OutboundHistoryEventResponse
+                {
+                    EventType = "QUOTATION_CONFIRMED",
+                    Title = "Chốt báo giá",
+                    Description = rr.ReleaseRequestCode,
+                    OccurredAt = rr.QuotationConfirmedAt.Value,
+                    Source = "RR",
+                    SourceId = rr.ReleaseRequestId
+                });
+            }
+
+            events.AddRange(approvals.Select(a => new OutboundHistoryEventResponse
+            {
+                EventType = $"RR_{a.Decision}",
+                Title = a.Decision == "APPROVE" ? "Duyệt yêu cầu xuất kho" : "Từ chối yêu cầu xuất kho",
+                Description = a.Reason,
+                OccurredAt = a.ActionAt,
+                Source = "RR_APPROVAL",
+                SourceId = a.ApprovalId,
+                ActorUserId = a.ActionBy,
+                ActorName = a.ActionByNavigation?.FullName
+            }));
+
+            foreach (var g in relatedGdns)
+            {
+                if (g.SubmittedAt.HasValue)
+                {
+                    events.Add(new OutboundHistoryEventResponse
+                    {
+                        EventType = "GDN_SUBMITTED",
+                        Title = "Tạo/Gửi phiếu xuất kho",
+                        Description = g.Gdncode,
+                        OccurredAt = g.SubmittedAt.Value,
+                        Source = "GDN",
+                        SourceId = g.Gdnid,
+                        ActorUserId = g.CreatedBy
+                    });
+                }
+                if (g.ApprovedAt.HasValue)
+                {
+                    events.Add(new OutboundHistoryEventResponse
+                    {
+                        EventType = "GDN_ISSUED",
+                        Title = "Xác nhận xuất kho",
+                        Description = g.Gdncode,
+                        OccurredAt = g.ApprovedAt.Value,
+                        Source = "GDN",
+                        SourceId = g.Gdnid
+                    });
+                }
+                if (g.PostedAt.HasValue)
+                {
+                    events.Add(new OutboundHistoryEventResponse
+                    {
+                        EventType = "GDN_POSTED",
+                        Title = "Xác nhận giao hàng",
+                        Description = g.Gdncode,
+                        OccurredAt = g.PostedAt.Value,
+                        Source = "GDN",
+                        SourceId = g.Gdnid
+                    });
+                }
+            }
+
+            events.AddRange(auditLogs.Select(a => new OutboundHistoryEventResponse
+            {
+                EventType = $"{a.EntityType}_{a.Action}",
+                Title = $"{a.Action} {a.EntityType}",
+                Description = a.Detail,
+                OccurredAt = a.CreatedAt,
+                Source = "AUDIT",
+                SourceId = a.AuditLogId,
+                ActorUserId = a.ActorUserId,
+                ActorName = a.ActorUser?.FullName ?? a.ActorUser?.Username
+            }));
+
+            return events
+                .GroupBy(e => new { e.EventType, e.OccurredAt, e.Source, e.SourceId })
+                .Select(g => g.First())
+                .OrderByDescending(e => e.OccurredAt)
+                .ToList();
+        }
+
+        private sealed class RrRelatedGdnSnapshot
+        {
+            public long Gdnid { get; set; }
+            public string Gdncode { get; set; } = string.Empty;
+            public long CreatedBy { get; set; }
+            public DateTime? SubmittedAt { get; set; }
+            public DateTime? ApprovedAt { get; set; }
+            public DateTime? PostedAt { get; set; }
         }
     }
 }

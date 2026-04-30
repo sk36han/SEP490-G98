@@ -1,13 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    ArrowLeft, Plus, X, MapPin, User, Send, Loader,
-    Package, Search, Trash2,
-    Building2, Phone, Mail, Briefcase, Save, CircleHelp,
-    FileSpreadsheet, FileText, FileStack,
+    Plus, MapPin, User, Package, Search, Trash2,
+    Building2, Phone, Mail, Briefcase, CircleHelp,
 } from 'lucide-react';
 import {
-    Dialog, DialogTitle, DialogContent, DialogActions,
     CircularProgress,
 } from '@mui/material';
 import {
@@ -23,84 +20,36 @@ import { getAddressesByCompany } from '../lib/addressService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsByWarehouse } from '../lib/itemService';
 import {
-    createReleaseRequest,
-    uploadReleaseRequestAttachments,
     getReleaseRequestDetail,
-    updateReleaseRequest,
 } from '../lib/releaseRequestService';
+import { useReleaseRequestSubmit } from './releaseRequest/hooks/useReleaseRequestSubmit';
+import { ReleaseRequestHeaderActions } from './releaseRequest/components/ReleaseRequestHeaderActions';
+import { ShippingInfoSection } from './releaseRequest/components/ShippingInfoSection';
+import { AttachmentSection } from './releaseRequest/components/AttachmentSection';
+import { ConfirmActionDialog } from './releaseRequest/components/ConfirmActionDialog';
+import {
+    formatVndInteger,
+    formatLineTotalVnd,
+    normalizeId,
+    formatAddress,
+    getLineItemsValidationError,
+    findAttachmentByType,
+    toAbsoluteFileUrl,
+} from './releaseRequest/createReleaseRequest.utils';
 import '../styles/CreateSupplier.css';
 const MAX_NOTE = 250;
 const MAX_LINE_NOTE = 500;
 
-/** Tiền VNĐ: làm tròn số nguyên, không phần thập phân */
-function formatVndInteger(amount) {
-    if (amount === '' || amount == null || Number.isNaN(Number(amount))) return null;
-    const n = Math.round(Number(amount));
-    return `${n.toLocaleString('vi-VN')} VNĐ`;
-}
-
-/** Thành tiền dòng = SL × đơn giá (null nếu không tính được) */
-function formatLineTotalVnd(line) {
-    const qty = Number(line.quantity) || 0;
-    const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
-    if (unit == null || Number.isNaN(unit)) return null;
-    return formatVndInteger(qty * unit);
-}
-
-function normalizeId(value) {
-    if (value === null || value === undefined || value === '') return '';
-    return String(value);
-}
-
-function formatAddress(address, ward, district, city) {
-    const parts = [address, ward, district, city].filter(Boolean);
-    return parts.length ? parts.join(', ') : '';
-}
-
-/** Kiểm tra từng dòng vật tư (số lượng, ĐVT) */
-function getLineItemsValidationError(lineItems) {
-    for (let i = 0; i < lineItems.length; i++) {
-        const line = lineItems[i];
-        const row = i + 1;
-        if (!normalizeId(line.uomId ?? line.UomId)) {
-            return `Vật tư dòng ${row}: thiếu đơn vị tính.`;
-        }
-        const qty = Number(line.quantity);
-        if (!Number.isFinite(qty) || qty < 1) {
-            return `Vật tư dòng ${row}: số lượng phải ≥ 1.`;
-        }
-        const max = Number(line.availableQty ?? line.AvailableQty ?? 0);
-        if (Number.isFinite(max) && max > 0 && qty > max) {
-            return `Vật tư dòng ${row}: số lượng không được vượt tồn khả dụng (${max.toLocaleString('vi-VN')}).`;
-        }
-    }
-    return null;
-}
-
-function findAttachmentByType(attachments, typeUpper) {
-    if (!Array.isArray(attachments)) return null;
-    return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
-}
-
-function toAbsoluteFileUrl(url) {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
-    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
-}
-
-export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotationFlowInEdit = false }) {
+export default function CreateReleaseRequest() {
     const navigate = useNavigate();
     const { id: editId } = useParams();
     const isEditMode = Boolean(editId);
     const { toast, showToast, clearToast } = useToast();
 
-    const [submitting, setSubmitting] = useState(false);
-    const [savingDraft, setSavingDraft] = useState(false);
-
     const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
     const [receiverDialogOpen, setReceiverDialogOpen] = useState(false);
     const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null);
 
     const [companies, setCompanies] = useState([]);
     const [receivers, setReceivers] = useState([]);
@@ -329,6 +278,7 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
     const handleCreateCompanySuccess = (result) => {
         const newCompany = {
             companyId: result?.companyId ?? result?.CompanyId,
+            companyCode: result?.companyCode ?? result?.CompanyCode ?? '',
             companyName: result?.companyName ?? result?.CompanyName ?? '',
         };
         setCompanies((prev) => [newCompany, ...prev]);
@@ -556,184 +506,46 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
         return getLineItemsValidationError(lineItems);
     }, [selectedCompanyId, selectedReceiverId, form.warehouseId, lineItems, selectedAddressId]);
 
-    const submitValidationError = useMemo(() => {
-        if (baseValidationError) return baseValidationError;
-        if (!form.purpose.trim()) return 'Vui lòng nhập lý do xuất hàng.';
-        if (!quotationFile) return 'Vui lòng tải file báo giá.';
-        if (!contractFile) return 'Vui lòng tải file hợp đồng.';
-        return null;
-    }, [baseValidationError, form.purpose, quotationFile, contractFile]);
-    const canCreateRequest = useMemo(() => (
-        Boolean(selectedCompanyId)
-        && Boolean(selectedReceiverId)
-        && Boolean(form.warehouseId)
-        && Boolean(form.purpose.trim())
-        && lineItems.length > 0
-    ), [selectedCompanyId, selectedReceiverId, form.warehouseId, form.purpose, lineItems]);
-
-    /** Luồng báo giá: tạo nháp trước rồi thao tác ở màn chi tiết RR. */
-    const canSubmitForApproval = useMemo(() => (
-        canCreateRequest
-        && !form.isQuotationFlow
-        && Boolean(quotationFile)
-        && Boolean(contractFile)
-    ), [canCreateRequest, form.isQuotationFlow, quotationFile, contractFile]);
-    const canSaveDraft = useMemo(() => !baseValidationError, [baseValidationError]);
-
-    const canCreateQuotationDraft = useMemo(() => (
-        canSaveDraft
-        && form.isQuotationFlow
-    ), [canSaveDraft, form.isQuotationFlow]);
-
-    const buildPayload = () => {
-        let address = '';
-        let city = '';
-        let district = '';
-        let ward = '';
-        let addressId = null;
-
-        if (selectedAddress) {
-            addressId = Number(selectedAddress.addressId ?? selectedAddress.AddressId);
-            address = selectedAddress.addressDetail || selectedAddress.AddressDetail || selectedAddress.addressName || selectedAddress.AddressName || '';
-            city = selectedAddress.city || selectedAddress.City || '';
-            district = selectedAddress.district || selectedAddress.District || '';
-            ward = selectedAddress.ward || selectedAddress.Ward || '';
-        }
-
-        return {
-            warehouseId: Number(form.warehouseId),
-            receiverId: Number(selectedReceiverId),
-            companyId: Number(selectedCompanyId),
-            expectedDate: form.expectedDate || null,
-            purpose: form.purpose.trim() || null,
-            note: form.note.trim() || null,
-            isPartialDeliveryAllowed: Boolean(form.isPartialDeliveryAllowed),
-            isQuotationFlow: Boolean(form.isQuotationFlow),
-            addressId,
-            address,
-            city,
-            district,
-            ward,
-            lines: lineItems.map((line) => ({
-                itemId: Number(line.itemId),
-                requestedQty: Number(line.quantity),
-                uomId: line.uomId ? Number(line.uomId) : null,
-                note: line.note?.trim() || null,
-                unitPrice: line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice),
-                packagingSpecId: line.packagingSpecId ? Number(line.packagingSpecId) : null,
-            })),
-        };
+    const {
+        submitting,
+        savingDraft,
+        canCreateRequest,
+        canSubmitForApproval,
+        canCreateQuotationDraft,
+        handleCreateRequest,
+        handleCreateQuotationDraft,
+    } = useReleaseRequestSubmit({
+        isEditMode,
+        editId,
+        navigate,
+        showToast,
+        form,
+        selectedCompanyId,
+        selectedReceiverId,
+        selectedAddressId,
+        selectedAddress,
+        lineItems,
+        quotationFile,
+        contractFile,
+        appendixFile,
+        baseValidationError,
+        validateLineItems,
+    });
+    const openConfirmDialog = (actionType) => setConfirmAction(actionType);
+    const closeConfirmDialog = () => {
+        if (submitting || savingDraft) return;
+        setConfirmAction(null);
     };
-
-    const handleSaveDraft = async (e) => {
-        e?.preventDefault();
-        if (baseValidationError) {
-            showToast(baseValidationError, 'error');
+    const handleConfirmAction = async () => {
+        const action = confirmAction;
+        if (!action) return;
+        setConfirmAction(null);
+        if (action === 'quotation') {
+            await handleCreateQuotationDraft();
             return;
         }
-        setSavingDraft(true);
-        try {
-            const res = isEditMode
-                ? await updateReleaseRequest(editId, { ...buildPayload(), status: 'DRAFT' })
-                : await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
-            const rrId = Number(editId) || res?.releaseRequestId || res?.ReleaseRequestId;
-            let uploadWarning = '';
-            if (rrId && (quotationFile || contractFile || appendixFile)) {
-                try {
-                    await uploadReleaseRequestAttachments(rrId, {
-                        quotationFile,
-                        contractFile,
-                        appendixFile,
-                    });
-                } catch (uploadErr) {
-                    const data = uploadErr?.response?.data;
-                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
-                }
-            }
-            showToast(
-                uploadWarning
-                    ? `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công, nhưng upload file lỗi: ${uploadWarning}`
-                    : `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công!`,
-                uploadWarning ? 'warning' : 'success'
-            );
-            const nextPath = (() => {
-                if (isEditMode) return `/release-request/${editId}`;
-                if (form.isQuotationFlow && rrId) return `/release-request/${rrId}`;
-                return '/release-request';
-            })();
-            setTimeout(() => navigate(nextPath), 1200);
-        } catch (err) {
-            const msg = err?.message || err?.response?.data?.message || 'Lưu nháp thất bại.';
-            showToast(msg, 'error');
-        } finally {
-            setSavingDraft(false);
-        }
-    };
-
-    const handleCreateRequest = async (e) => {
-        e?.preventDefault();
-
-        if (!selectedCompanyId) {
-            showToast('Vui lòng chọn công ty.', 'error');
-            return;
-        }
-        if (!selectedReceiverId) {
-            showToast('Vui lòng chọn người nhận.', 'error');
-            return;
-        }
-        if (!form.warehouseId) {
-            showToast('Vui lòng chọn kho xuất.', 'error');
-            return;
-        }
-        if (!form.purpose.trim()) {
-            showToast('Vui lòng nhập lý do xuất hàng.', 'error');
-            return;
-        }
-        if (lineItems.length === 0) {
-            showToast('Vui lòng thêm ít nhất 1 vật tư.', 'error');
-            return;
-        }
-        if (!validateLineItems()) return;
-        if (!selectedAddressId) {
-            showToast('Vui lòng nhập địa chỉ giao hàng.', 'error');
-            return;
-        }
-        if (!quotationFile || !contractFile) {
-            showToast('Vui lòng tải lên đủ Báo giá và Hợp đồng trước khi gửi duyệt.', 'error');
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            const res = isEditMode
-                ? await updateReleaseRequest(editId, { ...buildPayload(), status: 'PENDING_ACC' })
-                : await createReleaseRequest({ ...buildPayload(), status: 'PENDING_ACC' });
-            const rrId = Number(editId) || res?.releaseRequestId || res?.ReleaseRequestId;
-            let uploadWarning = '';
-            if (rrId && (quotationFile || contractFile || appendixFile)) {
-                try {
-                    await uploadReleaseRequestAttachments(rrId, {
-                        quotationFile,
-                        contractFile,
-                        appendixFile,
-                    });
-                } catch (uploadErr) {
-                    const data = uploadErr?.response?.data;
-                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
-                }
-            }
-            showToast(
-                uploadWarning
-                    ? `${isEditMode ? 'Cập nhật RR' : 'Tạo yêu cầu xuất hàng'} thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
-                    : `${isEditMode ? 'Cập nhật RR' : 'Tạo yêu cầu xuất hàng'} thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}!`,
-                uploadWarning ? 'warning' : 'success'
-            );
-            setTimeout(() => navigate(isEditMode ? `/release-request/${editId}` : '/release-request'), 1200);
-        } catch (err) {
-            const msg = err?.message || err?.response?.data?.message || 'Tạo yêu cầu xuất hàng thất bại.';
-            showToast(msg, 'error');
-        } finally {
-            setSubmitting(false);
+        if (action === 'submit') {
+            await handleCreateRequest();
         }
     };
 
@@ -747,43 +559,16 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
 
     return (
         <div className="create-supplier-page create-release-request-page">
-            <div className="page-header">
-                <div className="page-header-left">
-                    <button type="button" onClick={() => navigate(-1)} className="back-button">
-                        <ArrowLeft size={20} />
-                        <span>Quay lại</span>
-                    </button>
-                </div>
-                <div className="page-header-actions">
-                    <button type="button" onClick={() => navigate(-1)} className="btn btn-cancel" disabled={submitting || savingDraft}>
-                        <X size={15} />Hủy
-                    </button>
-                    {!form.isQuotationFlow && (
-                        <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
-                            {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={form.isQuotationFlow ? !canCreateQuotationDraft || submitting || savingDraft : !canSubmitForApproval || submitting || savingDraft}
-                        onClick={form.isQuotationFlow ? handleSaveDraft : handleCreateRequest}
-                        title={
-                            form.isQuotationFlow
-                                ? (!canCreateQuotationDraft ? 'Vui lòng nhập đủ thông tin bắt buộc để tạo báo giá.' : undefined)
-                                : (!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined)
-                        }
-                    >
-                        {submitting ? (
-                            <><Loader size={15} className="spinner" />Đang gửi...</>
-                        ) : form.isQuotationFlow ? (
-                            <><Send size={15} />{isEditMode ? 'Lưu báo giá' : 'Tạo báo giá'}</>
-                        ) : (
-                            <><Send size={15} />Tạo & Gửi duyệt</>
-                        )}
-                    </button>
-                </div>
-            </div>
+            <ReleaseRequestHeaderActions
+                onBack={() => navigate(-1)}
+                canCreateQuotationDraft={canCreateQuotationDraft}
+                canSubmitForApproval={canSubmitForApproval}
+                canCreateRequest={canCreateRequest}
+                savingDraft={savingDraft}
+                submitting={submitting}
+                onCreateQuotation={() => openConfirmDialog('quotation')}
+                onSubmitApproval={() => openConfirmDialog('submit')}
+            />
 
             <div className="form-card">
                 <form id="create-rr-form" className="form-wrapper">
@@ -813,7 +598,10 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                                                     <option value="">Chọn công ty</option>
                                                     {companies.map((company) => (
                                                         <option key={normalizeId(company.companyId ?? company.CompanyId)} value={normalizeId(company.companyId ?? company.CompanyId)}>
-                                                            {company.companyName ?? company.CompanyName ?? ''}
+                                                            {[
+                                                                company.companyCode ?? company.CompanyCode ?? '',
+                                                                company.companyName ?? company.CompanyName ?? '',
+                                                            ].filter(Boolean).join(' - ')}
                                                         </option>
                                                     ))}
                                                 </select>
@@ -1119,61 +907,7 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Thông tin xuất hàng</h2>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label className="form-label">Ngày xuất dự kiến</label>
-                                        <input type="date" value={form.expectedDate} onChange={(e) => setForm((prev) => ({ ...prev, expectedDate: e.target.value }))} className="form-input" />
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label className="form-label">Lý do xuất hàng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 12 }}>(khi gửi duyệt)</span></label>
-                                        <input type="text" value={form.purpose} onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))} className="form-input" placeholder="Nhập lý do xuất hàng" />
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(form.isPartialDeliveryAllowed)}
-                                                onChange={(e) => setForm((prev) => ({ ...prev, isPartialDeliveryAllowed: e.target.checked }))}
-                                                style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: '#2196F3' }}
-                                            />
-                                            Cho phép xuất kho từng phần (không bắt buộc đủ tồn một lần khi gửi duyệt)
-                                        </label>
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(form.isQuotationFlow)}
-                                                onChange={(e) => setForm((prev) => ({ ...prev, isQuotationFlow: e.target.checked }))}
-                                                style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: '#2196F3' }}
-                                            />
-                                            Tạo theo luồng báo giá (cần chốt báo giá trước khi gửi kế toán duyệt)
-                                        </label>
-                                        {Boolean(form.isQuotationFlow) && (
-                                            <div
-                                                style={{
-                                                    marginTop: 10,
-                                                    padding: '10px 12px',
-                                                    borderRadius: 8,
-                                                    background: 'rgba(37, 99, 235, 0.08)',
-                                                    border: '1px solid rgba(37, 99, 235, 0.25)',
-                                                    fontSize: 13,
-                                                    color: '#1e3a8a',
-                                                    lineHeight: 1.55,
-                                                }}
-                                            >
-                                                Luồng báo giá: 
-                                                <br/>tạo Báo giá → vào màn chi tiết để nhập nội dung báo giá, 
-                                                xuất/import Excel và chốt báo giá → sau khi chốt mới gửi duyệt kế toán.
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                            <ShippingInfoSection form={form} setForm={setForm} />
 
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
@@ -1199,92 +933,19 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                                 </div>
                             </div>
 
-                            {(isEditMode
-                                ? (forceHideAttachmentsWhenQuotationFlowInEdit ? !form.isQuotationFlow : true)
-                                : !form.isQuotationFlow) && (
-                                <div className="info-section" style={{ margin: 0 }}>
-                                    <div className="section-header-with-toggle">
-                                        <h2 className="section-title">Tệp đính kèm</h2>
-                                    </div>
-                                    <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                                        Khi Tạo & Gửi duyệt, bắt buộc có Báo giá và Hợp đồng. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.
-                                    </p>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        <div className="form-field" style={{ margin: 0 }}>
-                                            <label htmlFor="rr-quotation-file" className="form-label">
-                                                File báo giá <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
-                                            </label>
-                                            <div className="input-wrapper">
-                                                <FileSpreadsheet className="input-icon" size={16} />
-                                                <input
-                                                    id="rr-quotation-file"
-                                                    type="file"
-                                                    className="form-input"
-                                                    onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
-                                                />
-                                            </div>
-                                            {quotationFile && (
-                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                    Đã chọn: {quotationFile.name}
-                                                </div>
-                                            )}
-                                            {!quotationFile && isEditMode && existingQuotationAttachment && (
-                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                    Hiện có: <a href={toAbsoluteFileUrl(existingQuotationAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingQuotationAttachment.fileName}</a>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="form-field" style={{ margin: 0 }}>
-                                            <label htmlFor="rr-contract-file" className="form-label">
-                                                Hợp đồng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
-                                            </label>
-                                            <div className="input-wrapper">
-                                                <FileText className="input-icon" size={16} />
-                                                <input
-                                                    id="rr-contract-file"
-                                                    type="file"
-                                                    className="form-input"
-                                                    onChange={(e) => setContractFile(e.target.files?.[0] || null)}
-                                                />
-                                            </div>
-                                            {contractFile && (
-                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                    Đã chọn: {contractFile.name}
-                                                </div>
-                                            )}
-                                            {!contractFile && isEditMode && existingContractAttachment && (
-                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                    Hiện có: <a href={toAbsoluteFileUrl(existingContractAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingContractAttachment.fileName}</a>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="form-field" style={{ margin: 0 }}>
-                                            <label htmlFor="rr-appendix-file" className="form-label">
-                                                Phụ lục hợp đồng <span style={{ fontWeight: 400, color: '#94a3b8' }}>(tùy chọn)</span>
-                                            </label>
-                                            <div className="input-wrapper">
-                                                <FileStack className="input-icon" size={16} />
-                                                <input
-                                                    id="rr-appendix-file"
-                                                    type="file"
-                                                    className="form-input"
-                                                    onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
-                                                />
-                                            </div>
-                                            {appendixFile && (
-                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                    Đã chọn: {appendixFile.name}
-                                                </div>
-                                            )}
-                                            {!appendixFile && isEditMode && existingAppendixAttachment && (
-                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                    Hiện có: <a href={toAbsoluteFileUrl(existingAppendixAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingAppendixAttachment.fileName}</a>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <AttachmentSection
+                                isEditMode={isEditMode}
+                                quotationFile={quotationFile}
+                                setQuotationFile={setQuotationFile}
+                                contractFile={contractFile}
+                                setContractFile={setContractFile}
+                                appendixFile={appendixFile}
+                                setAppendixFile={setAppendixFile}
+                                existingQuotationAttachment={existingQuotationAttachment}
+                                existingContractAttachment={existingContractAttachment}
+                                existingAppendixAttachment={existingAppendixAttachment}
+                                toAbsoluteFileUrl={toAbsoluteFileUrl}
+                            />
                         </div>
                     </div>
                     </div>
@@ -1294,6 +955,14 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
             <CreateCompanyDialog open={companyDialogOpen} onClose={() => setCompanyDialogOpen(false)} onSuccess={handleCreateCompanySuccess} />
             <CreateReceiverDialog open={receiverDialogOpen} onClose={() => setReceiverDialogOpen(false)} onSuccess={handleCreateReceiverSuccess} companyId={selectedCompanyId} companyName={selectedCompany?.companyName ?? selectedCompany?.CompanyName ?? ''} />
             <CreateAddressDialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} onSuccess={handleCreateAddressSuccess} companyId={selectedCompanyId} />
+            <ConfirmActionDialog
+                confirmAction={confirmAction}
+                onClose={closeConfirmDialog}
+                onConfirm={handleConfirmAction}
+                submitting={submitting}
+                savingDraft={savingDraft}
+                isEditMode={isEditMode}
+            />
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>

@@ -149,9 +149,9 @@ const ViewWarehouseList = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    // Permission: Director and Accountant can create warehouses
+    // Permission: Director and Warehouse Keeper can create warehouses
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'ACCOUNTANTS';
+    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'WAREHOUSE_KEEPER';
 
     // State
     const [loading, setLoading] = useState(true);
@@ -184,8 +184,8 @@ const ViewWarehouseList = () => {
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     // Load data
-    const fetchData = useCallback(async () => {
-        setLoading(true);
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getWarehouses({ pageNumber: page + 1, pageSize });
             let items = res.items ?? [];
@@ -207,7 +207,7 @@ const ViewWarehouseList = () => {
             setList([]);
             setTotalRows(0);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [page, pageSize, searchTerm]);
 
@@ -216,7 +216,7 @@ const ViewWarehouseList = () => {
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
-    usePolling('warehouses', () => fetchDataRef.current?.());
+    usePolling('warehouses', () => fetchDataRef.current?.({ silent: true }));
 
     // Sync tempColumnOrder when popup opens
     useEffect(() => {

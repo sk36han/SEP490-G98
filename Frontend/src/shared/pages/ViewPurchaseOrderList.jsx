@@ -54,7 +54,7 @@ const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 const API_PAGE_SIZE = 100;
 const MAX_API_PAGES = 100;
 
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
     <Box
         sx={{
             flex: '1 1 200px',
@@ -81,7 +81,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
                 flexShrink: 0,
             }}
         >
-            <Icon size={22} color={color} />
+                {React.createElement(icon, { size: 22, color })}
         </Box>
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>
@@ -256,6 +256,7 @@ export default function ViewPurchaseOrderList() {
             ).length,
         [filterValues]
     );
+    const hasSearchOrFilters = searchTerm.trim().length > 0 || activeFilterCount > 0;
 
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
@@ -384,23 +385,25 @@ export default function ViewPurchaseOrderList() {
         };
     }, []);
 
-    const fetchList = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const fetchList = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) setLoading(true);
+        if (!silent) setError(null);
 
         try {
             const result = await fetchAllPages(filterValues);
             const mappedList = (result.items ?? []).map(mapPOItem);
             setList(mappedList);
         } catch (err) {
-            setError(
-                err?.response?.data?.message ||
-                err?.message ||
-                'Không tải được danh sách yêu cầu nhập hàng.'
-            );
-            setList([]);
+            if (!silent) {
+                setError(
+                    err?.response?.data?.message ||
+                    err?.message ||
+                    'Không tải được danh sách yêu cầu nhập hàng.'
+                );
+                setList([]);
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [fetchAllPages, filterValues]);
 
@@ -411,7 +414,7 @@ export default function ViewPurchaseOrderList() {
     // ── Polling ────────────────────────────────────────────────────
     const fetchListRef = useRef(fetchList);
     useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
-    usePolling('purchaseOrders', () => fetchListRef.current?.());
+    usePolling('purchaseOrders', () => fetchListRef.current?.({ silent: true }));
 
     const handleRefresh = () => {
         setPage(0);
@@ -675,9 +678,13 @@ export default function ViewPurchaseOrderList() {
         <StatusBadge status={status} dot="•" variant="dot" />
     );
 
-    const renderReceivingStatus = (status) => (
-        <StatusBadge status={status} dot="•" variant="dot" />
-    );
+    const renderReceivingStatus = (row) => {
+        const approvalStatus = upper(row?.approvalStatus);
+        if (approvalStatus !== 'APPROVED') {
+            return <StatusBadge status="PO_NO_GRN_ORDER" dot="•" variant="dot" />;
+        }
+        return <StatusBadge status={row?.receivingStatus} dot="•" variant="dot" />;
+    };
 
     const renderCellContent = (column, row, index) => {
         switch (column.id) {
@@ -717,7 +724,7 @@ export default function ViewPurchaseOrderList() {
                 return renderApprovalStatus(row.approvalStatus);
 
             case 'receivingStatus':
-                return renderReceivingStatus(row.receivingStatus);
+                return renderReceivingStatus(row);
 
             case 'orderValue':
                 return formatCurrency(row.orderValue);
@@ -1338,7 +1345,7 @@ export default function ViewPurchaseOrderList() {
                                     style={{ marginBottom: 8, opacity: 0.35 }}
                                 />
                                 <Typography sx={{ fontSize: '13px' }}>
-                                    Không có dữ liệu phù hợp
+                                    {hasSearchOrFilters ? 'Không có dữ liệu phù hợp' : 'Chưa có yêu cầu nhập hàng'}
                                 </Typography>
                             </Box>
                         ) : (

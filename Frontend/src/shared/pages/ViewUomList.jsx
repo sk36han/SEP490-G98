@@ -89,7 +89,7 @@ const ViewUomList = () => {
     const { toast, showToast, clearToast } = useToast();
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
-    const canManage = permissionRole === 'WAREHOUSE_KEEPER';
+    const canManage = permissionRole === 'WAREHOUSE_KEEPER' || permissionRole === 'DIRECTOR';
 
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);

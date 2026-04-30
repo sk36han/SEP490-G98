@@ -102,4 +102,18 @@ public class StocktakeServiceTests
         detail.CountedLines.Should().Be(2);
         detail.VarianceLines.Should().Be(1);
     }
+
+    [Fact]
+    public async Task IsWarehouseFrozen_ShouldOnlyFreezeTheSameWarehouse()
+    {
+        using var context = GetContext();
+        await SeedDataAsync(context);
+        var service = new StocktakeService(context, _notificationServiceMock.Object, _auditLogServiceMock.Object);
+
+        var warehouse1Frozen = await service.IsWarehouseFrozenAsync(1);
+        var warehouse2Frozen = await service.IsWarehouseFrozenAsync(2);
+
+        warehouse1Frozen.Should().BeTrue();
+        warehouse2Frozen.Should().BeFalse();
+    }
 }

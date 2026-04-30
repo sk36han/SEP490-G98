@@ -1,3 +1,4 @@
+import React from 'react';
 import {
     Box as BoxIcon,
     Users,
@@ -10,9 +11,11 @@ import {
     RotateCcw,
     BarChart3,
     DollarSign,
+    MapPin,
 } from 'lucide-react';
+import { ROLE_GROUPS } from '../../shared/permissions/roleUtils';
 
-const icon = (Icon) => <Icon size={22} />;
+const icon = (IconComponent) => React.createElement(IconComponent, { size: 22 });
 
 const COMMON_ITEMS = [];
 
@@ -20,6 +23,7 @@ const PRODUCT_MATCH_PATHS = {
     FULL: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'],
     BASIC: ['/products', '/uom', '/brands'],
     SALE_SUPPORT: ['/products', '/categories', '/brands'],
+    ACCOUNTANT: ['/products', '/categories', '/brands', '/items'],
 };
 
 const createItem = ({ id, path, icon: itemIcon, label, children, matchPaths }) => {
@@ -122,10 +126,22 @@ const menuCatalog = {
         path: '/products',
         icon: icon(BoxIcon),
         label: 'Vật tư',
-        matchPaths: PRODUCT_MATCH_PATHS.BASIC,
+        matchPaths: PRODUCT_MATCH_PATHS.SALE_SUPPORT,
+        children: [
+            createChild('/categories', 'Danh mục sản phẩm'),
+            createChild('/products', 'Danh sách vật tư'),
+            createChild('/brands', 'Thương hiệu'),
+        ],
+    }),
+    accountantProducts: createItem({
+        id: 'products-mgmt',
+        path: '/products',
+        icon: icon(BoxIcon),
+        label: 'Vật tư',
+        matchPaths: PRODUCT_MATCH_PATHS.ACCOUNTANT,
         children: [
             createChild('/products', 'Danh sách vật tư'),
-            createChild('/uom', 'Đơn vị tính'),
+            createChild('/categories', 'Danh mục'),
             createChild('/brands', 'Thương hiệu'),
         ],
     }),
@@ -158,6 +174,11 @@ const menuCatalog = {
         icon: icon(Bell),
         label: 'Cảnh báo tồn kho',
     }),
+    financeAlert: createItem({
+        path: '/mockup/sales-target',
+        icon: icon(DollarSign),
+        label: 'Cảnh báo tài chính',
+    }),
 
     suppliersSimple: createItem({
         path: '/suppliers',
@@ -175,9 +196,13 @@ const menuCatalog = {
     }),
 
     receiversSimple: createItem({
+        id: 'receivers-mgmt',
         path: '/receivers',
         icon: icon(Users),
         label: 'Người nhận',
+        children: [
+            createChild('/receivers', 'Danh sách người nhận'),
+        ],
     }),
     receiversManage: createItem({
         id: 'receivers-mgmt',
@@ -193,18 +218,18 @@ const menuCatalog = {
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: icon(ShoppingCart),
-        label: 'Đơn mua',
+        label: 'Yêu cầu nhập hàng',
         children: [
-            createChild('/purchase-orders', 'Danh sách đơn mua'),
+            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
         ],
     }),
     purchaseOrdersManage: createItem({
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: icon(ShoppingCart),
-        label: 'Đơn mua',
+        label: 'Yêu cầu nhập hàng',
         children: [
-            createChild('/purchase-orders', 'Danh sách đơn mua'),
+            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
         ],
     }),
 
@@ -266,28 +291,23 @@ const menuCatalog = {
         ],
     }),
 
-    /** Tạm ẩn — bật lại: thêm menuCatalog.deliveries vào roleMenus (WAREHOUSE_KEEPER, SALE_ENGINEER, …). */
-    // deliveries: createItem({
-    //     id: 'deliveries-mgmt',
-    //     path: '/deliveries',
-    //     icon: icon(MapPin),
-    //     label: 'Giao hàng',
-    //     children: [
-    //         createChild('/deliveries', 'Danh sách giao hàng'),
-    //     ],
-    // }),
-
-    itemPrices: createItem({
-        path: '/item-prices',
-        icon: icon(DollarSign),
-        label: 'Giá vật tư',
+    deliveries: createItem({
+        id: 'deliveries-mgmt',
+        path: '/deliveries',
+        icon: icon(MapPin),
+        label: 'Giao hàng',
+        children: [
+            createChild('/deliveries', 'Danh sách giao hàng'),
+        ],
     }),
+
     policy: createItem({
         id: 'policy-mgmt',
         icon: icon(Bell),
         label: 'Chính sách',
         children: [
             createChild('/mockup/inventory-alert', 'Chính sách tồn kho'),
+            createChild('/mockup/sales-target', 'Chính sách tài chính'),
         ],
     }),
     reports: createItem({
@@ -311,32 +331,29 @@ const roleMenus = {
         menuCatalog.warehouseProducts,
         menuCatalog.warehouseInventory,
         menuCatalog.inventoryAlert,
-        menuCatalog.suppliersSimple,
-        menuCatalog.receiversSimple,
+        menuCatalog.financeAlert,
         menuCatalog.purchaseOrdersList,
         menuCatalog.goodReceiptNotesManage,
-        menuCatalog.releaseRequestsManage,
-        menuCatalog.goodsDeliveryNotesManage,
         menuCatalog.purchaseReturnsList,
+        menuCatalog.releaseRequestsList,
+        menuCatalog.goodsDeliveryNotesManage,
     ],
     SALE_SUPPORT: [
         ...COMMON_ITEMS,
         menuCatalog.saleSupportProducts,
         menuCatalog.simpleInventory,
-        menuCatalog.inventoryAlert,
         menuCatalog.suppliersSimple,
         menuCatalog.purchaseOrdersManage,
-        menuCatalog.goodReceiptNotesList,
     ],
     SALE_ENGINEER: [
         ...COMMON_ITEMS,
         menuCatalog.saleEngineerProducts,
         menuCatalog.receiversSimple,
         menuCatalog.releaseRequestsManage,
-        menuCatalog.goodsDeliveryNotesManage,
     ],
     ACCOUNTANTS: [
         ...COMMON_ITEMS,
+        menuCatalog.accountantProducts,
         menuCatalog.warehouseInventory,
         menuCatalog.suppliersManage,
         menuCatalog.receiversManage,
@@ -345,13 +362,12 @@ const roleMenus = {
         menuCatalog.purchaseReturnsList,
         menuCatalog.releaseRequestsList,
         menuCatalog.goodsDeliveryNotesManage,
-        menuCatalog.itemPrices,
+        menuCatalog.deliveries,
         menuCatalog.policy,
     ],
 };
 
 roleMenus.DIRECTOR = dedupeMenuItems([
-    ...roleMenus.ADMIN,
     ...roleMenus.WAREHOUSE_KEEPER,
     ...roleMenus.SALE_SUPPORT,
     ...roleMenus.SALE_ENGINEER,
@@ -361,5 +377,22 @@ roleMenus.DIRECTOR = dedupeMenuItems([
 ]);
 
 export const getMenuItems = (role) => {
-    return roleMenus[role] || [...COMMON_ITEMS];
+    const items = roleMenus[role] || [...COMMON_ITEMS];
+    const canViewDeliveries = ROLE_GROUPS.DELIVERY_VIEW.includes(role);
+    const canViewSuppliers = ROLE_GROUPS.SUPPLIER_VIEW.includes(role);
+    const canViewReceivers = ROLE_GROUPS.RECEIVER_VIEW.includes(role);
+    const canViewReleaseRequests = ROLE_GROUPS.RELEASE_REQUEST_VIEW.includes(role);
+
+    return dedupeMenuItems(
+        items.filter((item) => {
+            if (!item) return false;
+            if (item.id === 'deliveries-mgmt' && !canViewDeliveries) return false;
+            if (item.id === 'suppliers-mgmt' && !canViewSuppliers) return false;
+            if (item.path === '/suppliers' && !canViewSuppliers) return false;
+            if (item.id === 'receivers-mgmt' && !canViewReceivers) return false;
+            if (item.path === '/receivers' && !canViewReceivers) return false;
+            if (item.id === 'release-request-mgmt' && !canViewReleaseRequests) return false;
+            return true;
+        })
+    );
 };

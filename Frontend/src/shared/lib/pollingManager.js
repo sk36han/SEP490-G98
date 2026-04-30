@@ -11,8 +11,34 @@ import { pollingConfig, POLLING_INTERVAL_MS } from './pollingConfig';
 
 class PollingManagerClass {
     constructor() {
-        /** @type {Map<string, { intervalId: number, fetchFn: Function, lastRun: number }>} */
+        /** @type {Map<string, { intervalId: number, fetchFn: Function, lastRun: number, inFlight: boolean }>} */
         this._entries = new Map();
+    }
+
+    _isPageVisible() {
+        if (typeof document === 'undefined') return true;
+        return document.visibilityState === 'visible';
+    }
+
+    _runFetch(pageKey, { force = false } = {}) {
+        const entry = this._entries.get(pageKey);
+        if (!entry || !entry.fetchFn) return;
+        if (entry.inFlight) return;
+        if (!force && !this._isPageVisible()) return;
+
+        entry.inFlight = true;
+        Promise.resolve()
+            .then(() => entry.fetchFn())
+            .catch((err) => {
+                console.warn(`[PollingManager] fetchFn failed for "${pageKey}":`, err);
+            })
+            .finally(() => {
+                const current = this._entries.get(pageKey);
+                if (current) {
+                    current.inFlight = false;
+                    current.lastRun = Date.now();
+                }
+            });
     }
 
     /**
@@ -33,21 +59,14 @@ class PollingManagerClass {
         const interval = intervalMs ?? cfg?.interval ?? POLLING_INTERVAL_MS;
 
         const intervalId = setInterval(() => {
-            const entry = this._entries.get(pageKey);
-            if (entry && entry.fetchFn) {
-                try {
-                    entry.fetchFn();
-                    entry.lastRun = Date.now();
-                } catch (err) {
-                    console.warn(`[PollingManager] fetchFn failed for "${pageKey}":`, err);
-                }
-            }
+            this._runFetch(pageKey);
         }, interval);
 
         this._entries.set(pageKey, {
             intervalId,
             fetchFn,
             lastRun: Date.now(),
+            inFlight: false,
         });
     }
 
@@ -70,15 +89,7 @@ class PollingManagerClass {
     triggerRefresh(pageKeys) {
         const keys = Array.isArray(pageKeys) ? pageKeys : [pageKeys];
         keys.forEach((key) => {
-            const entry = this._entries.get(key);
-            if (entry && entry.fetchFn) {
-                try {
-                    entry.fetchFn();
-                    entry.lastRun = Date.now();
-                } catch (err) {
-                    console.warn(`[PollingManager] triggerRefresh failed for "${key}":`, err);
-                }
-            }
+            this._runFetch(key, { force: true });
         });
     }
 
