@@ -122,6 +122,20 @@ function mapApprovalRow(row) {
     };
 }
 
+function mapHistoryEventRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
+        eventType: row.eventType ?? row.EventType ?? '',
+        title: row.title ?? row.Title ?? '',
+        description: row.description ?? row.Description ?? null,
+        occurredAt: row.occurredAt ?? row.OccurredAt ?? null,
+        source: row.source ?? row.Source ?? '',
+        sourceId: row.sourceId ?? row.SourceId ?? null,
+        actorUserId: row.actorUserId ?? row.ActorUserId ?? null,
+        actorName: row.actorName ?? row.ActorName ?? '',
+    };
+}
+
 function mapReceiverRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
@@ -200,6 +214,7 @@ export async function getReleaseRequestDetail(id) {
             attachments: (body.Attachments ?? body.attachments ?? []).map(mapAttachmentRow),
             // Approvals
             approvals: (body.Approvals ?? body.approvals ?? []).map(mapApprovalRow),
+            historyEvents: (body.HistoryEvents ?? body.historyEvents ?? []).map(mapHistoryEventRow).filter(Boolean),
         };
     } catch (error) {
         console.error('[releaseRequestService] getReleaseRequestDetail failed:', error);

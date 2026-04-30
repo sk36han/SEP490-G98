@@ -83,7 +83,7 @@ import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
 import SalesRevenueTarget from '../shared/pages/mockup/SalesRevenueTarget';
 import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
 import ViewSalesReportDetail from '../shared/pages/mockup/ViewSalesReportDetail';
-import { ROLE_GROUPS } from '../shared/permissions/roleUtils';
+import { ROLE, ROLE_GROUPS } from '../shared/permissions/roleUtils';
 
 const ROLES_DIRECTOR = ROLE_GROUPS.REPORT_VIEW;
 const ROLES_ADMIN = ROLE_GROUPS.ADMIN_ONLY;
@@ -96,10 +96,10 @@ const AppRoutes = () => (
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        <Route path="/home" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
-        <Route path="/admin/home" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
-        <Route path="/sale-support/home" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
-        <Route path="/sale-support/home/suppliers-view" element={<ProtectedRoute><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
+        <Route path="/home" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ALL_BUSINESS}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/home" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
+        <Route path="/sale-support/home" element={<ProtectedRoute allowedRoles={[...ROLES_DIRECTOR, ROLE.SALE_SUPPORT]}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
+        <Route path="/sale-support/home/suppliers-view" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.SUPPLIER_VIEW}><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><MainLayout><Profile /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/users/deactivated" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewDeactivatedUsersList /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />

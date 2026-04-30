@@ -33,7 +33,7 @@ import { Plus, Filter, Columns, GripVertical, PackageOpen, Send, RefreshCw } fro
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
-import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
+import { formatDateOnly, formatDateTimeLines } from '../lib/dateUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/ListView.css';
@@ -103,13 +103,29 @@ const LifecycleChip = ({ lifecycleStatus }) => (
 
 function getDisplayLifecycleStatus(status, lifecycleStatus, isQuotationFlow) {
     const normalizedStatus = String(status ?? '').toUpperCase();
-    if (normalizedStatus === 'DRAFT') {
-        return isQuotationFlow ? null : 'RR_DRAFT_PENDING_SUBMIT';
-    }
-    if (normalizedStatus === 'PENDING_ACC') return 'PENDING_ACC';
     if (normalizedStatus === 'REJECTED') return 'REJECTED';
-    if (normalizedStatus !== 'APPROVED') return null;
-    return lifecycleStatus;
+    if (normalizedStatus === 'DRAFT') {
+        return 'RR_DRAFT_PENDING_SUBMIT';
+    }
+    const hasLifecycle = String(lifecycleStatus ?? '').trim() !== '';
+    if (hasLifecycle) return lifecycleStatus;
+
+    if (['PENDING', 'PENDING_ACC', 'PENDING_DIR', 'APPROVED'].includes(normalizedStatus)) {
+        return 'RR_DRAFT_PENDING_SUBMIT';
+    }
+    if (normalizedStatus === 'CANCELLED') return null;
+    return isQuotationFlow ? null : 'RR_DRAFT_PENDING_SUBMIT';
+}
+
+function getDisplayQuotationStatus(status, quotationStatus) {
+    const normalizedStatus = String(status ?? '').toUpperCase();
+    if (normalizedStatus === 'REJECTED') return 'REJECTED';
+    const normalizedQuotationStatus = String(quotationStatus ?? '').trim();
+    if (normalizedQuotationStatus) return normalizedQuotationStatus;
+    if (['PENDING_ACC', 'PENDING_DIR', 'APPROVED'].includes(normalizedStatus)) {
+        return 'QUOTATION_FILE_UPLOADED';
+    }
+    return null;
 }
 
 const RR_COLUMNS = [
@@ -169,6 +185,7 @@ export default function ViewReleaseRequestList() {
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const currentUserId = authService.getCurrentUserId();
     const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'SALE_ENGINEER';
+    const canManageReleaseRequest = permissionRole === 'DIRECTOR' || permissionRole === 'SALE_ENGINEER';
 
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -212,20 +229,22 @@ export default function ViewReleaseRequestList() {
         }
     }, [columnOrder]);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) setLoading(true);
+        if (!silent) setError(null);
         try {
             const result = await getReleaseRequests({ page: page + 1, pageSize });
             setList(result.items || []);
             setTotalItems(Number(result.totalItems ?? 0));
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không tải được danh sách yêu cầu xuất hàng';
-            setError(msg);
-            setList([]);
-            setTotalItems(0);
+            if (!silent) {
+                setError(msg);
+                setList([]);
+                setTotalItems(0);
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [page, pageSize]);
 
@@ -234,7 +253,7 @@ export default function ViewReleaseRequestList() {
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
-    const { refetch } = usePolling('releaseRequests', () => fetchDataRef.current?.());
+    const { refetch } = usePolling('releaseRequests', () => fetchDataRef.current?.({ silent: true }));
 
     const handleRefresh = useCallback(() => {
         refetch();
@@ -609,12 +628,15 @@ export default function ViewReleaseRequestList() {
                                                         }
 
                                                         if (col.id === 'releaseRequestCode') {
+                                                            const targetPath = canManageReleaseRequest
+                                                                ? `/release-request/${row.releaseRequestId}/edit`
+                                                                : `/release-request/${row.releaseRequestId}`;
                                                             return (
                                                                 <TableCell key={col.id} align="left">
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                         <Box component="a"
-                                                                            href={`/release-request/${row.releaseRequestId}/edit`}
-                                                                            onClick={(e) => { e.preventDefault(); navigate(`/release-request/${row.releaseRequestId}/edit`); }}
+                                                                            href={targetPath}
+                                                                            onClick={(e) => { e.preventDefault(); navigate(targetPath); }}
                                                                             sx={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
                                                                             title={row.releaseRequestCode}>
                                                                             {row.releaseRequestCode}
@@ -635,13 +657,12 @@ export default function ViewReleaseRequestList() {
                                                         }
 
                                                         if (col.id === 'quotationStatus') {
-                                                            const quotationStatus = row.quotationStatus ?? '';
-                                                            const isQuotationFlow = Boolean(row.isQuotationFlow);
+                                                            const displayQuotationStatus = getDisplayQuotationStatus(row.status, row.quotationStatus);
                                                             return (
                                                                 <TableCell key={col.id} align="left">
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                        {isQuotationFlow && quotationStatus ? (
-                                                                            <StatusBadge status={quotationStatus} />
+                                                                        {displayQuotationStatus ? (
+                                                                            <StatusBadge status={displayQuotationStatus} />
                                                                         ) : (
                                                                             <Box component="span" sx={{ color: '#d1d5db' }}>-</Box>
                                                                         )}
@@ -694,15 +715,16 @@ export default function ViewReleaseRequestList() {
                                                         if (DATE_COLUMN_IDS.includes(col.id)) {
                                                             const val = row[col.id];
                                                             if (col.id === 'createdAt') {
+                                                                const lines = formatDateTimeLines(val);
                                                                 return (
                                                                     <TableCell key={col.id} align="left" sx={{ color: '#6b7280', whiteSpace: 'pre-line' }}>
-                                                                        {formatDateTimeNewlineUtc(val)}
+                                                                        {lines ? `${lines.datePart}\n${lines.timePart}` : '-'}
                                                                     </TableCell>
                                                                 );
                                                             }
                                                             return (
                                                                 <TableCell key={col.id} align="left" sx={{ color: '#6b7280' }}>
-                                                                    {val ? formatDateOnlyUtc(val) : '-'}
+                                                                    {val ? formatDateOnly(val) : '-'}
                                                                 </TableCell>
                                                             );
                                                         }

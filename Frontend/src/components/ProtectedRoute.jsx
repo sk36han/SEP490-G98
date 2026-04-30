@@ -1,7 +1,10 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import authService from '../shared/lib/authService';
-import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../shared/permissions/roleUtils';
+import {
+    getDefaultRouteByRole,
+    isPermissionRoleValid,
+} from '../shared/permissions/roleUtils';
 
 /**
  * ProtectedRoute - Bảo vệ route theo authentication và authorization
@@ -12,8 +15,7 @@ import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '..
 const ProtectedRoute = ({ children, allowedRoles = null }) => {
     const location = useLocation();
     const isAuthenticated = authService.isAuthenticated();
-    const userInfo = authService.getUser();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    const permissionRole = authService.getPermissionRole();
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
@@ -29,14 +31,7 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
             console.warn(
                 `User with role ${permissionRole} tried to access ${location.pathname} but doesn't have permission`
             );
-
-            if (permissionRole === 'ADMIN') return <Navigate to="/admin/users" replace />;
-            if (permissionRole === 'DIRECTOR') return <Navigate to="/home" replace />;
-            if (permissionRole === 'WAREHOUSE_KEEPER') return <Navigate to="/products" replace />;
-            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/products" replace />;
-            if (permissionRole === 'SALE_ENGINEER') return <Navigate to="/products" replace />;
-            if (permissionRole === 'ACCOUNTANTS') return <Navigate to="/products" replace />;
-            return <Navigate to="/products" replace />;
+            return <Navigate to={getDefaultRouteByRole(permissionRole)} replace />;
         }
     }
 

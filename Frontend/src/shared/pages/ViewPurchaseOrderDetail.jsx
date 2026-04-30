@@ -782,12 +782,14 @@ const ViewPurchaseOrderDetail = () => {
                             </div>
                             <div className="view-po-detail-status-row">
                                 <StatusBadge status={orderData.approvalStatus} />
-                                {orderData.lifecycleStatus != null && orderData.lifecycleStatus !== '' && (
-                                    <StatusBadge
-                                        status={orderData.lifecycleStatus}
-                                        label={LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]?.label}
-                                    />
-                                )}
+                                <StatusBadge
+                                    status={orderData.approvalStatus === 'APPROVED' ? (orderData.lifecycleStatus || 'PendingRcv') : 'PO_NO_GRN_ORDER'}
+                                    label={
+                                        orderData.approvalStatus === 'APPROVED'
+                                            ? LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]?.label
+                                            : undefined
+                                    }
+                                />
                             </div>
                         </div>
                     </div>

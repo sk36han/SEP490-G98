@@ -1,5 +1,34 @@
 import apiClient from './axios';
-import { getRoleFromToken } from '../permissions/roleUtils';
+import {
+    getPermissionRole as normalizePermissionRole,
+    getRawRoleFromUser,
+    getRoleFromToken,
+} from '../permissions/roleUtils';
+
+const toNonEmptyString = (value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+};
+
+const extractErrorMessage = (error) => {
+    const raw = error?.raw;
+    const responseData = error?.response?.data;
+    const candidates = [
+        responseData?.message,
+        responseData?.Message,
+        responseData?.error,
+        responseData?.Error,
+        raw?.message,
+        raw?.Message,
+        raw?.error,
+        raw?.Error,
+        error?.message,
+    ];
+    return candidates.map(toNonEmptyString).find(Boolean) || null;
+};
+
+const isRawHttpStatusMessage = (message) => /^\d{3}$/.test(String(message || '').trim());
 
 const authService = {
     async login(identifier, password, rememberMe = false) {
@@ -77,7 +106,15 @@ const authService = {
                 user,
             };
         } catch (error) {
-            if (!error.response) {
+            const status = Number(error?.response?.status ?? error?.status ?? error?.raw?.status) || 0;
+            const detail = extractErrorMessage(error);
+
+            if (status === 401) {
+                // Login 401 should always be shown as invalid credentials.
+                throw new Error('Email/Username hoặc mật khẩu không đúng.');
+            }
+
+            if (!error.response && !status) {
                 if (error.code === 'ECONNABORTED') {
                     throw new Error('Hết thời gian chờ máy chủ. Vui lòng thử lại.');
                 }
@@ -86,13 +123,14 @@ const authService = {
                         '(Kiểm tra tab Network: request /api/Auth/login có bị (failed) không.)'
                 );
             }
-            if (error.response?.status === 401) {
-                throw new Error('Email/Username hoặc mật khẩu không đúng.');
-            } else if (error.response?.status === 500) {
-                const detail = error.response?.data?.error || error.response?.data?.message;
+            if (status === 500) {
                 throw new Error(detail || 'Loi dang nhap.');
             } else {
-                throw new Error(error.response?.data?.message || 'Loi dang nhap.');
+                throw new Error(
+                    detail && !isRawHttpStatusMessage(detail)
+                        ? detail
+                        : 'Loi dang nhap.'
+                );
             }
         }
     },
@@ -200,6 +238,11 @@ const authService = {
     getUser() {
         const userInfo = localStorage.getItem('userInfo');
         return userInfo ? JSON.parse(userInfo) : null;
+    },
+
+    getPermissionRole() {
+        const userInfo = this.getUser();
+        return normalizePermissionRole(getRawRoleFromUser(userInfo));
     },
 
     getCurrentUserId() {

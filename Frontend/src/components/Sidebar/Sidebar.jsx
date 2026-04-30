@@ -16,7 +16,6 @@ import Tooltip from '@mui/material/Tooltip';
 import authService from '../../shared/lib/authService';
 import logo from '../../shared/assets/logo.png';
 import { getMenuItems } from './menuConfig';
-import { getPermissionRole, getRawRoleFromUser } from '../../shared/permissions/roleUtils';
 
 // ── Design tokens ────────────────────────────────────────────────
 const SIDEBAR_WIDTH_OPEN = 260;
@@ -121,9 +120,7 @@ const Sidebar = () => {
     const location = useLocation();
     const pathname = location.pathname;
 
-    const userInfo = authService.getUser();
-    const roleFromBackend = getRawRoleFromUser(userInfo);
-    const permissionRole = getPermissionRole(roleFromBackend);
+    const permissionRole = authService.getPermissionRole();
     const menuItems = getMenuItems(permissionRole);
 
     const isGroupExpanded = (item) => {
@@ -294,21 +291,26 @@ const Sidebar = () => {
                         const parentActive = isParentActive(item);
                         const expanded = hasChildren && isGroupExpanded(item);
                         const hasActiveChild = hasChildren && item.children.some((c) => isChildActive(c));
+                        const isGroupRouteActive = hasChildren && parentActive && !hasActiveChild;
 
                         const isLeafActive = parentActive && !hasChildren;
-                        const parentBg = isLeafActive ? ACTIVE_PILL : 'transparent';
+                        const parentBg = isLeafActive
+                            ? ACTIVE_PILL
+                            : isGroupRouteActive
+                                ? 'rgba(2,132,199,0.10)'
+                            : expanded
+                                ? 'rgba(2,132,199,0.06)'
+                                : 'transparent';
                         const parentHoverBg = isLeafActive ? 'rgba(2,132,199,0.16)' : HOVER_BG;
                         const parentTxtColor = isLeafActive
                             ? ACCENT
-                            : parentActive && hasActiveChild
-                              ? TXT_HOVER
-                              : TXT;
+                            : isGroupRouteActive ? ACCENT
+                            : expanded ? TXT_HOVER : TXT;
                         const parentIconColor = isLeafActive
                             ? ACCENT
-                            : parentActive && hasActiveChild
-                              ? TXT
-                              : ICN;
-                        const parentWeight = parentActive ? 600 : 500;
+                            : isGroupRouteActive ? ACCENT
+                            : expanded ? TXT : ICN;
+                        const parentWeight = isLeafActive || isGroupRouteActive || expanded ? 600 : 500;
 
                         return (
                             <React.Fragment key={item.id || item.path}>

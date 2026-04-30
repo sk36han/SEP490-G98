@@ -15,8 +15,8 @@ export const ROLE_GROUPS = {
     WAREHOUSE_VIEW: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER, ROLE.SALE_SUPPORT, ROLE.SALE_ENGINEER, ROLE.ACCOUNTANTS],
     WAREHOUSE_MANAGE: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER],
     STOCKTAKE_VIEW: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER, ROLE.ACCOUNTANTS],
-    STOCKTAKE_CREATE: [ROLE.DIRECTOR, ROLE.ACCOUNTANTS],
-    INVENTORY_ADJUSTMENT_CREATE: [ROLE.WAREHOUSE_KEEPER, ROLE.SALE_ENGINEER, ROLE.SALE_SUPPORT],
+    STOCKTAKE_CREATE: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER],
+    INVENTORY_ADJUSTMENT_CREATE: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER],
     SUPPLIER_VIEW: [ROLE.DIRECTOR, ROLE.SALE_SUPPORT, ROLE.ACCOUNTANTS],
     SUPPLIER_MANAGE: [ROLE.DIRECTOR, ROLE.SALE_SUPPORT],
     RECEIVER_VIEW: [ROLE.DIRECTOR, ROLE.SALE_ENGINEER, ROLE.ACCOUNTANTS],
@@ -31,7 +31,7 @@ export const ROLE_GROUPS = {
     RELEASE_REQUEST_MANAGE: [ROLE.DIRECTOR, ROLE.SALE_ENGINEER],
     GDN_VIEW: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER, ROLE.ACCOUNTANTS],
     GDN_MANAGE: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER],
-    DELIVERY_VIEW: [ROLE.DIRECTOR, ROLE.SALE_ENGINEER, ROLE.ACCOUNTANTS],
+    DELIVERY_VIEW: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER, ROLE.ACCOUNTANTS],
     DELIVERY_MANAGE: [ROLE.DIRECTOR, ROLE.WAREHOUSE_KEEPER],
     REPORT_VIEW: [ROLE.DIRECTOR],
     ADMIN_ONLY: [ROLE.ADMIN],
@@ -51,9 +51,9 @@ export const isDirector = (permissionRole) => permissionRole === 'DIRECTOR';
 export const isWarehouseKeeper = (permissionRole) => permissionRole === 'WAREHOUSE_KEEPER';
 export const isAccountant = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
-/** Sale Support (SP) chỉ xem kho, không sửa / bật tắt kho. */
+/** Chỉ Thủ kho + Giám đốc được chỉnh sửa nghiệp vụ kho. */
 export const canEditWarehouse = (permissionRole) =>
-    !!permissionRole && permissionRole !== 'SALE_SUPPORT';
+    hasAnyRole(permissionRole, ROLE_GROUPS.WAREHOUSE_MANAGE);
 
 export const isPermissionRoleValid = (role) => {
     return !!role && VALID_PERMISSION_ROLES.includes(role);
@@ -112,6 +112,19 @@ export const getPermissionRoleLabel = (permissionRole) => {
     return PERMISSION_ROLE_LABELS[permissionRole] ?? (permissionRole || 'Loi vai tro');
 };
 
+export const DEFAULT_ROUTE_BY_ROLE = {
+    [ROLE.ADMIN]: '/admin/users',
+    [ROLE.DIRECTOR]: '/home',
+    [ROLE.WAREHOUSE_KEEPER]: '/products',
+    [ROLE.SALE_SUPPORT]: '/products',
+    [ROLE.SALE_ENGINEER]: '/products',
+    [ROLE.ACCOUNTANTS]: '/products',
+};
+
+export const getDefaultRouteByRole = (permissionRole) => {
+    return DEFAULT_ROUTE_BY_ROLE[permissionRole] || '/products';
+};
+
 export const getRoleFromToken = (token) => {
     try {
         if (!token) return null;
@@ -124,7 +137,7 @@ export const getRoleFromToken = (token) => {
         const payload = JSON.parse(jsonPayload);
         return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
             payload.role || payload.Role || payload.roles?.[0] || null;
-    } catch (error) {
+    } catch {
         return null;
     }
 };

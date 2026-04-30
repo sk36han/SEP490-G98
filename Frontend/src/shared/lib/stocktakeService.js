@@ -44,7 +44,9 @@ function mapStocktakeRow(row) {
         createdBy: row.createdBy ?? row.CreatedBy,
         createdById: row.createdBy ?? row.CreatedBy ?? null,
         createdByName: row.createdByName ?? row.CreatedByName ?? '',
-        createdAt: row.createdAt ?? row.CreatedAt ?? null,
+        // Some stocktake list responses do not expose explicit createdAt.
+        // Fall back to plannedAt so the list still has a meaningful date column.
+        createdAt: row.createdAt ?? row.CreatedAt ?? row.plannedAt ?? row.PlannedAt ?? null,
         note: row.note ?? row.Note ?? null,
         // Progress fields
         totalLines: row.totalLines ?? row.TotalLines ?? 0,

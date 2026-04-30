@@ -111,6 +111,31 @@ public class StocktakeExecutionServiceTests
     }
 
     [Fact]
+    public async Task StartExecution_ShouldThrow_WhenPlannedAtIsInFuture()
+    {
+        using var context = GetContext();
+        await SeedBaseDataAsync(context);
+        var futurePlannedAt = DateTime.UtcNow.AddHours(2);
+        context.StocktakeSessions.Add(new StocktakeSession
+        {
+            StocktakeId = 11,
+            Status = "APPROVED",
+            WarehouseId = 1,
+            StocktakeCode = "ST11",
+            Mode = "P",
+            CreatedBy = 111,
+            PlannedAt = futurePlannedAt
+        });
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var act = async () => await service.StartStocktakeExecutionAsync(11, 111);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*chưa đến thời điểm kiểm kê*");
+    }
+
+    [Fact]
     public async Task FinalizeResults_WithDiscrepancy_ShouldCreateAdjustment_AndComplete()
     {
         using var context = GetContext();
@@ -153,6 +178,24 @@ public class StocktakeExecutionServiceTests
         await service.ApproveAndFinalizeResultsAsync(30, new StocktakeApprovalRequest { Decision = "RECOUNT", Reason = "Check again" }, 111);
 
         session.Status.Should().Be("IN_PROGRESS");
+    }
+
+    [Fact]
+    public async Task FinalizeResults_RejectDecision_ShouldSetToInProgress_InsteadOfCancelled()
+    {
+        using var context = GetContext();
+        await SeedBaseDataAsync(context);
+        var session = new StocktakeSession { StocktakeId = 31, Status = "PENDING_RESULTADJ", WarehouseId = 1, StocktakeCode = "ST31", Mode = "P", CreatedBy = 111 };
+        context.StocktakeSessions.Add(session);
+        await context.SaveChangesAsync();
+
+        _stocktakeServiceMock.Setup(x => x.GetStocktakeDetailAsync(31)).ReturnsAsync(new StocktakeDetailResponse { Status = "IN_PROGRESS" });
+
+        var service = CreateService(context);
+        await service.ApproveAndFinalizeResultsAsync(31, new StocktakeApprovalRequest { Decision = "REJECT", Reason = "Need recount" }, 111);
+
+        session.Status.Should().Be("IN_PROGRESS");
+        session.EndedAt.Should().BeNull();
     }
 
     [Fact]

@@ -44,6 +44,9 @@ namespace Warehouse.DataAcces.Service
                 if (session.Status != "APPROVED")
                     throw new InvalidOperationException("Chỉ có thể bắt đầu kiểm kê từ kế hoạch đã được duyệt (APPROVED).");
 
+                if (session.PlannedAt.HasValue && session.PlannedAt.Value > DateTime.UtcNow)
+                    throw new InvalidOperationException("Chưa đến thời điểm kiểm kê theo kế hoạch, không thể bắt đầu kiểm kê.");
+
                 // 2. Lấy dữ liệu tồn kho hiện tại (InventoryOnHand)
                 var inventory = await _context.InventoryOnHands
                     .Where(i => i.WarehouseId == session.WarehouseId)
@@ -238,8 +241,9 @@ namespace Warehouse.DataAcces.Service
                     }
                     else if (request.Decision == "REJECT")
                     {
-                        session.Status = "CANCELLED";
-                        session.EndedAt = DateTime.UtcNow;
+                        // Reject at this stage means recount is required, not hard-cancel.
+                        session.Status = "IN_PROGRESS";
+                        session.EndedAt = null;
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
                     }

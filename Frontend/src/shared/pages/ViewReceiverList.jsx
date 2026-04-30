@@ -121,6 +121,21 @@ export default function ViewReceiverList() {
         return { active, inactive };
     }, [rows, totalItems, summaryBreakdownReliable]);
 
+    const displayRows = useMemo(() => {
+        const toTimestamp = (value) => {
+            if (!value) return 0;
+            const normalized = String(value).endsWith('Z') ? String(value) : `${value}Z`;
+            const t = new Date(normalized).getTime();
+            return Number.isNaN(t) ? 0 : t;
+        };
+
+        return [...rows].sort((a, b) => {
+            const createdDiff = toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
+            if (createdDiff !== 0) return createdDiff;
+            return String(a.receiverCode || '').localeCompare(String(b.receiverCode || ''));
+        });
+    }, [rows]);
+
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const start = totalItems > 0 ? page * pageSize + 1 : 0;
     const end = Math.min((page + 1) * pageSize, totalItems);
@@ -235,7 +250,7 @@ export default function ViewReceiverList() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {rows.map((row, index) => (
+                                {displayRows.map((row, index) => (
                                     <TableRow key={row.receiverId} hover sx={{ '&:hover': { bgcolor: '#f9fafb' }, '&:last-child td': { borderBottom: 0 } }}>
                                         <TableCell sx={{ textAlign: 'center', color: '#9ca3af', fontSize: '13px', py: 1.5, px: 2 }}>
                                             {(page * pageSize) + index + 1}

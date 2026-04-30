@@ -1,3 +1,4 @@
+import React from 'react';
 import {
     Box as BoxIcon,
     Users,
@@ -12,8 +13,9 @@ import {
     DollarSign,
     MapPin,
 } from 'lucide-react';
+import { ROLE_GROUPS } from '../../shared/permissions/roleUtils';
 
-const icon = (Icon) => <Icon size={22} />;
+const icon = (IconComponent) => React.createElement(IconComponent, { size: 22 });
 
 const COMMON_ITEMS = [];
 
@@ -21,7 +23,7 @@ const PRODUCT_MATCH_PATHS = {
     FULL: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'],
     BASIC: ['/products', '/uom', '/brands'],
     SALE_SUPPORT: ['/products', '/categories', '/brands'],
-    ACCOUNTANT: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands', '/items', '/items/create', '/items/edit'],
+    ACCOUNTANT: ['/products', '/categories', '/brands', '/items'],
 };
 
 const createItem = ({ id, path, icon: itemIcon, label, children, matchPaths }) => {
@@ -124,10 +126,10 @@ const menuCatalog = {
         path: '/products',
         icon: icon(BoxIcon),
         label: 'Vật tư',
-        matchPaths: PRODUCT_MATCH_PATHS.BASIC,
+        matchPaths: PRODUCT_MATCH_PATHS.SALE_SUPPORT,
         children: [
+            createChild('/categories', 'Danh mục sản phẩm'),
             createChild('/products', 'Danh sách vật tư'),
-            createChild('/uom', 'Đơn vị tính'),
             createChild('/brands', 'Thương hiệu'),
         ],
     }),
@@ -140,9 +142,6 @@ const menuCatalog = {
         children: [
             createChild('/products', 'Danh sách vật tư'),
             createChild('/categories', 'Danh mục'),
-            createChild('/uom', 'Đơn vị tính'),
-            createChild('/packaging-spec', 'Quy cách đóng gói'),
-            createChild('/specs', 'Thông số'),
             createChild('/brands', 'Thương hiệu'),
         ],
     }),
@@ -197,9 +196,13 @@ const menuCatalog = {
     }),
 
     receiversSimple: createItem({
+        id: 'receivers-mgmt',
         path: '/receivers',
         icon: icon(Users),
         label: 'Người nhận',
+        children: [
+            createChild('/receivers', 'Danh sách người nhận'),
+        ],
     }),
     receiversManage: createItem({
         id: 'receivers-mgmt',
@@ -332,8 +335,8 @@ const roleMenus = {
         menuCatalog.purchaseOrdersList,
         menuCatalog.goodReceiptNotesManage,
         menuCatalog.purchaseReturnsList,
+        menuCatalog.releaseRequestsList,
         menuCatalog.goodsDeliveryNotesManage,
-        menuCatalog.deliveries,
     ],
     SALE_SUPPORT: [
         ...COMMON_ITEMS,
@@ -347,7 +350,6 @@ const roleMenus = {
         menuCatalog.saleEngineerProducts,
         menuCatalog.receiversSimple,
         menuCatalog.releaseRequestsManage,
-        menuCatalog.deliveries,
     ],
     ACCOUNTANTS: [
         ...COMMON_ITEMS,
@@ -375,5 +377,22 @@ roleMenus.DIRECTOR = dedupeMenuItems([
 ]);
 
 export const getMenuItems = (role) => {
-    return roleMenus[role] || [...COMMON_ITEMS];
+    const items = roleMenus[role] || [...COMMON_ITEMS];
+    const canViewDeliveries = ROLE_GROUPS.DELIVERY_VIEW.includes(role);
+    const canViewSuppliers = ROLE_GROUPS.SUPPLIER_VIEW.includes(role);
+    const canViewReceivers = ROLE_GROUPS.RECEIVER_VIEW.includes(role);
+    const canViewReleaseRequests = ROLE_GROUPS.RELEASE_REQUEST_VIEW.includes(role);
+
+    return dedupeMenuItems(
+        items.filter((item) => {
+            if (!item) return false;
+            if (item.id === 'deliveries-mgmt' && !canViewDeliveries) return false;
+            if (item.id === 'suppliers-mgmt' && !canViewSuppliers) return false;
+            if (item.path === '/suppliers' && !canViewSuppliers) return false;
+            if (item.id === 'receivers-mgmt' && !canViewReceivers) return false;
+            if (item.path === '/receivers' && !canViewReceivers) return false;
+            if (item.id === 'release-request-mgmt' && !canViewReleaseRequests) return false;
+            return true;
+        })
+    );
 };

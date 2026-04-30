@@ -349,7 +349,7 @@ const CreateReceiver = () => {
             showToast('Tạo người nhận thành công!', 'success');
 
             setTimeout(() => {
-                navigate(-1);
+                navigate('/receivers');
             }, 900);
         } catch (error) {
             const msg = error?.response?.data?.message || error?.message || 'Da xay ra loi khi tao nguoi nhan.';
@@ -360,7 +360,7 @@ const CreateReceiver = () => {
     };
 
     const handleCancel = () => {
-        navigate(-1);
+        navigate('/receivers');
     };
 
     /* ── Render ── */

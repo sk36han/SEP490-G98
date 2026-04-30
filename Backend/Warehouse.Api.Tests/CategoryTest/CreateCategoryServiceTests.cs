@@ -51,14 +51,14 @@ namespace Warehouse.Api.Tests.CategoryTest
 
             // Assert
             result.Should().NotBeNull();
-            result.CategoryCode.Should().Be("ELEC-01"); // Trimmed
+            result.CategoryCode.Should().Be("CTG-001");
             result.CategoryName.Should().Be("Electronics"); // Trimmed
             result.ParentId.Should().BeNull();
             result.ParentName.Should().BeNull();
             result.IsActive.Should().BeTrue();
 
             _mockCategoryRepo.Verify(repo => repo.CreateAsync(It.Is<ItemCategory>(c => 
-                c.CategoryCode == "ELEC-01" && 
+                c.CategoryCode == "CTG-001" && 
                 c.CategoryName == "Electronics" && 
                 c.ParentId == null && 
                 c.IsActive)), Times.Once);
@@ -68,7 +68,7 @@ namespace Warehouse.Api.Tests.CategoryTest
                 AuditAction.Create,
                 AuditEntity.Category,
                 It.IsAny<long>(),
-                "Tạo danh mục 'Electronics' (mã: ELEC-01)",
+                "Tạo danh mục 'Electronics' (mã: CTG-001)",
                 null,
                 null
             ), Times.Once);
@@ -100,13 +100,13 @@ namespace Warehouse.Api.Tests.CategoryTest
 
             // Assert
             result.Should().NotBeNull();
-            result.CategoryCode.Should().Be("LAPTOP");
+            result.CategoryCode.Should().Be("CTG-001");
             result.CategoryName.Should().Be("Laptops");
             result.ParentId.Should().Be(parentId);
             result.ParentName.Should().Be("Computers");
 
             _mockCategoryRepo.Verify(repo => repo.CreateAsync(It.Is<ItemCategory>(c => 
-                c.CategoryCode == "LAPTOP" && 
+                c.CategoryCode == "CTG-001" && 
                 c.ParentId == parentId)), Times.Once);
         }
 
@@ -163,46 +163,46 @@ namespace Warehouse.Api.Tests.CategoryTest
             await act.Should().ThrowAsync<ArgumentException>().WithMessage(expectedMessage);
         }
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsNull() =>
             AssertCreateCategoryCodeThrowsAsync(null!, "Mã danh mục không được để trống.");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsEmpty() =>
             AssertCreateCategoryCodeThrowsAsync("", "Mã danh mục không được để trống.");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsOnlySpace() =>
             AssertCreateCategoryCodeThrowsAsync(" ", "Mã danh mục không được để trống.");
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsTooShort() =>
             AssertCreateCategoryCodeThrowsAsync("A", "Mã danh mục phải có ít nhất 2 ký tự.");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsTooShortAfterTrim() =>
             AssertCreateCategoryCodeThrowsAsync(" a ", "Mã danh mục phải có ít nhất 2 ký tự.");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsTooLong() =>
             AssertCreateCategoryCodeThrowsAsync(new string('A', 51), "Mã danh mục không được vượt quá 50 ký tự.");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsSpaceInBetween() =>
             AssertCreateCategoryCodeThrowsAsync("CODE 1", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsAtSymbol() =>
             AssertCreateCategoryCodeThrowsAsync("CODE@1", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsSpaceAndAtSymbol() =>
             AssertCreateCategoryCodeThrowsAsync("bad @", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsExclamationMark() =>
             AssertCreateCategoryCodeThrowsAsync("CODE!", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 
-        [Fact]
+        [Fact(Skip = "CategoryCode is auto-generated in current service")]
         public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsUnicodeCharacters() =>
             AssertCreateCategoryCodeThrowsAsync("MãMới", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 
@@ -255,24 +255,21 @@ namespace Warehouse.Api.Tests.CategoryTest
         // =====================================================================
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowInvalidOperationException_WhenCategoryCodeExists()
+        public async Task CreateCategoryAsync_ShouldAutoGenerateNextCode_WhenCategoryCodePatternExists()
         {
             // Arrange
             var request = new CreateCategoryRequest { CategoryName = "New Electronics" };
             
             var existingCategories = new List<ItemCategory>
             {
-                new ItemCategory { CategoryCode = "  elec  ", CategoryName = "Old Electronics" } // case-insensitive match
+                new ItemCategory { CategoryCode = "CTG-002", CategoryName = "Old Electronics" }
             }.AsQueryable();
 
             _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(existingCategories);
 
             // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage("Mã danh mục 'ELEC' đã tồn tại.");
+            var result = await _categoryService.CreateCategoryAsync(request, 1L);
+            result.CategoryCode.Should().Be("CTG-003");
         }
 
         [Fact]
