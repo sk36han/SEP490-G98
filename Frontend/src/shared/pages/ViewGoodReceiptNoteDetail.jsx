@@ -9,6 +9,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { formatDateTime, formatDateOnly, formatTimeOnly } from '../lib/dateUtils';
 import {
     Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Switch,
     TextField,
 } from '@mui/material';
@@ -23,6 +27,7 @@ import {
     CheckCircle,
     XCircle,
     Clock,
+    Send,
     X,
     Loader,
     RotateCcw,
@@ -31,6 +36,7 @@ import {
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getGRNDetail, approveGoodReceiptNote, rejectGoodReceiptNote } from '../lib/goodReceiptNoteService';
+import { getPurchaseOrderDetail } from '../lib/purchaseOrderService';
 import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 
@@ -67,7 +73,7 @@ const buildSupplierAddress = (data) => {
     return parts.length > 0 ? parts.join(', ') : '';
 };
 
-const safeFormatTimeOnly = (value) => {
+const _SAFE_FORMAT_TIME_ONLY = (value) => {
     if (!value) return '';
     try {
         return formatTimeOnly(value);
@@ -76,7 +82,112 @@ const safeFormatTimeOnly = (value) => {
     }
 };
 
-const getPaymentMethodLabel = (method) => {
+const buildPurchaseOrderHistory = (poData) => {
+    if (!poData || typeof poData !== 'object') return [];
+
+    const poCode = poData.PoCode ?? poData.poCode ?? poData.purchaseOrderCode ?? 'PO';
+    const createdAt = poData.CreatedAt ?? poData.createdAt;
+    const submittedAt = poData.SubmittedAt ?? poData.submittedAt;
+    const approvedAt = poData.ApprovedAt ?? poData.approvedAt;
+    const rejectedAt = poData.RejectedAt ?? poData.rejectedAt;
+    const rejectedReason = poData.RejectedReason ?? poData.rejectedReason ?? '';
+
+    return [
+        approvedAt
+            ? {
+                type: 'approved',
+                title: `Duyệt yêu cầu nhập hàng ${poCode}`,
+                actor: poData.ApprovedByName ?? poData.approvedByName ?? '',
+                at: approvedAt,
+                source: 'PO',
+            }
+            : null,
+        rejectedAt
+            ? {
+                type: 'rejected',
+                title: `Từ chối yêu cầu nhập hàng ${poCode}`,
+                actor: poData.RejectedByName ?? poData.rejectedByName ?? '',
+                at: rejectedAt,
+                note: rejectedReason,
+                source: 'PO',
+            }
+            : null,
+        submittedAt
+            ? {
+                type: 'submitted',
+                title: `Gửi duyệt yêu cầu nhập hàng ${poCode}`,
+                actor: poData.SubmittedByName ?? poData.submittedByName ?? '',
+                at: submittedAt,
+                source: 'PO',
+            }
+            : null,
+        createdAt
+            ? {
+                type: 'created',
+                title: `Tạo yêu cầu nhập hàng ${poCode}`,
+                actor: poData.CreatedByName ?? poData.createdByName ?? '',
+                at: createdAt,
+                source: 'PO',
+            }
+            : null,
+    ].filter(Boolean);
+};
+
+const buildGrnProcessHistory = (data, grnCode) => {
+    if (!data || typeof data !== 'object') return [];
+    const createdAt = data.CreatedAt ?? data.createdAt;
+
+    return [
+        data.PostedAt
+            ? {
+                type: 'completed',
+                title: `Đã ghi sổ phiếu nhập kho ${grnCode}`,
+                actor: data.PostedByName ?? data.postedByName ?? '',
+                at: data.PostedAt,
+                source: 'GRN',
+            }
+            : null,
+        data.ApprovedAt
+            ? {
+                type: 'approved',
+                title: `Duyệt phiếu nhập kho ${grnCode}`,
+                actor: data.ApprovedByName ?? data.approvedByName ?? '',
+                at: data.ApprovedAt,
+                source: 'GRN',
+            }
+            : null,
+        data.RejectedAt
+            ? {
+                type: 'rejected',
+                title: `Từ chối phiếu nhập kho ${grnCode}`,
+                actor: data.RejectedByName ?? data.rejectedByName ?? '',
+                at: data.RejectedAt,
+                note: data.RejectedReason ?? data.rejectedReason ?? '',
+                source: 'GRN',
+            }
+            : null,
+        data.SubmittedAt
+            ? {
+                type: 'submitted',
+                title: `Gửi duyệt phiếu nhập kho ${grnCode}`,
+                actor: data.SubmittedByName ?? data.submittedByName ?? '',
+                at: data.SubmittedAt,
+                source: 'GRN',
+            }
+            : null,
+        createdAt
+            ? {
+                type: 'created',
+                title: `Tạo phiếu nhập kho ${grnCode}`,
+                actor: data.CreatedByName ?? data.createdByName ?? '',
+                at: createdAt,
+                source: 'GRN',
+            }
+            : null,
+    ].filter(Boolean);
+};
+
+const _GET_PAYMENT_METHOD_LABEL = (method) => {
     const methodMap = {
         cash: 'Tiền mặt',
         bank_transfer: 'Chuyển khoản',
@@ -205,6 +316,7 @@ const ViewGoodReceiptNoteDetail = () => {
     const [submitting, setSubmitting] = useState(false);
     const [isPaid, setIsPaid] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
 
     useEffect(() => {
         if (grnData) {
@@ -223,6 +335,15 @@ const ViewGoodReceiptNoteDetail = () => {
             setLoading(true);
             try {
                 const data = await getGRNDetail(id);
+                let poData = null;
+                const purchaseOrderId = data?.PurchaseOrderId ?? data?.purchaseOrderId;
+                if (purchaseOrderId) {
+                    try {
+                        poData = await getPurchaseOrderDetail(purchaseOrderId);
+                    } catch {
+                        poData = null;
+                    }
+                }
 
                 if (data) {
                     const grnCode = data.GrnCode ?? data.grnCode;
@@ -266,52 +387,12 @@ const ViewGoodReceiptNoteDetail = () => {
                         totalAmount: Number((data.TotalAmount ?? data.totalAmount) || 0),
                         netAmount: Number((data.NetAmount ?? data.netAmount) || 0),
                         lines: mappedLines,
-                        history: [
-                            // Posted
-                            data.PostedAt
-                                ? {
-                                    action: 'Đã ghi sổ phiếu nhập kho',
-                                    date: safeFormatDateOnly(data.PostedAt),
-                                    time: safeFormatTimeOnly(data.PostedAt),
-                                    user: data.PostedByName ?? data.postedByName ?? '',
-                                }
-                                : null,
-                            // Approved
-                            data.ApprovedAt
-                                ? {
-                                    action: 'Duyệt phiếu nhập kho',
-                                    date: safeFormatDateOnly(data.ApprovedAt),
-                                    time: safeFormatTimeOnly(data.ApprovedAt),
-                                    user: data.ApprovedByName ?? data.approvedByName ?? '',
-                                }
-                                : null,
-                            // Rejected
-                            data.RejectedAt
-                                ? {
-                                    action: 'Từ chối phiếu nhập kho',
-                                    date: safeFormatDateOnly(data.RejectedAt),
-                                    time: safeFormatTimeOnly(data.RejectedAt),
-                                    user: data.RejectedByName ?? data.rejectedByName ?? '',
-                                    reason: data.RejectedReason ?? data.rejectedReason ?? '',
-                                }
-                                : null,
-                            // Submitted
-                            data.SubmittedAt
-                                ? {
-                                    action: 'Gửi yêu cầu duyệt phiếu',
-                                    date: safeFormatDateOnly(data.SubmittedAt),
-                                    time: safeFormatTimeOnly(data.SubmittedAt),
-                                    user: data.SubmittedByName ?? data.submittedByName ?? '',
-                                }
-                                : null,
-                            // Created
-                            {
-                                action: `Tạo mới phiếu nhập kho ${grnCode}`,
-                                date: safeFormatDateOnly(createdAt),
-                                time: safeFormatTimeOnly(createdAt),
-                                user: data.CreatedByName ?? data.createdByName ?? '',
-                            },
-                        ].filter(Boolean),
+                        processHistory: [
+                            ...buildPurchaseOrderHistory(poData),
+                            ...buildGrnProcessHistory(data, grnCode),
+                        ]
+                            .filter(Boolean)
+                            .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime()),
                     });
                 }
             } catch (error) {
@@ -614,6 +695,10 @@ const ViewGoodReceiptNoteDetail = () => {
                                 <StatusIcon status={grnData.status} size={16} />
                                 {statusStyle.label}
                             </div>
+                            <button type="button" className="btn btn-secondary" onClick={() => setTrackingDialogOpen(true)}>
+                                <FileText size={15} />
+                                Lịch Sử quy trình Nhập Kho
+                            </button>
                         </div>
                     </div>
 
@@ -1006,134 +1091,72 @@ const ViewGoodReceiptNoteDetail = () => {
                                 </div>
                             </div>
 
-                            <SectionCard
-                                title="Lịch sử phiếu nhập"
-                                subtitle="Các mốc chính của chứng từ"
-                            >
-                                <div
-                                    style={{
-                                        padding: 16,
-                                        backgroundColor: '#f9fafb',
-                                        borderRadius: 12,
-                                        border: '1px solid #e5e7eb',
-                                    }}
-                                >
-                                    {grnData.history?.length ? (
-                                        <div className="grn-timeline">
-                                            {grnData.history.map((item, index) => (
-                                                <div key={index} className="grn-timeline-item">
-                                                    <div
-                                                        className="grn-timeline-dot"
-                                                        style={{
-                                                            backgroundColor:
-                                                                index === 0
-                                                                    ? '#2196F3'
-                                                                    : '#9ca3af',
-                                                        }}
-                                                    />
-                                                    <div
-                                                        className="grn-timeline-content"
-                                                        style={{
-                                                            borderLeft:
-                                                                index < grnData.history.length - 1
-                                                                    ? '2px solid #e5e7eb'
-                                                                    : 'none',
-                                                            paddingBottom:
-                                                                index < grnData.history.length - 1
-                                                                    ? 12
-                                                                    : 0,
-                                                        }}
-                                                    >
-                                                        <div
-                                                            style={{
-                                                                fontSize: 13,
-                                                                fontWeight: 600,
-                                                                color: '#111827',
-                                                                marginBottom: 4,
-                                                            }}
-                                                        >
-                                                            {item.action}
-                                                        </div>
-                                                        <div
-                                                            style={{
-                                                                display: 'flex',
-                                                                gap: 8,
-                                                                alignItems: 'center',
-                                                                flexWrap: 'wrap',
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 12,
-                                                                    color: '#6b7280',
-                                                                }}
-                                                            >
-                                                                {item.date}
-                                                            </span>
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 12,
-                                                                    color: '#9ca3af',
-                                                                }}
-                                                            >
-                                                                |
-                                                            </span>
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 12,
-                                                                    color: '#6b7280',
-                                                                }}
-                                                            >
-                                                                {item.time}
-                                                            </span>
-                                                            {item.user ? (
-                                                                <>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: 12,
-                                                                            color: '#9ca3af',
-                                                                        }}
-                                                                    >
-                                                                        |
-                                                                    </span>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: 12,
-                                                                            color: '#6b7280',
-                                                                        }}
-                                                                    >
-                                                                        {item.user}
-                                                                    </span>
-                                                                </>
-                                                            ) : null}
-                                                        </div>
-                                                        {item.reason ? (
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 12,
-                                                                    color: '#b91c1c',
-                                                                    fontStyle: 'italic',
-                                                                    marginTop: 4,
-                                                                }}
-                                                            >
-                                                                Lý do: {item.reason}
-                                                            </div>
-                                                        ) : null}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="grn-empty-state" style={{ padding: 0 }}>
-                                            Chưa có lịch sử hiển thị.
-                                        </div>
-                                    )}
-                                </div>
-                            </SectionCard>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <Dialog open={trackingDialogOpen} onClose={() => setTrackingDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Lịch Sử quy trình Nhập Kho</DialogTitle>
+                <DialogContent dividers>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {grnData.processHistory?.length ? grnData.processHistory.map((event, i) => (
+                            <div key={`${event.source}-${event.type}-${event.at}-${i}`} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                                <div
+                                    style={{
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: '50%',
+                                        backgroundColor:
+                                            event.type === 'rejected'
+                                                ? '#dc2626'
+                                                : event.type === 'submitted'
+                                                    ? '#f59e0b'
+                                                    : event.type === 'completed'
+                                                        ? '#16a34a'
+                                                        : '#2563eb',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0,
+                                        marginTop: 2,
+                                    }}
+                                >
+                                    {event.type === 'rejected' ? (
+                                        <XCircle size={12} color="#fff" />
+                                    ) : event.type === 'submitted' ? (
+                                        <Send size={12} color="#fff" />
+                                    ) : (
+                                        <CheckCircle size={12} color="#fff" />
+                                    )}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                                        {event.title}
+                                        {event.note ? (
+                                            <span style={{ fontWeight: 400, color: '#6b7280' }}> — {event.note}</span>
+                                        ) : null}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                                        {event.actor ? `${event.actor} • ` : ''}
+                                        {event.at ? formatDateTime(event.at) : 'Đang cập nhật'}
+                                        {event.source ? ` • ${event.source}` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="grn-empty-state" style={{ padding: 0 }}>
+                                Chưa có lịch sử quy trình nhập kho.
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+                <DialogActions>
+                    <button type="button" className="btn btn-secondary" onClick={() => setTrackingDialogOpen(false)}>
+                        Đóng
+                    </button>
+                </DialogActions>
+            </Dialog>
         </div>
     );
 };

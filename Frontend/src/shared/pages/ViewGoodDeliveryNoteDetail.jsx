@@ -5,6 +5,7 @@ import {
     issueGoodsDeliveryNote,
     confirmDeliveryGoodsDeliveryNote,
 } from '../lib/goodsDeliveryNoteService';
+import { getReleaseRequestDetail } from '../lib/releaseRequestService';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import {
@@ -14,13 +15,14 @@ import {
     MapPin,
     Truck,
     Phone,
+    Send,
     CheckCircle,
     XCircle,
-    History,
     DollarSign,
     Printer,
 } from 'lucide-react';
 import { TextField } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { ConfirmDialog } from '@ui/dialogs';
 import { StatusBadge } from '@ui/badges';
 import { useToastContext } from '../../app/context/ToastContext';
@@ -39,6 +41,7 @@ const HISTORY_EVENT_META = {
     rejected: { color: '#dc2626', fallbackActor: UNKNOWN_ACTOR },
     pending: { color: '#9ca3af', fallbackActor: UNKNOWN_ACTOR },
     issued: { color: '#0284c7', fallbackActor: 'Kho' },
+    completed: { color: '#16a34a', fallbackActor: UNKNOWN_ACTOR },
 };
 
 // ── Utils ──────────────────────────────────────────────────────────────────
@@ -86,11 +89,61 @@ const mapApprovalStep = (approval) => ({
     reason: approval.reason ?? approval.Reason ?? '',
 });
 
-const buildEmbeddedHistory = ({ data, approvals }) => {
+const normalizeDecision = (decision) => String(decision || 'PENDING').trim().toUpperCase();
+const isDecisionApproved = (decision) => ['APPROVE', 'APPROVED'].includes(normalizeDecision(decision));
+const isDecisionRejected = (decision) => ['REJECT', 'REJECTED'].includes(normalizeDecision(decision));
+
+const buildReleaseRequestHistory = (rrData) => {
+    if (!rrData) return [];
+    const events = [];
+    const rrApprovals = (rrData.approvals ?? rrData.Approvals ?? []).map(mapApprovalStep);
+    const rrCreatedAt = firstDefined(rrData.createdAt, rrData.CreatedAt, null);
+    const rrSubmittedAt = firstDefined(rrData.submittedAt, rrData.SubmittedAt, null);
+    const rrCreatedBy = firstDefined(rrData.requestedByName, rrData.RequestedByName, rrData.createdByName, rrData.CreatedByName, '');
+
+    if (rrCreatedAt) {
+        events.push({
+            type: 'created',
+            title: 'Tạo yêu cầu xuất hàng',
+            at: rrCreatedAt,
+            actor: rrCreatedBy || HISTORY_EVENT_META.created.fallbackActor,
+            note: rrData.releaseRequestCode ? `Mã RR: ${rrData.releaseRequestCode}` : '',
+            flowOrder: 10,
+        });
+    }
+
+    if (rrSubmittedAt) {
+        events.push({
+            type: 'submitted',
+            title: 'Gửi duyệt yêu cầu xuất hàng',
+            at: rrSubmittedAt,
+            actor: rrCreatedBy || HISTORY_EVENT_META.submitted.fallbackActor,
+            note: '',
+            flowOrder: 20,
+        });
+    }
+
+    rrApprovals.forEach((ap) => {
+        if (!ap.actionAt) return;
+        const approved = isDecisionApproved(ap.decision);
+        const rejected = isDecisionRejected(ap.decision);
+        events.push({
+            type: approved ? 'approved' : rejected ? 'rejected' : 'pending',
+            title: approved ? 'RR được duyệt' : rejected ? 'RR bị từ chối' : `RR xử lý bước ${ap.stageNo}`,
+            at: ap.actionAt,
+            actor: ap.actionByName || HISTORY_EVENT_META.pending.fallbackActor,
+            note: ap.reason || '',
+            flowOrder: 30,
+        });
+    });
+
+    return events;
+};
+
+const buildGdnHistory = ({ data, approvals }) => {
     const events = [];
     const createdAt = firstDefined(data.createdAt, data.CreatedAt, null);
     const submittedAt = firstDefined(data.submittedAt, data.SubmittedAt, null);
-    const issueDate = firstDefined(data.issueDate, data.IssueDate, null);
     const createdByName = firstDefined(data.createdByName, data.CreatedByName, data.requesterName, data.RequesterName, '');
 
     if (createdAt) {
@@ -100,6 +153,7 @@ const buildEmbeddedHistory = ({ data, approvals }) => {
             at: createdAt,
             actor: createdByName || HISTORY_EVENT_META.created.fallbackActor,
             note: '',
+            flowOrder: 40,
         });
     }
 
@@ -110,70 +164,63 @@ const buildEmbeddedHistory = ({ data, approvals }) => {
             at: submittedAt,
             actor: createdByName || HISTORY_EVENT_META.submitted.fallbackActor,
             note: '',
+            flowOrder: 50,
         });
     }
 
     approvals.forEach((ap) => {
         if (!ap.actionAt) return;
-        const decision = String(ap.decision || 'PENDING').toUpperCase();
-        const title = decision === 'APPROVED'
-            ? `Duyệt bước ${ap.stageNo}`
-            : decision === 'REJECTED'
-            ? `Từ chối bước ${ap.stageNo}`
-            : `Xử lý bước ${ap.stageNo}`;
+        const approved = isDecisionApproved(ap.decision);
+        const rejected = isDecisionRejected(ap.decision);
+        const stageNo = Number(ap.stageNo || 0);
+        let title = `Xử lý bước ${ap.stageNo}`;
+        let type = 'pending';
+
+        if (stageNo === 1 || stageNo === 2) {
+            title = approved ? 'Duyệt phiếu xuất kho' : rejected ? 'Từ chối duyệt phiếu xuất kho' : `Xử lý bước ${ap.stageNo}`;
+            type = approved ? 'approved' : rejected ? 'rejected' : 'pending';
+        } else if (stageNo === 3) {
+            title = 'Đã xuất kho';
+            type = 'issued';
+        } else if (stageNo === 4) {
+            title = 'Xác nhận giấy xuất kho hoàn thành';
+            type = approved ? 'completed' : rejected ? 'rejected' : 'completed';
+        } else {
+            type = approved ? 'approved' : rejected ? 'rejected' : 'pending';
+            title = approved
+                ? `Duyệt bước ${ap.stageNo}`
+                : rejected
+                ? `Từ chối bước ${ap.stageNo}`
+                : `Xử lý bước ${ap.stageNo}`;
+        }
+
         events.push({
-            type: decision === 'APPROVED' ? 'approved' : decision === 'REJECTED' ? 'rejected' : 'pending',
+            type,
             title,
             at: ap.actionAt,
             actor: ap.actionByName || HISTORY_EVENT_META.pending.fallbackActor,
             note: ap.reason || '',
+            flowOrder: stageNo === 1 || stageNo === 2 ? 60 + stageNo : stageNo === 3 ? 80 : stageNo === 4 ? 90 : 70,
         });
     });
 
-    if (issueDate) {
-        events.push({
-            type: 'issued',
-            title: 'Xác nhận xuất kho',
-            at: issueDate,
-            actor: firstDefined(data.issuedByName, data.IssuedByName, HISTORY_EVENT_META.issued.fallbackActor),
-            note: '',
-        });
-    }
-
     return events
-        .filter((event) => event.at)
-        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        .filter((event) => event.at);
 };
 
-const HistoryStep = ({ event, isLast }) => {
-    const eventMeta = HISTORY_EVENT_META[event.type] ?? HISTORY_EVENT_META.pending;
-    return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{
-            width: 10, height: 10, borderRadius: '50%', marginTop: 6, flexShrink: 0,
-            backgroundColor: eventMeta.color,
-        }} />
-        <div style={{
-            flex: 1,
-            paddingLeft: 16,
-            paddingBottom: isLast ? 0 : 16,
-            borderLeft: isLast ? 'none' : '2px solid #e5e7eb',
-        }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
-                    {event.title}
-                </div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>{formatDateTime(event.at)}</div>
-            </div>
-            <div style={{ fontSize: 13, color: '#374151', marginTop: 4, fontWeight: 500 }}>
-                Người xử lý: {event.actor || eventMeta.fallbackActor}
-            </div>
-            {event.note && (
-                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>"{event.note}"</div>
-            )}
-        </div>
-    </div>
-    );
+const buildEmbeddedHistory = ({ data, approvals, rrData }) => {
+    const rrEvents = buildReleaseRequestHistory(rrData);
+    const gdnEvents = buildGdnHistory({ data, approvals });
+    return [...rrEvents, ...gdnEvents]
+        .filter((event) => event.at)
+        .sort((a, b) => {
+            const orderA = Number(a.flowOrder ?? 999);
+            const orderB = Number(b.flowOrder ?? 999);
+            if (orderA !== orderB) return orderA - orderB;
+            const timeA = a?.at ? new Date(a.at).getTime() : 0;
+            const timeB = b?.at ? new Date(b.at).getTime() : 0;
+            return timeA - timeB;
+        });
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -188,6 +235,7 @@ export default function ViewGoodDeliveryNoteDetail() {
     const [dialogConfig, setDialogConfig] = useState({ open: false, type: null });
     const [reasonText, setReasonText] = useState('');
     const [evidenceFile, setEvidenceFile] = useState(null);
+    const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
@@ -201,6 +249,16 @@ export default function ViewGoodDeliveryNoteDetail() {
             setLoading(true);
             const data = await getGoodsDeliveryNoteDetail(id);
             if (data) {
+                let rrData = null;
+                const rrId = data.releaseRequestId ?? data.ReleaseRequestId ?? null;
+                if (rrId != null) {
+                    try {
+                        rrData = await getReleaseRequestDetail(rrId);
+                    } catch (rrError) {
+                        console.warn('Không tải được lịch sử RR cho timeline tổng hợp:', rrError);
+                    }
+                }
+
                 const rawLines = data.lines ?? [];
                 const mappedLines = Array.isArray(rawLines)
                     ? rawLines.map((line, idx) => ({
@@ -226,6 +284,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                 setGdn({
                     gdnId: data.gdnId ?? id,
                     gdnCode: data.gdnCode ?? '',
+                    releaseRequestId: rrId,
                     warehouseName: data.warehouseName ?? '',
                     requesterName: data.requesterName ?? '',
                     releaseRequestCode: data.releaseRequestCode ?? '',
@@ -244,7 +303,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                     shippingFee: toNumber(data.shippingFee),
                     lines: mappedLines,
                     approvals,
-                    history: buildEmbeddedHistory({ data, approvals }),
+                    history: buildEmbeddedHistory({ data, approvals, rrData }),
                 });
             }
         } catch (err) {
@@ -377,7 +436,12 @@ export default function ViewGoodDeliveryNoteDetail() {
                                     Mã phiếu: <strong>{gdn.gdnCode || '—'}</strong>
                                 </p>
                             </div>
-                            <StatusBadge status={currentStatus} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <button type="button" className="btn btn-secondary" onClick={() => setTrackingDialogOpen(true)}>
+                                    <FileText size={15} />Lịch sử Quy trình xuất kho
+                                </button>
+                                <StatusBadge status={currentStatus} />
+                            </div>
                         </div>
                     </div>
 
@@ -497,23 +561,65 @@ export default function ViewGoodDeliveryNoteDetail() {
                                 <div className="gdn-note-box">{gdn.note?.trim() || 'Không có ghi chú.'}</div>
                             </SectionCard>
 
-                            <SectionCard title="Lịch sử xử lý phiếu" subtitle="Các mốc xử lý thực tế được nhúng trực tiếp trong chi tiết phiếu">
-                                <div style={{ padding: 16, backgroundColor: '#f9fafb', borderRadius: 12, border: '1px solid #e5e7eb' }}>
-                                    {gdn.history?.length ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                            {gdn.history.map((event, i) => (
-                                                <HistoryStep key={`${event.type}-${event.at}-${i}`} event={event} isLast={i === gdn.history.length - 1} />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="gdn-empty-state" style={{ padding: 0 }}>Chưa có lịch sử xử lý.</div>
-                                    )}
-                                </div>
-                            </SectionCard>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <Dialog open={trackingDialogOpen} onClose={() => setTrackingDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Lịch sử Quy trình xuất kho</DialogTitle>
+                <DialogContent dividers>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {gdn.history?.length ? gdn.history.map((event, i) => (
+                            <div key={`${event.type}-${event.at}-${i}`} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                                <div style={{
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: '50%',
+                                    backgroundColor: event.type === 'rejected'
+                                        ? '#dc2626'
+                                        : event.type === 'issued'
+                                            ? '#2563eb'
+                                            : event.type === 'submitted'
+                                                ? '#f59e0b'
+                                                : event.type === 'completed'
+                                                    ? '#16a34a'
+                                                : '#16a34a',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                    marginTop: 2,
+                                }}>
+                                    {event.type === 'rejected'
+                                        ? <XCircle size={12} color="#fff" />
+                                        : event.type === 'issued'
+                                            ? <Truck size={12} color="#fff" />
+                                            : event.type === 'submitted'
+                                                ? <Send size={12} color="#fff" />
+                                                : event.type === 'completed'
+                                                    ? <CheckCircle size={12} color="#fff" />
+                                                : <CheckCircle size={12} color="#fff" />}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                                        {event.title}
+                                        {event.note ? <span style={{ fontWeight: 400, color: '#6b7280' }}> — {event.note}</span> : null}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                                        {event.actor ? `${event.actor} • ` : ''}{event.at ? formatDateTime(event.at) : 'Đang cập nhật'}
+                                    </div>
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="gdn-empty-state" style={{ padding: 0 }}>Chưa có lịch sử quy trình xuất kho.</div>
+                        )}
+                    </div>
+                </DialogContent>
+                <DialogActions>
+                    <button type="button" className="btn btn-secondary" onClick={() => setTrackingDialogOpen(false)}>Đóng</button>
+                </DialogActions>
+            </Dialog>
 
             <ConfirmDialog
                 open={dialogConfig.open}

@@ -223,12 +223,19 @@ export default function CreateGoodDeliveryNote() {
     // ─── Effects ─────────────────────────────────────────────────────────────
     useEffect(() => {
         const queryId = searchParams.get('releaseRequestId') || searchParams.get('rrId');
-        if (queryId) {
-            getReleaseRequestDetail(queryId).then(data => {
-                if (data) handleSelectReleaseRequest(data);
-            });
+        if (!queryId) {
+            showToast('Chỉ có thể tạo phiếu xuất hàng từ một yêu cầu xuất hàng (RR).', 'warning');
+            navigate('/release-request');
+            return;
         }
-    }, [searchParams]);
+        getReleaseRequestDetail(queryId).then(data => {
+            if (data) handleSelectReleaseRequest(data);
+            else {
+                showToast('Không tìm thấy yêu cầu xuất hàng để tạo phiếu xuất.', 'error');
+                navigate('/release-request');
+            }
+        });
+    }, [searchParams, navigate, showToast]);
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -431,6 +438,33 @@ export default function CreateGoodDeliveryNote() {
             return;
         }
         const n = normalizeTransportInfoFields(transportDialogDraft);
+        const tempTransportId = `local-${Date.now()}`;
+        const newTransportOption = {
+            transportId: tempTransportId,
+            carrierName: n.carrierName ?? '',
+            driverName: n.driverName ?? '',
+            driverPhone: n.driverPhone ?? '',
+            licensePlate: n.licensePlate ?? '',
+            note: n.note ?? '',
+        };
+
+        setDeliveryList((prev) => {
+            const existedIdx = prev.findIndex((x) =>
+                (x.carrierName || '').trim() === (newTransportOption.carrierName || '').trim()
+                && (x.driverName || '').trim() === (newTransportOption.driverName || '').trim()
+                && (x.driverPhone || '').trim() === (newTransportOption.driverPhone || '').trim()
+                && (x.licensePlate || '').trim() === (newTransportOption.licensePlate || '').trim()
+            );
+            if (existedIdx >= 0) {
+                const next = [...prev];
+                const existed = next[existedIdx];
+                next.splice(existedIdx, 1);
+                next.unshift(existed);
+                return next;
+            }
+            return [newTransportOption, ...prev];
+        });
+
         setFormData((prev) => ({
             ...prev,
             carrierName: n.carrierName ?? '',
@@ -439,10 +473,11 @@ export default function CreateGoodDeliveryNote() {
             licensePlate: n.licensePlate ?? '',
             transportNote: n.note ?? '',
         }));
-        setTransportSource('custom');
-        setDeliveryTemplateId('');
+        setTransportSource('template');
+        setDeliveryTemplateId(String(tempTransportId));
         setTransportDialogErrors({});
         setTransportDialogOpen(false);
+        showToast('Đã tạo đơn vị vận chuyển và cập nhật danh sách chọn nhanh.', 'success');
     };
 
     const updateLine = (index, field, value) => {
@@ -841,11 +876,7 @@ export default function CreateGoodDeliveryNote() {
                                     >
                                         <option value="">— Không chọn —</option>
                                         {deliveryList.map((d) => {
-                                            const label = [
-                                                d.driverName || d.carrierName || (d.gdnId != null ? `GDN #${d.gdnId}` : '—'),
-                                                d.driverPhone || '',
-                                                d.licensePlate || '',
-                                            ].filter(Boolean).join(' · ');
+                                            const label = d.driverName || '—';
                                             return (
                                                 <option key={d.transportId} value={String(d.transportId)}>
                                                     {label}
@@ -962,7 +993,7 @@ export default function CreateGoodDeliveryNote() {
                                     setTransportDialogDraft((d) => ({ ...d, driverPhone: value }));
                                     setTransportDialogErrors((prev) => ({ ...prev, driverPhone: undefined }));
                                 }}
-                                placeholder="Chỉ số (theo quy tắc backend)"
+                                placeholder="Ví dụ: 0912345678"
                             />
                             {transportDialogErrors.driverPhone && (
                                 <p className="error-message">{transportDialogErrors.driverPhone}</p>

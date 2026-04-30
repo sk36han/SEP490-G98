@@ -82,8 +82,7 @@ const authService = {
                     throw new Error('Hết thời gian chờ máy chủ. Vui lòng thử lại.');
                 }
                 throw new Error(
-                    'Không kết nối được API. Hãy chạy backend (ví dụ http://localhost:5141) và thử lại. ' +
-                        '(Kiểm tra tab Network: request /api/Auth/login có bị (failed) không.)'
+                    'Không thể kết nối đến hệ thống lúc này. Vui lòng kiểm tra mạng và thử lại sau ít phút.'
                 );
             }
             if (error.response?.status === 401) {
@@ -161,7 +160,7 @@ const authService = {
                 if (error.code === 'ECONNABORTED') {
                     throw new Error('Hết thời gian chờ máy chủ.');
                 }
-                throw new Error('Không kết nối được API. Hãy chạy backend và thử lại.');
+                throw new Error('Không thể kết nối đến hệ thống lúc này. Vui lòng kiểm tra mạng và thử lại sau ít phút.');
             }
             if (error.response?.status === 400) {
                 throw new Error(error.response?.data?.message || 'Ma OTP khong hop le.');

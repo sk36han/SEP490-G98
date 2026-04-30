@@ -30,11 +30,8 @@ import {
     MenuItem,
 } from '@mui/material';
 import { StatusBadge } from '@ui/badges';
-import { FileText, Filter, Columns, Plus, GripVertical, RotateCcw, Package } from 'lucide-react';
+import { FileText, Filter, Columns, GripVertical, RotateCcw, Package } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
-import authService from '../lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
-import { ROLES_ALLOWED_CREATE_GDN_FROM_RR } from '../utils/releaseRequestGdnUtils';
 import SearchInput from '../components/SearchInput';
 import GoodDeliveryNoteFilterPopup from '../components/GoodDeliveryNoteFilterPopup';
 import '../styles/ListView.css';
@@ -125,10 +122,6 @@ export default function ViewGoodDeliveryNoteList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    /** Giống route /good-delivery-notes/create (Director / Thủ kho); không bật cho mọi role */
-    const canCreate = permissionRole && ROLES_ALLOWED_CREATE_GDN_FROM_RR.includes(permissionRole);
-
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -546,32 +539,6 @@ export default function ViewGoodDeliveryNoteList() {
                                     <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
-                            {canCreate && (
-                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                    <Button
-                                        className="list-page-btn"
-                                        variant="contained"
-                                        startIcon={<Plus size={18} />}
-                                        onClick={() => navigate('/good-delivery-notes/create')}
-                                        sx={{
-                                            fontSize: '13px',
-                                            fontWeight: 500,
-                                            textTransform: 'none',
-                                            borderRadius: '10px',
-                                            height: 38,
-                                            px: 2.5,
-                                            bgcolor: '#0284c7',
-                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
-                                            '&:hover': {
-                                                bgcolor: '#0369a1',
-                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
-                                            },
-                                        }}
-                                    >
-                                        Tạo phiếu xuất hàng
-                                    </Button>
-                                </Box>
-                            )}
                         </Box>
                     </Box>
 

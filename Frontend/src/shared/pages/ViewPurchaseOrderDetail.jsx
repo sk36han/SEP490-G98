@@ -9,6 +9,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Chip,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
 } from '@mui/material';
 import { ConfirmDialog } from '@ui/dialogs';
 import { StatusBadge } from '@ui/badges';
@@ -26,13 +30,17 @@ import {
     Check,
     Paperclip,
     FileText,
-        Pencil,
+    Pencil,
+    RotateCcw,
+    Send,
+    Truck,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser, isWarehouseKeeper } from '../permissions/roleUtils';
 import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
 import { useToastContext } from '../../app/context/ToastContext';
-import { hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
+import { getGoodReceiptNotes, hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
+import { getPurchaseReturnNotes } from '../lib/purchaseReturnNoteService';
 import '../styles/CreateSupplier.css';
 import '../styles/ViewPurchaseOrderDetail.css';
 
@@ -63,6 +71,139 @@ const toAbsoluteFileUrl = (url) => {
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
     return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+const parseTime = (value) => {
+    if (!value) return 0;
+    const ts = new Date(value).getTime();
+    return Number.isNaN(ts) ? 0 : ts;
+};
+
+const formatDateTime = (value) => {
+    if (!value) return 'Đang cập nhật';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+const buildPoEvents = (poRaw, orderCode) => {
+    if (!poRaw) return [];
+    const code = orderCode || poRaw.PoCode || poRaw.poCode || 'PO';
+    return [
+        {
+            key: 'po-created',
+            type: 'created',
+            title: `Tạo yêu cầu nhập hàng ${code}`,
+            actor: poRaw.CreatedByName ?? poRaw.createdByName ?? poRaw.RequestedByName ?? poRaw.requestedByName ?? '',
+            at: poRaw.CreatedAt ?? poRaw.createdAt ?? null,
+            flowOrder: 1,
+        },
+        (poRaw.SubmittedAt ?? poRaw.submittedAt) ? {
+            key: 'po-submitted',
+            type: 'submitted',
+            title: `Gửi duyệt yêu cầu nhập hàng ${code}`,
+            actor: poRaw.SubmittedByName ?? poRaw.submittedByName ?? '',
+            at: poRaw.SubmittedAt ?? poRaw.submittedAt,
+            flowOrder: 2,
+        } : null,
+        (poRaw.ApprovedAt ?? poRaw.approvedAt) ? {
+            key: 'po-approved',
+            type: 'approved',
+            title: `Duyệt yêu cầu nhập hàng ${code}`,
+            actor: poRaw.ApprovedByName ?? poRaw.approvedByName ?? '',
+            at: poRaw.ApprovedAt ?? poRaw.approvedAt,
+            flowOrder: 3,
+        } : null,
+        (poRaw.RejectedAt ?? poRaw.rejectedAt) ? {
+            key: 'po-rejected',
+            type: 'rejected',
+            title: `Từ chối yêu cầu nhập hàng ${code}`,
+            actor: poRaw.RejectedByName ?? poRaw.rejectedByName ?? '',
+            note: poRaw.RejectedReason ?? poRaw.rejectedReason ?? '',
+            at: poRaw.RejectedAt ?? poRaw.rejectedAt,
+            flowOrder: 3,
+        } : null,
+    ].filter(Boolean);
+};
+
+const buildGrnEvents = (grn) => {
+    const grnCode = grn.GrnCode ?? grn.grnCode ?? grn.code ?? `GRN #${grn.GrnId ?? grn.grnId ?? ''}`;
+    return [
+        {
+            key: `grn-${grnCode}-created`,
+            type: 'created',
+            title: `Tạo phiếu nhập kho ${grnCode}`,
+            actor: grn.CreatedByName ?? grn.createdByName ?? '',
+            at: grn.CreatedAt ?? grn.createdAt ?? null,
+            flowOrder: 4,
+        },
+        (grn.SubmittedAt ?? grn.submittedAt) ? {
+            key: `grn-${grnCode}-submitted`,
+            type: 'submitted',
+            title: `Gửi duyệt phiếu nhập kho ${grnCode}`,
+            actor: grn.SubmittedByName ?? grn.submittedByName ?? '',
+            at: grn.SubmittedAt ?? grn.submittedAt,
+            flowOrder: 5,
+        } : null,
+        (grn.ApprovedAt ?? grn.approvedAt) ? {
+            key: `grn-${grnCode}-approved`,
+            type: 'approved',
+            title: `Duyệt phiếu nhập kho ${grnCode}`,
+            actor: grn.ApprovedByName ?? grn.approvedByName ?? '',
+            at: grn.ApprovedAt ?? grn.approvedAt,
+            flowOrder: 6,
+        } : null,
+        (grn.PostedAt ?? grn.postedAt) ? {
+            key: `grn-${grnCode}-posted`,
+            type: 'completed',
+            title: `Ghi sổ phiếu nhập kho ${grnCode}`,
+            actor: grn.PostedByName ?? grn.postedByName ?? '',
+            at: grn.PostedAt ?? grn.postedAt,
+            flowOrder: 7,
+        } : null,
+    ].filter(Boolean);
+};
+
+const buildReturnEvents = (prn, grnCodeById) => {
+    const code = prn.returnCode ?? prn.ReturnCode ?? `PRN #${prn.purchaseReturnId ?? prn.PurchaseReturnId ?? ''}`;
+    const relatedGrnId = prn.relatedGrnId ?? prn.RelatedGrnId ?? prn.grnId ?? prn.GrnId ?? null;
+    const relatedGrnCode = relatedGrnId != null ? grnCodeById.get(String(relatedGrnId)) : null;
+    const suffix = relatedGrnCode ? ` (từ ${relatedGrnCode})` : '';
+
+    return [
+        {
+            key: `prn-${code}-created`,
+            type: 'return',
+            title: `Tạo phiếu trả hàng ${code}${suffix}`,
+            actor: prn.createdByName ?? prn.CreatedByName ?? '',
+            at: prn.createdAt ?? prn.CreatedAt ?? null,
+            flowOrder: 8,
+        },
+        (prn.submittedAt ?? prn.SubmittedAt) ? {
+            key: `prn-${code}-submitted`,
+            type: 'submitted',
+            title: `Gửi duyệt phiếu trả hàng ${code}`,
+            actor: prn.submittedByName ?? prn.SubmittedByName ?? '',
+            at: prn.submittedAt ?? prn.SubmittedAt,
+            flowOrder: 9,
+        } : null,
+        (prn.approvedAt ?? prn.ApprovedAt) ? {
+            key: `prn-${code}-approved`,
+            type: 'approved',
+            title: `Duyệt phiếu trả hàng ${code}`,
+            actor: prn.approvedByName ?? prn.ApprovedByName ?? '',
+            at: prn.approvedAt ?? prn.ApprovedAt,
+            flowOrder: 10,
+        } : null,
+        ((prn.status ?? prn.Status ?? '').toUpperCase() === 'POSTED' || (prn.postedAt ?? prn.PostedAt)) ? {
+            key: `prn-${code}-posted`,
+            type: 'completed',
+            title: `Hoàn tất phiếu trả hàng ${code}`,
+            actor: prn.postedByName ?? prn.PostedByName ?? '',
+            at: prn.postedAt ?? prn.PostedAt ?? prn.updatedAt ?? prn.UpdatedAt ?? null,
+            flowOrder: 11,
+        } : null,
+    ].filter(Boolean);
 };
 
 const mapOrderDetail = (data) => ({
@@ -348,6 +489,9 @@ const ViewPurchaseOrderDetail = () => {
     const [confirmDialogType, setConfirmDialogType] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [processDialogOpen, setProcessDialogOpen] = useState(false);
+    const [processHistory, setProcessHistory] = useState([]);
+    const [processLoading, setProcessLoading] = useState(false);
     const [hasPendingGRNState, setHasPendingGRNState] = useState({
         purchaseOrderId: null,
         hasPending: false,
@@ -384,6 +528,7 @@ const ViewPurchaseOrderDetail = () => {
         contractAppendixFileUrl: '',
         lines: [],
     });
+    const [orderRaw, setOrderRaw] = useState(null);
 
     const loadOrderDetail = useCallback(
         async ({ showLoading = true } = {}) => {
@@ -416,6 +561,7 @@ const ViewPurchaseOrderDetail = () => {
                 }
 
                 setOrderData(mapped);
+                setOrderRaw(data);
                 return mapped;
             } catch (error) {
                 console.error('Lỗi khi tải chi tiết yêu cầu nhập hàng:', error);
@@ -433,6 +579,79 @@ const ViewPurchaseOrderDetail = () => {
     useEffect(() => {
         loadOrderDetail();
     }, [loadOrderDetail]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadProcessHistory = async () => {
+            if (!orderData.purchaseOrderId) {
+                setProcessHistory([]);
+                return;
+            }
+
+            setProcessLoading(true);
+            try {
+                const grnRes = await getGoodReceiptNotes({
+                    page: 1,
+                    pageSize: 200,
+                    purchaseOrderId: orderData.purchaseOrderId,
+                });
+                const allGrnItems = Array.isArray(grnRes?.items) ? grnRes.items : [];
+                const targetPoId = Number(orderData.purchaseOrderId);
+                const grnItems = allGrnItems.filter((g) => {
+                    const grnPoIdRaw = g.purchaseOrderId ?? g.PurchaseOrderId ?? g.poId ?? g.PoId ?? null;
+                    const grnPoId = Number(grnPoIdRaw);
+                    return Number.isFinite(grnPoId) && grnPoId === targetPoId;
+                });
+
+                const grnIdSet = new Set(
+                    grnItems
+                        .map((g) => g.GrnId ?? g.grnId)
+                        .filter((id) => id != null)
+                        .map((id) => String(id))
+                );
+                const grnCodeById = new Map(
+                    grnItems
+                        .map((g) => [String(g.GrnId ?? g.grnId ?? ''), g.GrnCode ?? g.grnCode ?? ''])
+                        .filter(([id]) => id)
+                );
+
+                const prnRes = await getPurchaseReturnNotes({ page: 1, pageSize: 500 });
+                const prnItems = Array.isArray(prnRes?.items) ? prnRes.items : [];
+                const relatedPrn = prnItems.filter((p) => {
+                    const relatedGrnId = p.relatedGrnId ?? p.RelatedGrnId ?? p.grnId ?? p.GrnId;
+                    return relatedGrnId != null && grnIdSet.has(String(relatedGrnId));
+                });
+
+                const events = [
+                    ...buildPoEvents(orderRaw, orderData.orderCode),
+                    ...grnItems.flatMap((g) => buildGrnEvents(g)),
+                    ...relatedPrn.flatMap((p) => buildReturnEvents(p, grnCodeById)),
+                ].sort((a, b) => {
+                    if (a.flowOrder !== b.flowOrder) return a.flowOrder - b.flowOrder;
+                    return parseTime(a.at) - parseTime(b.at);
+                });
+
+                if (!cancelled) {
+                    setProcessHistory(events);
+                }
+            } catch {
+                if (!cancelled) {
+                    setProcessHistory(buildPoEvents(orderRaw, orderData.orderCode));
+                }
+            } finally {
+                if (!cancelled) {
+                    setProcessLoading(false);
+                }
+            }
+        };
+
+        loadProcessHistory();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [orderData.purchaseOrderId, orderData.orderCode, orderRaw]);
 
     useEffect(() => {
         let cancelled = false;
@@ -788,6 +1007,14 @@ const ViewPurchaseOrderDetail = () => {
                                         label={LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]?.label}
                                     />
                                 )}
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setProcessDialogOpen(true)}
+                                >
+                                    <FileText size={15} />
+                                    Lịch sử quy trình nhập kho
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1150,6 +1377,77 @@ const ViewPurchaseOrderDetail = () => {
                     </div>
                 </div>
             </div>
+
+            <Dialog open={processDialogOpen} onClose={() => setProcessDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Inbound Process History</DialogTitle>
+                <DialogContent dividers>
+                    {processLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+                            <Loader size={18} style={{ color: '#64748b', animation: 'spin 1s linear infinite' }} />
+                        </div>
+                    ) : processHistory.length === 0 ? (
+                        <div style={{ color: '#94a3b8', fontSize: 13 }}>Chưa có lịch sử quy trình nhập kho.</div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {processHistory.map((event) => (
+                                <div key={event.key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                                    <div
+                                        style={{
+                                            width: 20,
+                                            height: 20,
+                                            borderRadius: '50%',
+                                            backgroundColor:
+                                                event.type === 'rejected'
+                                                    ? '#dc2626'
+                                                    : event.type === 'submitted'
+                                                        ? '#f59e0b'
+                                                        : event.type === 'return'
+                                                            ? '#7c3aed'
+                                                            : event.type === 'completed'
+                                                                ? '#16a34a'
+                                                                : '#2563eb',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginTop: 2,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {event.type === 'submitted' ? (
+                                            <Send size={12} color="#fff" />
+                                        ) : event.type === 'return' ? (
+                                            <RotateCcw size={12} color="#fff" />
+                                        ) : event.type === 'completed' ? (
+                                            <Truck size={12} color="#fff" />
+                                        ) : event.type === 'rejected' ? (
+                                            <XCircle size={12} color="#fff" />
+                                        ) : (
+                                            <CheckCircle size={12} color="#fff" />
+                                        )}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                                            {event.title}
+                                            {event.note ? (
+                                                <span style={{ fontWeight: 400, color: '#6b7280' }}> — {event.note}</span>
+                                            ) : null}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                                            {event.actor ? `${event.actor} • ` : ''}
+                                            {formatDateTime(event.at)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <button type="button" className="btn btn-secondary" onClick={() => setProcessDialogOpen(false)}>
+                        Đóng
+                    </button>
+                </DialogActions>
+            </Dialog>
         </div>
     );
 };

@@ -38,7 +38,7 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import UomFormDialog from '@ui/dialogs/UomFormDialog';
 import UomFilterPopup from '../components/UomFilterPopup';
-import { getUomList, createUom, updateUom, toggleUomStatus } from '../lib/uomService';
+import { getUomList, createUom, updateUom } from '../lib/uomService';
 import PollingManager from '../lib/pollingManager';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -94,6 +94,8 @@ const ViewUomList = () => {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [totalActiveItems, setTotalActiveItems] = useState(null);
+    const [totalInactiveItems, setTotalInactiveItems] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(0);
@@ -180,31 +182,39 @@ const ViewUomList = () => {
         setError(null);
 
         try {
-            const result = await getUomList({
-                page: currentPage,
-                pageSize,
-                keyword: searchTerm.trim() || undefined,
-                isActive:
-                    filterStatus === 'all'
-                        ? undefined
-                        : filterStatus === 'ACTIVE',
-                orderBy: orderBy || undefined,
-                order: orderBy ? order : undefined,
-            });
+            const [result, activeSummary, inactiveSummary] = await Promise.all([
+                getUomList({
+                    page: currentPage,
+                    pageSize,
+                    keyword: searchTerm.trim() || undefined,
+                    isActive:
+                        filterStatus === 'all'
+                            ? undefined
+                            : filterStatus === 'ACTIVE',
+                    orderBy: orderBy || undefined,
+                    order: orderBy ? order : undefined,
+                }),
+                getUomList({ page: 1, pageSize: 1, isActive: true }),
+                getUomList({ page: 1, pageSize: 1, isActive: false }),
+            ]);
 
             const items = Array.isArray(result?.items) ? result.items : [];
             const total = Number(result?.totalItems ?? 0);
 
             setRows(items);
             setTotalItems(Number.isNaN(total) ? 0 : total);
+            setTotalActiveItems(Number(activeSummary?.totalItems ?? 0));
+            setTotalInactiveItems(Number(inactiveSummary?.totalItems ?? 0));
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách đơn vị tính.');
             setRows([]);
             setTotalItems(0);
+            setTotalActiveItems(null);
+            setTotalInactiveItems(null);
         } finally {
             setLoading(false);
         }
-    }, [currentPage, pageSize, searchTerm, filterStatus, filterDateFrom, filterDateTo, orderBy, order]);
+    }, [currentPage, pageSize, searchTerm, filterStatus, orderBy, order]);
 
     useEffect(() => {
         fetchList();
@@ -233,26 +243,9 @@ const ViewUomList = () => {
         filterDateTo,
     ].filter(Boolean).length;
 
-    const handleToggleStatus = async (uom) => {
-        if (!canManage) return;
-
-        try {
-            await toggleUomStatus(uom.uomId, !uom.isActive);
-            fetchList();
-        } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Không đổi được trạng thái.');
-        }
-    };
-
     const handleOpenCreateUom = () => {
         setUomEditRow(null);
         setUomDialogMode('create');
-        setUomDialogOpen(true);
-    };
-
-    const handleOpenEditUom = (u) => {
-        setUomEditRow(u);
-        setUomDialogMode('edit');
         setUomDialogOpen(true);
     };
 
@@ -430,8 +423,8 @@ const ViewUomList = () => {
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = totalItems === 0 ? 0 : Math.min((page + 1) * pageSize, totalItems);
 
-    /** Chỉ khi một trang chứa hết kết quả thì đếm hoạt động/ngưng theo dòng hiện có mới khớp tổng */
-    const summaryBreakdownReliable = totalItems > 0 && rows.length >= totalItems;
+    const activeCount = totalActiveItems ?? rows.filter((r) => r.isActive).length;
+    const inactiveCount = totalInactiveItems ?? rows.filter((r) => !r.isActive).length;
 
     const HEADER_CELL_SX = {
         fontWeight: 600,
@@ -502,8 +495,8 @@ const ViewUomList = () => {
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
                     <SummaryCard icon={Scale} label="Tổng đơn vị tính" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Scale} label="Đang hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Scale} label="Ngưng hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Scale} label="Đang hoạt động" value={activeCount.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Scale} label="Ngưng hoạt động" value={inactiveCount.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
@@ -922,22 +915,6 @@ const ViewUomList = () => {
                                         >
                                             STT
                                         </TableCell>
-                                        {/* Ma UOM — always visible, not in configurable columns */}
-                                        <TableCell
-                                            sx={{
-                                                ...HEADER_CELL_SX,
-                                                width: 140,
-                                                minWidth: 140,
-                                                maxWidth: 140,
-                                            }}
-                                        >
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                <GripVertical size={14} style={{ color: '#9ca3af', flexShrink: 0 }} />
-                                                <Typography variant="inherit" sx={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>
-                                                    Mã đơn vị tính
-                                                </Typography>
-                                            </Box>
-                                        </TableCell>
                                         {visibleColumns.map((col) => (
                                             <TableCell
                                                 key={col.id}
@@ -1037,19 +1014,6 @@ const ViewUomList = () => {
                                                 }}
                                             >
                                                 {page * pageSize + index + 1}
-                                            </TableCell>
-                                            <TableCell
-                                                align="left"
-                                                sx={{
-                                                    ...BODY_CELL_SX,
-                                                    width: 140,
-                                                    minWidth: 140,
-                                                    maxWidth: 140,
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                    {row.uomCode ?? ''}
-                                                </Typography>
                                             </TableCell>
                                             {visibleColumns.map((col) => {
                                                 const opts = { pageNumber: page + 1, pageSize };

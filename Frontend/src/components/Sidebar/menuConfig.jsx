@@ -18,7 +18,7 @@ const COMMON_ITEMS = [];
 
 const PRODUCT_MATCH_PATHS = {
     FULL: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'],
-    BASIC: ['/products', '/uom', '/brands'],
+    BASIC: ['/products', '/categories', '/brands'],
     SALE_SUPPORT: ['/products', '/categories', '/brands'],
 };
 
@@ -125,7 +125,7 @@ const menuCatalog = {
         matchPaths: PRODUCT_MATCH_PATHS.BASIC,
         children: [
             createChild('/products', 'Danh sách vật tư'),
-            createChild('/uom', 'Đơn vị tính'),
+            createChild('/categories', 'Danh mục'),
             createChild('/brands', 'Thương hiệu'),
         ],
     }),
@@ -193,18 +193,18 @@ const menuCatalog = {
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: icon(ShoppingCart),
-        label: 'Đơn mua',
+        label: 'Yêu cầu nhập hàng',
         children: [
-            createChild('/purchase-orders', 'Danh sách đơn mua'),
+            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
         ],
     }),
     purchaseOrdersManage: createItem({
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: icon(ShoppingCart),
-        label: 'Đơn mua',
+        label: 'Yêu cầu nhập hàng',
         children: [
-            createChild('/purchase-orders', 'Danh sách đơn mua'),
+            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
         ],
     }),
 
@@ -331,12 +331,14 @@ const roleMenus = {
     SALE_ENGINEER: [
         ...COMMON_ITEMS,
         menuCatalog.saleEngineerProducts,
+        menuCatalog.simpleInventory,
         menuCatalog.receiversSimple,
         menuCatalog.releaseRequestsManage,
         menuCatalog.goodsDeliveryNotesManage,
     ],
     ACCOUNTANTS: [
         ...COMMON_ITEMS,
+        menuCatalog.saleSupportProducts,
         menuCatalog.warehouseInventory,
         menuCatalog.suppliersManage,
         menuCatalog.receiversManage,

@@ -556,13 +556,6 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
         return getLineItemsValidationError(lineItems);
     }, [selectedCompanyId, selectedReceiverId, form.warehouseId, lineItems, selectedAddressId]);
 
-    const submitValidationError = useMemo(() => {
-        if (baseValidationError) return baseValidationError;
-        if (!form.purpose.trim()) return 'Vui lòng nhập lý do xuất hàng.';
-        if (!quotationFile) return 'Vui lòng tải file báo giá.';
-        if (!contractFile) return 'Vui lòng tải file hợp đồng.';
-        return null;
-    }, [baseValidationError, form.purpose, quotationFile, contractFile]);
     const canCreateRequest = useMemo(() => (
         Boolean(selectedCompanyId)
         && Boolean(selectedReceiverId)
@@ -571,19 +564,12 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
         && lineItems.length > 0
     ), [selectedCompanyId, selectedReceiverId, form.warehouseId, form.purpose, lineItems]);
 
-    /** Luồng báo giá: tạo nháp trước rồi thao tác ở màn chi tiết RR. */
     const canSubmitForApproval = useMemo(() => (
         canCreateRequest
-        && !form.isQuotationFlow
         && Boolean(quotationFile)
         && Boolean(contractFile)
-    ), [canCreateRequest, form.isQuotationFlow, quotationFile, contractFile]);
+    ), [canCreateRequest, quotationFile, contractFile]);
     const canSaveDraft = useMemo(() => !baseValidationError, [baseValidationError]);
-
-    const canCreateQuotationDraft = useMemo(() => (
-        canSaveDraft
-        && form.isQuotationFlow
-    ), [canSaveDraft, form.isQuotationFlow]);
 
     const buildPayload = () => {
         let address = '';
@@ -766,18 +752,16 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                     <button
                         type="button"
                         className="btn btn-primary"
-                        disabled={form.isQuotationFlow ? !canCreateQuotationDraft || submitting || savingDraft : !canSubmitForApproval || submitting || savingDraft}
-                        onClick={form.isQuotationFlow ? handleSaveDraft : handleCreateRequest}
+                        disabled={!canSubmitForApproval || submitting || savingDraft}
+                        onClick={handleCreateRequest}
                         title={
-                            form.isQuotationFlow
-                                ? (!canCreateQuotationDraft ? 'Vui lòng nhập đủ thông tin bắt buộc để tạo báo giá.' : undefined)
-                                : (!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined)
+                            !canSubmitForApproval && canCreateRequest
+                                ? 'Cần tải Báo giá và Hợp đồng'
+                                : undefined
                         }
                     >
                         {submitting ? (
                             <><Loader size={15} className="spinner" />Đang gửi...</>
-                        ) : form.isQuotationFlow ? (
-                            <><Send size={15} />{isEditMode ? 'Lưu báo giá' : 'Tạo báo giá'}</>
                         ) : (
                             <><Send size={15} />Tạo & Gửi duyệt</>
                         )}
@@ -1144,33 +1128,46 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
                                         </label>
                                     </div>
                                     <div className="form-field" style={{ margin: 0 }}>
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(form.isQuotationFlow)}
-                                                onChange={(e) => setForm((prev) => ({ ...prev, isQuotationFlow: e.target.checked }))}
-                                                style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: '#2196F3' }}
-                                            />
-                                            Tạo theo luồng báo giá (cần chốt báo giá trước khi gửi kế toán duyệt)
-                                        </label>
-                                        {Boolean(form.isQuotationFlow) && (
-                                            <div
-                                                style={{
-                                                    marginTop: 10,
-                                                    padding: '10px 12px',
-                                                    borderRadius: 8,
-                                                    background: 'rgba(37, 99, 235, 0.08)',
-                                                    border: '1px solid rgba(37, 99, 235, 0.25)',
-                                                    fontSize: 13,
-                                                    color: '#1e3a8a',
-                                                    lineHeight: 1.55,
-                                                }}
-                                            >
-                                                Luồng báo giá: 
-                                                <br/>tạo Báo giá → vào màn chi tiết để nhập nội dung báo giá, 
-                                                xuất/import Excel và chốt báo giá → sau khi chốt mới gửi duyệt kế toán.
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                            <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
+                                                Luồng báo giá
                                             </div>
-                                        )}
+                                            <button
+                                                type="button"
+                                                className={form.isQuotationFlow ? 'btn btn-primary' : 'btn btn-secondary'}
+                                                onClick={() => setForm((prev) => ({ ...prev, isQuotationFlow: !prev.isQuotationFlow }))}
+                                                title="Bật/tắt luồng báo giá"
+                                            >
+                                                {form.isQuotationFlow ? 'Đang bật luồng báo giá' : 'Tạo báo giá'}
+                                            </button>
+                                        </div>
+                                        <div
+                                            style={{
+                                                marginTop: 10,
+                                                padding: '10px 12px',
+                                                borderRadius: 8,
+                                                background: form.isQuotationFlow ? 'rgba(37, 99, 235, 0.08)' : '#f8fafc',
+                                                border: form.isQuotationFlow
+                                                    ? '1px solid rgba(37, 99, 235, 0.25)'
+                                                    : '1px solid #e2e8f0',
+                                                fontSize: 13,
+                                                color: form.isQuotationFlow ? '#1e3a8a' : '#64748b',
+                                                lineHeight: 1.55,
+                                            }}
+                                        >
+                                            {form.isQuotationFlow ? (
+                                                <>
+                                                    Luồng báo giá đã bật.
+                                                    <br />
+                                                    Khi bấm <strong>Tạo & Gửi duyệt</strong>, bạn vẫn phải nhập đầy đủ thông tin bắt buộc của Yêu cầu báo giá
+                                                    (công ty, người nhận, kho, lý do, vật tư và tệp báo giá/hợp đồng). Hệ thống sẽ tự chốt báo giá khi gửi duyệt.
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Bạn có thể bấm <strong>Tạo báo giá</strong> để chuyển sang luồng báo giá.
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1201,7 +1198,7 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
 
                             {(isEditMode
                                 ? (forceHideAttachmentsWhenQuotationFlowInEdit ? !form.isQuotationFlow : true)
-                                : !form.isQuotationFlow) && (
+                                : true) && (
                                 <div className="info-section" style={{ margin: 0 }}>
                                     <div className="section-header-with-toggle">
                                         <h2 className="section-title">Tệp đính kèm</h2>

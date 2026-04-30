@@ -54,7 +54,7 @@ const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 const API_PAGE_SIZE = 100;
 const MAX_API_PAGES = 100;
 
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
     <Box
         sx={{
             flex: '1 1 200px',
@@ -81,7 +81,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
                 flexShrink: 0,
             }}
         >
-            <Icon size={22} color={color} />
+            {React.createElement(icon, { size: 22, color })}
         </Box>
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>
@@ -145,12 +145,6 @@ const PO_COLUMNS = [
         label: 'Nhân viên tạo',
         sortable: true,
         getValue: (row) => row.creator ?? '',
-    },
-    {
-        id: 'responsiblePerson',
-        label: 'Nhân viên phụ trách',
-        sortable: true,
-        getValue: (row) => row.responsiblePerson ?? '',
     },
     {
         id: 'totalReceivedQuantity',
@@ -246,7 +240,14 @@ export default function ViewPurchaseOrderList() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState(() => {
         const saved = localStorage.getItem(LS_FILTER);
-        return saved ? JSON.parse(saved) : {};
+        if (!saved) return {};
+        try {
+            const parsed = JSON.parse(saved);
+            const { responsiblePerson: _REMOVED_RESPONSIBLE_PERSON, ...rest } = parsed || {};
+            return rest;
+        } catch {
+            return {};
+        }
     });
 
     const activeFilterCount = useMemo(
@@ -355,7 +356,6 @@ export default function ViewPurchaseOrderList() {
                 fromDate: filters.fromDate,
                 toDate: filters.toDate,
                 requestedByName: filters.creator,
-                responsibleUserName: filters.responsiblePerson,
             });
 
             const items = Array.isArray(result?.items) ? result.items : [];
@@ -587,14 +587,6 @@ export default function ViewPurchaseOrderList() {
             );
         }
 
-        if (filterValues.responsiblePerson) {
-            result = result.filter((row) =>
-                normalizeText(row.responsiblePerson).includes(
-                    normalizeText(filterValues.responsiblePerson)
-                )
-            );
-        }
-
         result.sort((a, b) => {
             // Mặc định: mới nhất → cũ nhất (không ghim bản nháp lên đầu)
             if (!orderBy) {
@@ -644,8 +636,9 @@ export default function ViewPurchaseOrderList() {
     const end = Math.min((safePage + 1) * pageSize, totalCount);
 
     const handleFilterApply = (values) => {
-        setFilterValues(values);
-        localStorage.setItem(LS_FILTER, JSON.stringify(values));
+        const { responsiblePerson: _REMOVED_RESPONSIBLE_PERSON, ...nextValues } = values || {};
+        setFilterValues(nextValues);
+        localStorage.setItem(LS_FILTER, JSON.stringify(nextValues));
         setPage(0);
     };
 

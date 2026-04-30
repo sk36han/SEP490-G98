@@ -14,7 +14,6 @@ import {
     X,
     Building2,
     MapPin,
-    User,
     Save,
     Send,
     Loader,
@@ -71,7 +70,7 @@ const CreatePurchaseOrder = () => {
     const prefillAppliedRef = useRef(false);
 
     // Helper function để map item từ API
-    const mapItemFromAPI = (it) => ({
+    const _MAP_ITEM_FROM_API = (it) => ({
         id: it.itemId,
         name: it.itemName ?? '',
         sku: it.itemCode ?? '',
@@ -95,7 +94,6 @@ const CreatePurchaseOrder = () => {
         warehouseId: '',
         warehouseName: '',
         creatorId: currentUser?.userId || '',
-        creatorName: currentUser?.fullName || currentUser?.FullName || '',
         expectedReceiptDate: '',
         justification: '',
         discountType: 'percent',
@@ -454,7 +452,7 @@ const CreatePurchaseOrder = () => {
         setSelectedProductIds([]);
     };
 
-    const handleSearchFocus = () => {
+    const _HANDLE_SEARCH_FOCUS = () => {
         // When user focuses on search bar:
         // 1. If products already loaded → show all products
         // 2. If products is empty (first time) → trigger API fetch
@@ -770,7 +768,240 @@ const CreatePurchaseOrder = () => {
                     {/* Layout 2 cột: Trái (vật tư + tổng hợp) | Phải (thông tin chung + NCC + ghi chú + tệp) */}
                     <div className="po-form-grid">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
-                            {/* 1. Chi tiết sản phẩm */}
+                            {/* 1. Bước chuẩn bị nhập hàng */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Bước 1: Thông tin nhận hàng</h2>
+                                </div>
+                                <p
+                                    style={{
+                                        margin: '0 0 12px',
+                                        fontSize: 13,
+                                        color: '#4b5563',
+                                        lineHeight: 1.45,
+                                    }}
+                                >
+                                    Chọn nhà cung cấp, kho nhập và ngày nhận dự kiến trước khi thêm vật tư.
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className="form-field">
+                                        <label htmlFor="supplierName" className="form-label">
+                                            Nhà cung cấp <span className="required-mark">*</span>
+                                        </label>
+                                        <div className="input-wrapper" style={{ position: 'relative' }}>
+                                            <Building2 className="input-icon" size={16} />
+                                            <input
+                                                id="supplierName"
+                                                type="text"
+                                                name="supplierName"
+                                                value={supplierQuery || formData.supplierName}
+                                                onChange={(e) => {
+                                                    setSupplierQuery(e.target.value);
+                                                    setSupplierDropdownOpen(true);
+                                                }}
+                                                onFocus={() => setSupplierDropdownOpen(true)}
+                                                placeholder="Tìm hoặc chọn nhà cung cấp"
+                                                className={`form-input ${errors.supplierName ? 'error' : ''}`}
+                                                autoComplete="off"
+                                            />
+                                            {supplierDropdownOpen && (
+                                                <ul
+                                                    className="form-input"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '100%',
+                                                        left: 0,
+                                                        right: 0,
+                                                        marginTop: '4px',
+                                                        maxHeight: '220px',
+                                                        overflowY: 'auto',
+                                                        listStyle: 'none',
+                                                        padding: '8px 0',
+                                                        zIndex: 10,
+                                                        backgroundColor: '#fff',
+                                                        border: '1px solid #d1d5db',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                    }}
+                                                >
+                                                    {filteredSuppliers.length === 0 ? (
+                                                        <li
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                color: '#6b7280',
+                                                                fontSize: '14px',
+                                                            }}
+                                                        >
+                                                            Không có nhà cung cấp phù hợp
+                                                        </li>
+                                                    ) : (
+                                                        filteredSuppliers.map((sup) => (
+                                                            <li
+                                                                key={sup.id}
+                                                                onClick={() => {
+                                                                    setFormData((prev) => ({
+                                                                        ...prev,
+                                                                        supplierId: sup.id,
+                                                                        supplierName: sup.name,
+                                                                        supplierPhone: sup.phone,
+                                                                        supplierEmail: sup.email,
+                                                                        supplierTaxCode: sup.taxCode,
+                                                                        supplierAddressStreet: sup.addressText || '',
+                                                                        supplierAddressWard: sup.ward || '',
+                                                                        supplierAddressDistrict: '',
+                                                                        supplierAddressProvince: sup.city || '',
+                                                                    }));
+                                                                    setSupplierQuery(sup.name);
+                                                                    setSupplierDropdownOpen(false);
+                                                                    if (errors.supplierName) {
+                                                                        setErrors((prev) => ({
+                                                                            ...prev,
+                                                                            supplierName: '',
+                                                                        }));
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '14px',
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                                }}
+                                                            >
+                                                                {sup.name} ({sup.id})
+                                                            </li>
+                                                        ))
+                                                    )}
+                                                </ul>
+                                            )}
+                                        </div>
+                                        {errors.supplierName && (
+                                            <span className="error-message">{errors.supplierName}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="form-field">
+                                        <label htmlFor="warehouseName" className="form-label">
+                                            Kho nhận <span className="required-mark">*</span>
+                                        </label>
+                                        <div className="input-wrapper" style={{ position: 'relative' }}>
+                                            <MapPin className="input-icon" size={16} />
+                                            <input
+                                                id="warehouseName"
+                                                type="text"
+                                                name="warehouseName"
+                                                value={warehouseQuery || formData.warehouseName}
+                                                onChange={(e) => {
+                                                    setWarehouseQuery(e.target.value);
+                                                    setWarehouseDropdownOpen(true);
+                                                }}
+                                                onFocus={() => setWarehouseDropdownOpen(true)}
+                                                placeholder="Tìm hoặc chọn kho nhận"
+                                                className={`form-input ${errors.warehouseName ? 'error' : ''}`}
+                                                autoComplete="off"
+                                            />
+                                            {warehouseDropdownOpen && (
+                                                <ul
+                                                    className="form-input"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '100%',
+                                                        left: 0,
+                                                        right: 0,
+                                                        marginTop: '4px',
+                                                        maxHeight: '220px',
+                                                        overflowY: 'auto',
+                                                        listStyle: 'none',
+                                                        padding: '8px 0',
+                                                        zIndex: 10,
+                                                        backgroundColor: '#fff',
+                                                        border: '1px solid #d1d5db',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                    }}
+                                                >
+                                                    {filteredWarehouses.length === 0 ? (
+                                                        <li
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                color: '#6b7280',
+                                                                fontSize: '14px',
+                                                            }}
+                                                        >
+                                                            Không có kho phù hợp
+                                                        </li>
+                                                    ) : (
+                                                        filteredWarehouses.map((wh) => (
+                                                            <li
+                                                                key={wh.id}
+                                                                onClick={() => {
+                                                                    setFormData((prev) => ({
+                                                                        ...prev,
+                                                                        warehouseId: wh.id,
+                                                                        warehouseName: wh.name,
+                                                                    }));
+                                                                    setWarehouseQuery(wh.name);
+                                                                    setWarehouseDropdownOpen(false);
+                                                                    if (errors.warehouseName) {
+                                                                        setErrors((prev) => ({
+                                                                            ...prev,
+                                                                            warehouseName: '',
+                                                                        }));
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '14px',
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                                }}
+                                                            >
+                                                                {wh.name} ({wh.id})
+                                                            </li>
+                                                        ))
+                                                    )}
+                                                </ul>
+                                            )}
+                                        </div>
+                                        {errors.warehouseName && (
+                                            <span className="error-message">{errors.warehouseName}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="form-field">
+                                        <label htmlFor="expectedReceiptDate" className="form-label">
+                                            Ngày nhập dự kiến <span className="required-mark">*</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
+                                            <input
+                                                id="expectedReceiptDate"
+                                                type="date"
+                                                name="expectedReceiptDate"
+                                                value={formData.expectedReceiptDate}
+                                                onChange={handleChange}
+                                                min={minExpectedReceiptDateStr}
+                                                required
+                                                className={`form-input ${errors.expectedReceiptDate ? 'error' : ''}`}
+                                            />
+                                        </div>
+                                        {errors.expectedReceiptDate && (
+                                            <span className="error-message">{errors.expectedReceiptDate}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 2. Chi tiết sản phẩm */}
                             <ProductTable
                                 lines={lines}
                                 selectedLineIds={selectedLineIds}
@@ -805,7 +1036,7 @@ const CreatePurchaseOrder = () => {
                                 products={products}
                             />
 
-                            {/* 2. Tổng hợp */}
+                            {/* 3. Tổng hợp */}
                             <DiscountSection
                                 formData={formData}
                                 errors={errors}
@@ -820,153 +1051,7 @@ const CreatePurchaseOrder = () => {
                             />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
-                        {/* 3. Thông tin chung */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thông tin chung</h2>
-                            </div>
-                            
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {/* Nhân viên tạo */}
-                                <div className="form-field">
-                                    <label htmlFor="creatorName" className="form-label">
-                                        Nhân viên tạo
-                                    </label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={16} />
-                                        <input
-                                            id="creatorName"
-                                            type="text"
-                                            name="creatorName"
-                                            value={formData.creatorName}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                   
-                                </div>
-
-                                {/* Kho nhận - search select mock */}
-                                <div className="form-field">
-                                    <label htmlFor="warehouseName" className="form-label">
-                                        Kho nhận <span className="required-mark">*</span>
-                                    </label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <MapPin className="input-icon" size={16} />
-                                        <input
-                                            id="warehouseName"
-                                            type="text"
-                                            name="warehouseName"
-                                            value={warehouseQuery || formData.warehouseName}
-                                            onChange={(e) => {
-                                                setWarehouseQuery(e.target.value);
-                                                setWarehouseDropdownOpen(true);
-                                            }}
-                                            onFocus={() => setWarehouseDropdownOpen(true)}
-                                            placeholder="Tìm hoặc chọn kho nhận"
-                                            className={`form-input ${errors.warehouseName ? 'error' : ''}`}
-                                            autoComplete="off"
-                                        />
-                                        {warehouseDropdownOpen && (
-                                            <ul
-                                                className="form-input"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '220px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredWarehouses.length === 0 ? (
-                                                    <li
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            color: '#6b7280',
-                                                            fontSize: '14px',
-                                                        }}
-                                                    >
-                                                        Không có kho phù hợp
-                                                    </li>
-                                                ) : (
-                                                    filteredWarehouses.map((wh) => (
-                                                        <li
-                                                            key={wh.id}
-                                                            onClick={() => {
-                                                                setFormData((prev) => ({
-                                                                    ...prev,
-                                                                    warehouseId: wh.id,
-                                                                    warehouseName: wh.name,
-                                                                }));
-                                                                setWarehouseQuery(wh.name);
-                                                                setWarehouseDropdownOpen(false);
-                                                                if (errors.warehouseName) {
-                                                                    setErrors((prev) => ({
-                                                                        ...prev,
-                                                                        warehouseName: '',
-                                                                    }));
-                                                                }
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {wh.name} ({wh.id})
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
-                                    {errors.warehouseName && (
-                                        <span className="error-message">{errors.warehouseName}</span>
-                                    )}
-                                </div>
-
-                                {/* Ngày dự kiến nhập */}
-                                <div className="form-field">
-                                    <label htmlFor="expectedReceiptDate" className="form-label">
-                                        Ngày nhập dự kiến <span className="required-mark">*</span>
-                                    </label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input
-                                            id="expectedReceiptDate"
-                                            type="date"
-                                            name="expectedReceiptDate"
-                                            value={formData.expectedReceiptDate}
-                                            onChange={handleChange}
-                                            min={minExpectedReceiptDateStr}
-                                            required
-                                            className={`form-input ${errors.expectedReceiptDate ? 'error' : ''}`}
-                                        />
-                                    </div>
-                                    {errors.expectedReceiptDate && (
-                                        <span className="error-message">{errors.expectedReceiptDate}</span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                            {/* 4. Tệp đính kèm (dưới Thông tin chung, trên Nhà cung cấp) */}
+                            {/* 4. Tệp đính kèm */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">
@@ -1025,259 +1110,6 @@ const CreatePurchaseOrder = () => {
                                         )}
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* 5. Nhà cung cấp - search select mock + chi tiết NCC */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Nhà cung cấp</h2>
-                                </div>
-                                <div className="form-field">
-                                    <label htmlFor="supplierName" className="form-label">
-                                        Nhà cung cấp <span className="required-mark">*</span>
-                                    </label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <Building2 className="input-icon" size={16} />
-                                        <input
-                                            id="supplierName"
-                                            type="text"
-                                            name="supplierName"
-                                            value={supplierQuery || formData.supplierName}
-                                            onChange={(e) => {
-                                                setSupplierQuery(e.target.value);
-                                                setSupplierDropdownOpen(true);
-                                            }}
-                                            onFocus={() => setSupplierDropdownOpen(true)}
-                                            placeholder="Tìm hoặc chọn nhà cung cấp"
-                                            className={`form-input ${errors.supplierName ? 'error' : ''}`}
-                                            autoComplete="off"
-                                        />
-                                        {supplierDropdownOpen && (
-                                            <ul
-                                                className="form-input"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '220px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredSuppliers.length === 0 ? (
-                                                    <li
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            color: '#6b7280',
-                                                            fontSize: '14px',
-                                                        }}
-                                                    >
-                                                        Không có nhà cung cấp phù hợp
-                                                    </li>
-                                                ) : (
-            filteredSuppliers.map((sup) => (
-                                                        <li
-                                                            key={sup.id}
-                                                            onClick={() => {
-                                                                setFormData((prev) => ({
-                                                                    ...prev,
-                                                                    supplierId: sup.id,
-                                                                    supplierName: sup.name,
-                                                                    supplierPhone: sup.phone,
-                                                                    supplierEmail: sup.email,
-                                                                    supplierTaxCode: sup.taxCode,
-                                                                    supplierAddressStreet: sup.addressText || '',
-                                                                    supplierAddressWard: sup.ward || '',
-                                                                    supplierAddressDistrict: '',
-                                                                    supplierAddressProvince: sup.city || '',
-                                                                }));
-                                                                setSupplierQuery(sup.name);
-                                                                setSupplierDropdownOpen(false);
-                                                                if (errors.supplierName) {
-                                                                    setErrors((prev) => ({
-                                                                        ...prev,
-                                                                        supplierName: '',
-                                                                    }));
-                                                                }
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {sup.name} ({sup.id})
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
-                                    {errors.supplierName && (
-                                        <span className="error-message">{errors.supplierName}</span>
-                                    )}
-                                </div>
-
-                                {/* Chi tiết nhà cung cấp (mock) */}
-                                {formData.supplierId && (
-                                    <div
-                                        style={{
-                                            marginTop: '16px',
-                                            padding: '12px 14px',
-                                            borderRadius: '10px',
-                                            backgroundColor: '#f9fafb',
-                                            border: '1px solid #e5e7eb',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: 6,
-                                            fontSize: 13,
-                                            color: '#374151',
-                                        }}
-                                    >
-                                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>
-                                            Chi tiết nhà cung cấp
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>Tên NCC: </span>
-                                            <span>{formData.supplierName || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>SĐT: </span>
-                                            <span>{formData.supplierPhone || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>Email: </span>
-                                            <span>{formData.supplierEmail || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>Mã số thuế: </span>
-                                            <span>{formData.supplierTaxCode || '-'}</span>
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                                gap: 8,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Tỉnh/Thành phố
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressProvince || '—'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Quận/Huyện
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressDistrict || '—'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Phường/Xã
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressWard || '—'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Địa chỉ cụ thể
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressStreet || '—'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
                             {/* 6. Ghi chú */}

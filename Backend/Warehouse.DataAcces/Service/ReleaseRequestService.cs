@@ -150,9 +150,15 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = now,
                 SubmittedAt = request.Status == "PENDING_ACC" ? now : null,
                 IsQuotationFlow = request.IsQuotationFlow,
-                QuotationStatus = request.IsQuotationFlow ? "DRAFT" : null,
+                QuotationStatus = request.IsQuotationFlow
+                    ? ((request.Status ?? "DRAFT") == "PENDING_ACC" ? "CONFIRMED" : "DRAFT")
+                    : null,
                 QuotationVersion = 1
             };
+            if (request.IsQuotationFlow && (request.Status ?? "DRAFT") == "PENDING_ACC")
+            {
+                releaseRequest.QuotationConfirmedAt = now;
+            }
 
             // Lấy giá vốn kho (InventoryOnHand) để fallback
             // Lấy giá vốn kho (InventoryOnHand) để fallback
@@ -576,8 +582,12 @@ namespace Warehouse.DataAcces.Service
             {
                 if (request.Status == "PENDING_ACC" && oldStatus == "DRAFT")
                 {
-                    if (rr.IsQuotationFlow && rr.QuotationStatus != "CONFIRMED")
-                        throw new InvalidOperationException("RR báo giá chỉ được gửi duyệt khi đã Chốt báo giá.");
+                    // Luồng báo giá: khi bấm gửi duyệt sẽ tự động chốt báo giá.
+                    if (rr.IsQuotationFlow)
+                    {
+                        rr.QuotationStatus = "CONFIRMED";
+                        rr.QuotationConfirmedAt = DateTime.UtcNow;
+                    }
 
                     // Kiểm tra hồ sơ bắt buộc khi gửi duyệt (Kiểm tra trong database)
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
@@ -1334,13 +1344,43 @@ namespace Warehouse.DataAcces.Service
             var stampPath = ResolveQuotationStampPathFromConfig(_configuration);
             if (string.IsNullOrWhiteSpace(stampPath) || !File.Exists(stampPath))
                 return;
+            const string stampPictureName = "quotation_stamp";
 
             var configuredScale = _configuration.GetValue("Quotation:StampScale", 0.95d);
             var scale = configuredScale < 0.2d || configuredScale > 3d ? 0.95d : configuredScale;
 
-            // Overlay con dấu mới tại khu vực ký bên phải của mẫu báo giá.
-            // Dùng overlay để giữ nguyên bố cục template hiện tại.
-            ws.AddPicture(stampPath)
+            // Chỉ lấy picture tại vùng cạnh tiêu đề "BÁO GIÁ" (F7:I12) để lấy vị trí/size,
+            // sau đó chèn ảnh mới đè lên. Tránh delete picture cũ vì dễ gây lệch relationship
+            // (Excel hiển thị "The picture can't be displayed").
+            var existingStamp = ws.Pictures
+                .Where(p =>
+                {
+                    var col = p.TopLeftCell?.Address.ColumnNumber ?? int.MaxValue;
+                    var row = p.TopLeftCell?.Address.RowNumber ?? int.MaxValue;
+                    return col >= 6 && col <= 9 && row >= 7 && row <= 12;
+                })
+                .OrderBy(p => p.TopLeftCell?.Address.RowNumber ?? int.MaxValue)
+                .ThenBy(p => p.TopLeftCell?.Address.ColumnNumber ?? int.MaxValue)
+                .FirstOrDefault();
+
+            if (existingStamp != null)
+            {
+                var originalTop = existingStamp.Top;
+                var originalLeft = existingStamp.Left;
+                var originalWidth = existingStamp.Width;
+                var originalHeight = existingStamp.Height;
+
+                using var stampStream = File.OpenRead(stampPath);
+                var replacement = ws.AddPicture(stampStream, stampPictureName)
+                    .MoveTo((int)Math.Round(Convert.ToDouble(originalLeft)), (int)Math.Round(Convert.ToDouble(originalTop)));
+                replacement.Width = originalWidth;
+                replacement.Height = originalHeight;
+                return;
+            }
+
+            // Fallback nếu template chưa có ảnh để thay thế.
+            using var fallbackStampStream = File.OpenRead(stampPath);
+            ws.AddPicture(fallbackStampStream, stampPictureName)
                 .MoveTo(ws.Cell("H35"))
                 .Scale(scale);
         }
@@ -1649,7 +1689,9 @@ namespace Warehouse.DataAcces.Service
                 headerRow = 19;
                 dataStart = 20;
                 colItemCode = 2;
-                colUnitPrice = 9;
+                // Mẫu MK: cột H (8) là Đơn giá, cột I (9) là Thành tiền.
+                // Trước đây đọc nhầm cột 9 nên lấy sai giá trị.
+                colUnitPrice = 8;
             }
             else if (!string.Equals(ws.Cell(headerRow, colItemCode).GetString().Trim(), "ItemCode", StringComparison.OrdinalIgnoreCase))
             {
@@ -1703,6 +1745,14 @@ namespace Warehouse.DataAcces.Service
             if (row == dataStart)
                 throw new InvalidOperationException("Không đọc được dòng dữ liệu nào từ file (thiếu ItemCode).");
 
+            var importedFileName = string.IsNullOrWhiteSpace(file.FileName)
+                ? $"{rr.ReleaseRequestCode}-quotation-import.xlsx"
+                : file.FileName.Trim();
+
+            // Sau khi import thành công, luôn đồng bộ file Excel import vào attachment QUOTATION
+            // để hiển thị ngay ở UI phần "Tệp đính kèm".
+            await ReplaceGirQuotationAttachmentAsync(id, userId, rr.ReleaseRequestCode, fileBytes, importedFileName);
+
             rr.QuotationVersion += 1;
             rr.QuotationStatus = "DRAFT";
             await _context.SaveChangesAsync();
@@ -1720,13 +1770,6 @@ namespace Warehouse.DataAcces.Service
             if (rr.Status != "DRAFT" || !rr.IsQuotationFlow)
                 throw new InvalidOperationException("Chỉ chốt báo giá khi RR DRAFT và thuộc luồng báo giá.");
 
-            var excelBytes = await ExportQuotationExcelAsync(id, userId, new ExportRrQuotationExcelRequest
-            {
-                QuotationNo = request.QuotationNo,
-                Notes = request.Notes
-            });
-            await ReplaceGirQuotationAttachmentAsync(id, userId, rr.ReleaseRequestCode, excelBytes);
-
             rr.QuotationStatus = "CONFIRMED";
             rr.QuotationConfirmedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
@@ -1739,7 +1782,12 @@ namespace Warehouse.DataAcces.Service
         /// <summary>
         /// Xóa các tệp đính kèm loại QUOTATION hiện có của RR, ghi đè bằng file Excel báo giá (bản chính thức sau chốt).
         /// </summary>
-        private async Task ReplaceGirQuotationAttachmentAsync(long releaseRequestId, long userId, string releaseRequestCode, byte[] excelBytes)
+        private async Task ReplaceGirQuotationAttachmentAsync(
+            long releaseRequestId,
+            long userId,
+            string releaseRequestCode,
+            byte[] excelBytes,
+            string? preferredFileName = null)
         {
             var existing = await _context.DocumentAttachments
                 .Where(a => a.DocType == "GIR" && a.DocId == releaseRequestId && a.AttachmentType == "QUOTATION")
@@ -1755,7 +1803,9 @@ namespace Warehouse.DataAcces.Service
                 await _context.SaveChangesAsync();
 
             var safeCode = string.IsNullOrWhiteSpace(releaseRequestCode) ? $"RR-{releaseRequestId}" : releaseRequestCode.Trim();
-            var fileName = $"{safeCode}-bao-gia-chinh-thuc.xlsx";
+            var fileName = !string.IsNullOrWhiteSpace(preferredFileName)
+                ? preferredFileName.Trim()
+                : $"{safeCode}-bao-gia-chinh-thuc.xlsx";
             await using var ms = new MemoryStream(excelBytes, writable: false);
             var formFile = new FormFile(ms, 0, excelBytes.Length, "quotationFile", fileName)
             {
