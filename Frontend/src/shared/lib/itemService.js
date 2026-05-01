@@ -1,5 +1,6 @@
 import apiClient from './axios';
 import { invalidate } from './pollingManager';
+import { normalizeItemTypeFromDb } from '../utils/itemTypeUtils';
 
 /**
  * Item API – kết nối ItemController.
@@ -33,12 +34,12 @@ export async function getItemDetail(itemId, historyPage = 1, historyPageSize = 1
  */
 function mapItemDetailRow(row) {
     if (row == null || typeof row !== 'object') return null;
+    const rawItemType = row.itemType ?? row.ItemType;
     return {
         itemId: row.itemId ?? row.ItemId,
         itemCode: row.itemCode ?? row.ItemCode ?? '',
         itemName: row.itemName ?? row.ItemName ?? '',
         itemImage: row.itemImage ?? row.ItemImage ?? null,
-        itemType: row.itemType ?? row.ItemType ?? null,
         description: row.description ?? row.Description ?? null,
         categoryName: row.categoryName ?? row.CategoryName ?? null,
         categoryId: row.categoryId ?? row.CategoryId ?? null,
@@ -46,8 +47,8 @@ function mapItemDetailRow(row) {
         brandId: row.brandId ?? row.BrandId ?? null,
         baseUomName: row.baseUomName ?? row.BaseUomName ?? row.uomName ?? row.UomName ?? null,
         baseUomId: row.baseUomId ?? row.BaseUomId ?? row.uomId ?? row.UomId ?? null,
-        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? row.specName ?? row.SpecName ?? null,
-        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? row.specId ?? row.SpecId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? null,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? null,
         specName: row.specName ?? row.SpecName ?? null,
         specId: row.specId ?? row.SpecId ?? null,
         specification: row.specification ?? row.Specification ?? null,
@@ -68,8 +69,10 @@ function mapItemDetailRow(row) {
         defaultWarehouseName: row.defaultWarehouseName ?? row.DefaultWarehouseName ?? null,
         // Giá nhập / trung bình kho
         purchasePriceAvg: row.purchasePriceAvg ?? row.PurchasePriceAvg ?? null,
-        // Các trường khác backend trả thêm
+        imageUrl: row.imageUrl ?? row.ImageUrl ?? null,
+        // Các trường khác backend trả thêm — itemType sau cùng để không bị spread ghi đè
         ...row,
+        itemType: normalizeItemTypeFromDb(rawItemType) ?? null,
     };
 }
 
@@ -118,7 +121,7 @@ function mapInventoryByWarehouseRow(v) {
  */
 export async function getItemsByWarehouse(warehouseId) {
     const response = await apiClient.get(`/Item/warehouse/${warehouseId}/available`);
-    const data = response?.data ?? [];
+    const data = response?.data?.data ?? response?.data?.Data ?? response?.data ?? [];
     const list = Array.isArray(data) ? data : [];
     return list.map(row => ({
         itemId: row.itemId ?? row.ItemId,
@@ -166,11 +169,12 @@ export async function getItemsForDisplay() {
  */
 function mapItemDisplayRow(row) {
     if (row == null || typeof row !== 'object') return null;
+    const rawItemType = row.itemType ?? row.ItemType;
     return {
         itemId: row.itemId ?? row.ItemId,
         itemCode: row.itemCode ?? row.ItemCode ?? '',
         itemName: row.itemName ?? row.ItemName ?? '',
-        itemType: row.itemType ?? row.ItemType ?? null,
+        itemType: normalizeItemTypeFromDb(rawItemType) ?? null,
         description: row.description ?? row.Description ?? null,
         categoryName: row.categoryName ?? row.CategoryName ?? null,
         categoryId: row.categoryId ?? row.CategoryId ?? null,
@@ -178,8 +182,8 @@ function mapItemDisplayRow(row) {
         brandId: row.brandId ?? row.BrandId ?? null,
         baseUomName: row.baseUomName ?? row.BaseUomName ?? row.uomName ?? row.UomName ?? null,
         baseUomId: row.baseUomId ?? row.BaseUomId ?? row.uomId ?? row.UomId ?? null,
-        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? row.specName ?? row.SpecName ?? null,
-        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? row.specId ?? row.SpecId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? null,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? null,
         specName: row.specName ?? row.SpecName ?? null,
         specId: row.specId ?? row.SpecId ?? null,
         hasSpecifications: row.hasSpecifications ?? row.HasSpecifications ?? false,
@@ -195,6 +199,8 @@ function mapItemDisplayRow(row) {
         onHandQty: row.onHandQty ?? row.OnHandQty ?? 0,
         reservedQty: row.reservedQty ?? row.ReservedQty ?? 0,
         availableQty: row.availableQty ?? row.AvailableQty ?? 0,
+        defaultWarehouseId: row.defaultWarehouseId ?? row.DefaultWarehouseId ?? null,
+        imageUrl: row.imageUrl ?? row.ImageUrl ?? null,
     };
 }
 
@@ -226,10 +232,10 @@ export async function updateItemStatus(itemId, isActive) {
 
 /**
  * Cập nhật vật tư.
- * PUT /Item/update-item/{id}
+ * PUT /Item/{id}
  */
 export async function updateItem(itemId, payload) {
-    const response = await apiClient.put(`/Item/update-item/${itemId}`, payload);
+    const response = await apiClient.put(`/Item/${itemId}`, payload);
     invalidate('item');
     return response?.data;
 }

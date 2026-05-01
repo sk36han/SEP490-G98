@@ -85,6 +85,8 @@ import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
 import ViewSalesReportDetail from '../shared/pages/mockup/ViewSalesReportDetail';
 
 const ROLES_WS = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT'];
+/** Danh sách vật tư / danh mục / thương hiệu — kế toán xem được (khớp menu sidebar). */
+const ROLES_WS_PRODUCT_VIEWS = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS'];
 /** Danh mục vật tư + tạo/sửa yêu cầu xuất (không gồm kế toán). */
 const ROLES_WSA = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT'];
 /** Phiếu xuất chi tiết / tạo giao hàng: thêm kế toán. */
@@ -124,11 +126,11 @@ const AppRoutes = () => (
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotifications /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewAdminAuditLog /></MainLayout></ProtectedRoute>} />
-        <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WD}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WD}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WS_PRODUCT_VIEWS}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
         <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
+        <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLES_WS_PRODUCT_VIEWS}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
         <Route path="/categories/create" element={<Navigate to="/categories" replace />} />
         <Route path="/categories/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><EditCategory /></MainLayout></ProtectedRoute>} />
         <Route path="/packaging-spec" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><ViewPackagingSpecList /></MainLayout></ProtectedRoute>} />
@@ -137,7 +139,7 @@ const AppRoutes = () => (
         <Route path="/uom" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><ViewUomList /></MainLayout></ProtectedRoute>} />
         <Route path="/uom/create" element={<Navigate to="/uom" replace />} />
         <Route path="/uom/edit/:id" element={<Navigate to="/uom" replace />} />
-        <Route path="/brands" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><ViewBrandList /></MainLayout></ProtectedRoute>} />
+        <Route path="/brands" element={<ProtectedRoute allowedRoles={ROLES_WS_PRODUCT_VIEWS}><MainLayout><ViewBrandList /></MainLayout></ProtectedRoute>} />
         <Route path="/suppliers" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
         <Route path="/suppliers/create" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><CreateSupplier /></MainLayout></ProtectedRoute>} />
         <Route path="/suppliers/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewSupplierDetail /></MainLayout></ProtectedRoute>} />

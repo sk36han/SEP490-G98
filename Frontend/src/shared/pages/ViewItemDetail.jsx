@@ -1,7 +1,7 @@
 /*
  * ViewItemDetail — Chi tiết vật tư (xem + edit inline tại chỗ).
  * Đã kiểm duyệt với DB: Items, ItemPrices, InventoryOnHand.
- * Sửa vật tư: WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER (kế toán chỉ xem; giá đầy đủ: kế toán/giám đốc).
+ * Sửa vật tư (khớp API TK, KT, GD): WAREHOUSE_KEEPER, ACCOUNTANTS, DIRECTOR.
  * UI refactor theo design language của ViewPurchaseReturnDetail.
  */
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
@@ -42,17 +42,27 @@ import { MOCK_INVENTORY_LOTS, getGrnCodeFromLineId, formatLotMoney, formatLotQua
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 import { useMasterData } from '../../app/context/MasterDataContext';
 import { createUom } from '../lib/uomService';
-import { createPackagingSpec, validatePackagingSpecFields } from '../lib/packagingSpecService';
+import { createPackagingSpec, validatePackagingSpecFields, getPackagingSpecList } from '../lib/packagingSpecService';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
 
 // ─── Role helpers ─────────────────────────────────────────────────────────
 const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
-const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER'].includes(role);
+const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'DIRECTOR'].includes(role);
 const canSeeFullPrices = (role) => role === 'ACCOUNTANTS' || role === 'DIRECTOR';
 const showStockBlockForRole = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS', 'DIRECTOR'].includes(role);
 const isActiveOption = (x) => (x?.isActive ?? x?.IsActive ?? true) === true;
+
+/** Bổ sung option id+name của vật tư hiện tại để select không rơi về placeholder. */
+function mergeIdNameOption(prev, idRaw, nameRaw) {
+    if (idRaw == null || idRaw === '') return prev;
+    const id = Number(idRaw);
+    if (Number.isNaN(id)) return prev;
+    if (prev.some((o) => Number(o.id) === id)) return prev;
+    const name = nameRaw != null && String(nameRaw).trim() !== '' ? String(nameRaw) : `#${id}`;
+    return [...prev, { id, name, isActive: true }];
+}
 
 // ─── Formatters ───────────────────────────────────────────────────────────
 const formatPrice = (value) => {
@@ -632,7 +642,7 @@ export default function ViewItemDetail() {
         let cancelled = false;
         (async () => {
             try {
-                const res = await getItemParameterList({ page: 1, pageSize: 200 });
+                const res = await getItemParameterList({ page: 1, pageSize: 100 });
                 const rows = Array.isArray(res?.data?.items) ? res.data.items
                     : Array.isArray(res?.items) ? res.items
                     : Array.isArray(res?.data) ? res.data
@@ -648,6 +658,36 @@ export default function ViewItemDetail() {
                     );
                 }
             } catch { /* giữ rỗng nếu lỗi */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await getPackagingSpecList();
+                const rows = Array.isArray(res?.items) ? res.items : [];
+                if (!cancelled) {
+                    setLocalPackOptions((prev) => {
+                        const fromApi = rows
+                            .filter(isActiveOption)
+                            .map((p) => ({
+                                id: Number(p.packagingSpecId ?? p.PackagingSpecId),
+                                name: String(p.specName ?? p.SpecName ?? ''),
+                                isActive: true,
+                            }))
+                            .filter((o) => !Number.isNaN(o.id));
+                        const byId = new Map(fromApi.map((o) => [o.id, o]));
+                        for (const o of prev) {
+                            if (o?.id != null && !Number.isNaN(Number(o.id)) && !byId.has(Number(o.id))) {
+                                byId.set(Number(o.id), { ...o, id: Number(o.id) });
+                            }
+                        }
+                        return Array.from(byId.values());
+                    });
+                }
+            } catch { /* giữ rỗng */ }
         })();
         return () => { cancelled = true; };
     }, []);
@@ -671,6 +711,9 @@ export default function ViewItemDetail() {
             requiresCO: item.requiresCO ?? false,
             requiresCQ: item.requiresCQ ?? false,
         });
+        setLocalPackOptions((prev) => mergeIdNameOption(prev, item.packagingSpecId, item.packagingSpecName));
+        setLocalSpecOptions((prev) => mergeIdNameOption(prev, item.specId, item.specName));
+        setLocalUomOptions((prev) => mergeIdNameOption(prev, item.baseUomId, item.baseUomName));
         setIsEditing(true);
         setIsDirty(false);
     };

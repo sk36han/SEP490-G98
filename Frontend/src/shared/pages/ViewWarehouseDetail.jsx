@@ -40,6 +40,7 @@ import {
     FileText,
 } from 'lucide-react';
 import { getWarehouseDetail, getWarehouseHistory, updateWarehouse, toggleWarehouseStatus } from '../lib/warehouseService';
+import { MOCK_INVENTORY_LOTS } from '../utils/inventoryLotsMock';
 import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 

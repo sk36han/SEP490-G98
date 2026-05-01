@@ -7,6 +7,14 @@ namespace Warehouse.Entities.ModelResponse
 		public string ItemName { get; set; } = string.Empty;
 		public string? ItemType { get; set; }
 		public string? Description { get; set; }
+		public long? CategoryId { get; set; }
+		public long? BrandId { get; set; }
+		public long BaseUomId { get; set; }
+		public long? PackagingSpecId { get; set; }
+		public long? SpecId { get; set; }
+		public string? SpecName { get; set; }
+		public long? DefaultWarehouseId { get; set; }
+		public string? ImageUrl { get; set; }
 		public string? CategoryName { get; set; }
 
 		// Thông tin bổ sung

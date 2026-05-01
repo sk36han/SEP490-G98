@@ -271,6 +271,10 @@ namespace Warehouse.DataAcces.Service
                     i.ItemName,
                     i.ItemType,
                     i.Description,
+                    i.CategoryId,
+                    i.BrandId,
+                    i.BaseUomId,
+                    i.PackagingSpecId,
                     i.RequiresCo,
                     i.RequiresCq,
                     i.IsActive,
@@ -281,6 +285,14 @@ namespace Warehouse.DataAcces.Service
                     BrandName = i.Brand != null ? i.Brand.BrandName : null,
                     BaseUomName = i.BaseUom.UomName,
                     PackagingSpecName = i.PackagingSpec != null ? i.PackagingSpec.SpecName : null,
+                    SpecId = i.ItemParameterValues
+                        .OrderBy(v => v.ItemParamValueId)
+                        .Select(v => (long?)v.ParamId)
+                        .FirstOrDefault(),
+                    SpecName = i.ItemParameterValues
+                        .OrderBy(v => v.ItemParamValueId)
+                        .Select(v => v.Param.ParamName)
+                        .FirstOrDefault(),
                     i.DefaultWarehouseId,
                     DefaultWarehouseName = i.DefaultWarehouse != null ? i.DefaultWarehouse.WarehouseName : null
                 })
@@ -365,6 +377,12 @@ namespace Warehouse.DataAcces.Service
                     ItemName = item.ItemName,
                     ItemType = item.ItemType,
                     Description = item.Description,
+                    CategoryId = item.CategoryId,
+                    BrandId = item.BrandId,
+                    BaseUomId = item.BaseUomId,
+                    PackagingSpecId = item.PackagingSpecId,
+                    SpecId = item.SpecId,
+                    SpecName = item.SpecName,
                     CategoryName = item.CategoryName,
                     BrandName = item.BrandName,
                     BaseUomName = item.BaseUomName,
@@ -660,6 +678,12 @@ namespace Warehouse.DataAcces.Service
                     })
                 .ToListAsync();
 
+            var firstSpec = await _context.ItemParameterValues
+                .Where(pv => pv.ItemId == itemId)
+                .OrderBy(pv => pv.ItemParamValueId)
+                .Select(pv => new { pv.ParamId, ParamName = pv.Param.ParamName })
+                .FirstOrDefaultAsync();
+
             return new ItemDisplayResponse
             {
                 ItemId = itemId,
@@ -667,6 +691,14 @@ namespace Warehouse.DataAcces.Service
                 ItemName = item.ItemName,
                 ItemType = item.ItemType,
                 Description = item.Description,
+                CategoryId = item.CategoryId,
+                BrandId = item.BrandId,
+                BaseUomId = item.BaseUomId,
+                PackagingSpecId = item.PackagingSpecId,
+                SpecId = firstSpec?.ParamId,
+                SpecName = firstSpec?.ParamName,
+                DefaultWarehouseId = item.DefaultWarehouseId,
+                ImageUrl = item.ImageUrl,
                 CategoryName = categoryName,
                 BrandName = item.Brand?.BrandName,
                 BaseUomName = item.BaseUom?.UomName,
