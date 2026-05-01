@@ -277,9 +277,13 @@ namespace Warehouse.DataAcces.Service
                     i.CreatedAt,
                     i.UpdatedAt,
                     i.ImageUrl,
+                    i.CategoryId,
                     CategoryName = i.Category != null ? i.Category.CategoryName : null,
+                    i.BrandId,
                     BrandName = i.Brand != null ? i.Brand.BrandName : null,
+                    i.BaseUomId,
                     BaseUomName = i.BaseUom.UomName,
+                    i.PackagingSpecId,
                     PackagingSpecName = i.PackagingSpec != null ? i.PackagingSpec.SpecName : null,
                     i.DefaultWarehouseId,
                     DefaultWarehouseName = i.DefaultWarehouse != null ? i.DefaultWarehouse.WarehouseName : null
@@ -356,6 +360,22 @@ namespace Warehouse.DataAcces.Service
             _logger.LogDebug("[ItemService] Tim thay {HistoryCount} lich su ton kho cho item {ItemId}", history.Count, itemId);
             _logger.LogInformation("[ItemService] Lay chi tiet item thanh cong: ItemCode={ItemCode}", item.ItemCode);
 
+            var paramValueRows = await _context.ItemParameterValues
+                .AsNoTracking()
+                .Where(v => v.ItemId == itemId)
+                .OrderBy(v => v.ParamId)
+                .Select(v => new ItemParameterValueBriefResponse
+                {
+                    ItemParamValueId = v.ItemParamValueId,
+                    ParamId = v.ParamId,
+                    ParamCode = v.Param.ParamCode,
+                    ParamName = v.Param.ParamName,
+                    ParamValue = v.ParamValue,
+                })
+                .ToListAsync();
+
+            var firstSpec = paramValueRows.FirstOrDefault();
+
             return new ItemDetailResponse
             {
                 ProductInfo = new ItemProductInfoResponse
@@ -365,10 +385,17 @@ namespace Warehouse.DataAcces.Service
                     ItemName = item.ItemName,
                     ItemType = item.ItemType,
                     Description = item.Description,
+                    CategoryId = item.CategoryId,
                     CategoryName = item.CategoryName,
+                    BrandId = item.BrandId,
                     BrandName = item.BrandName,
+                    BaseUomId = item.BaseUomId,
                     BaseUomName = item.BaseUomName,
+                    PackagingSpecId = item.PackagingSpecId,
                     PackagingSpecName = item.PackagingSpecName,
+                    ParameterValues = paramValueRows,
+                    SpecId = firstSpec?.ParamId,
+                    SpecName = firstSpec?.ParamName,
                     RequiresCo = item.RequiresCo,
                     RequiresCq = item.RequiresCq,
                     IsActive = item.IsActive,

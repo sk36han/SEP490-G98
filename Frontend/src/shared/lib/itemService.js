@@ -28,12 +28,26 @@ export async function getItemDetail(itemId, historyPage = 1, historyPageSize = 1
     };
 }
 
+/** Chuẩn hóa danh sách thông số gắn vật tư (ProductInfo.parameterValues). */
+function mapItemParameterValueBriefList(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((pv) => ({
+        itemParamValueId: pv.itemParamValueId ?? pv.ItemParamValueId,
+        paramId: pv.paramId ?? pv.ParamId,
+        paramName: pv.paramName ?? pv.ParamName ?? '',
+        paramCode: pv.paramCode ?? pv.ParamCode ?? '',
+        paramValue: pv.paramValue ?? pv.ParamValue ?? '',
+    }));
+}
+
 /**
  * Chuẩn hóa dòng từ API /Item/detail/{id}.
  */
 function mapItemDetailRow(row) {
     if (row == null || typeof row !== 'object') return null;
+    // Spread row trước, rồi ghi đè chuẩn camelCase — tránh ...row sau cùng làm mất CategoryId/BrandId đã map.
     return {
+        ...row,
         itemId: row.itemId ?? row.ItemId,
         itemCode: row.itemCode ?? row.ItemCode ?? '',
         itemName: row.itemName ?? row.ItemName ?? '',
@@ -46,10 +60,11 @@ function mapItemDetailRow(row) {
         brandId: row.brandId ?? row.BrandId ?? null,
         baseUomName: row.baseUomName ?? row.BaseUomName ?? row.uomName ?? row.UomName ?? null,
         baseUomId: row.baseUomId ?? row.BaseUomId ?? row.uomId ?? row.UomId ?? null,
-        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? row.specName ?? row.SpecName ?? null,
-        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? row.specId ?? row.SpecId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? null,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? null,
         specName: row.specName ?? row.SpecName ?? null,
         specId: row.specId ?? row.SpecId ?? null,
+        parameterValues: mapItemParameterValueBriefList(row.parameterValues ?? row.ParameterValues),
         specification: row.specification ?? row.Specification ?? null,
         requiresCO: row.requiresCo ?? row.RequiresCo ?? false,
         requiresCQ: row.requiresCq ?? row.RequiresCq ?? false,
@@ -63,13 +78,9 @@ function mapItemDetailRow(row) {
         onHandQty: row.onHandQty ?? row.OnHandQty ?? 0,
         reservedQty: row.reservedQty ?? row.ReservedQty ?? 0,
         availableQty: row.availableQty ?? row.AvailableQty ?? 0,
-        // Kho mặc định
         defaultWarehouseId: row.defaultWarehouseId ?? row.DefaultWarehouseId ?? null,
         defaultWarehouseName: row.defaultWarehouseName ?? row.DefaultWarehouseName ?? null,
-        // Giá nhập / trung bình kho
         purchasePriceAvg: row.purchasePriceAvg ?? row.PurchasePriceAvg ?? null,
-        // Các trường khác backend trả thêm
-        ...row,
     };
 }
 
@@ -226,10 +237,10 @@ export async function updateItemStatus(itemId, isActive) {
 
 /**
  * Cập nhật vật tư.
- * PUT /Item/update-item/{id}
+ * PUT /Item/{id} — khớp ItemController.UpdateItem ([HttpPut("{id:long}")])
  */
 export async function updateItem(itemId, payload) {
-    const response = await apiClient.put(`/Item/update-item/${itemId}`, payload);
+    const response = await apiClient.put(`/Item/${itemId}`, payload);
     invalidate('item');
     return response?.data;
 }

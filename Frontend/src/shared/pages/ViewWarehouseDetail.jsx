@@ -57,10 +57,22 @@ const WAREHOUSE_HISTORY_PAGE_SIZE = 5;
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => (v == null ? '0' : Number(v).toLocaleString('vi-VN'));
 
-const fmtDateTime = (dateStr) => {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (isNaN(d.getTime())) return dateStr;
+/** Parse ngày từ API (.NET thường gửi ISO có/không offset). Không nối thêm 'Z' — tránh chuỗi +07:00Z sai và lệch ngày. */
+const parseApiDateInput = (value) => {
+    if (value == null || value === '') return null;
+    if (typeof value === 'number') {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const s = String(value).trim();
+    if (!s) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const fmtDateTime = (value) => {
+    const d = parseApiDateInput(value);
+    if (!d) return value == null || value === '' ? '—' : String(value);
     return (
         d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
         ' ' +
@@ -68,10 +80,9 @@ const fmtDateTime = (dateStr) => {
     );
 };
 
-const fmtDate = (dateStr) => {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (isNaN(d.getTime())) return dateStr;
+const fmtDate = (value) => {
+    const d = parseApiDateInput(value);
+    if (!d) return value == null || value === '' ? '—' : String(value);
     return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
@@ -171,9 +182,6 @@ const mapHistory = (item, idx) => ({
     transactionDate: item.transactionDate ?? item.TransactionDate ?? item.createdAt ?? item.CreatedAt ?? '',
     approverName: item.approverName ?? item.ApproverName ?? item.approvedByName ?? item.ApprovedByName ?? '',
     performedByName: item.performedByName ?? item.PerformedByName ?? '',
-    itemName: item.itemName ?? item.ItemName ?? '',
-    transactionDate: item.transactionDate ?? item.TransactionDate ?? '',
-    approverName: item.approverName ?? item.ApproverName ?? '',
     createdAt: item.createdAt ?? item.CreatedAt ?? '',
 });
 
@@ -297,7 +305,7 @@ const ViewWarehouseDetail = () => {
         });
     }, [warehouse, stockFilter, lineSearchKeyword]);
 
-    /** Các lô thuộc đúng kho đang xem (ưu tiên dữ liệu backend, fallback mock) */
+    /** Các lô thuộc đúng kho đang xem (từ API detail) */
     const lotsForWarehouse = useMemo(() => {
         if (!warehouse?.warehouseId) return [];
         const wid = Number(warehouse.warehouseId);
@@ -305,7 +313,7 @@ const ViewWarehouseDetail = () => {
         if (backendLots.length > 0) {
             return backendLots.filter((l) => Number(l.warehouseId) === wid);
         }
-        return MOCK_INVENTORY_LOTS.filter((l) => l.warehouseId === wid);
+        return [];
     }, [warehouse]);
 
     const lotsByItemId = useMemo(() => {
@@ -532,7 +540,10 @@ const ViewWarehouseDetail = () => {
                     </div>
 
                     {/* 2-column layout */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
+                    <div
+                        className="view-warehouse-detail-grid"
+                        style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 350px)', gap: '24px', alignItems: 'flex-start' }}
+                    >
                         {/* Left: Items + History tabs */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             {/* Tab header */}
@@ -838,12 +849,12 @@ const ViewWarehouseDetail = () => {
                         </div>
 
                         {/* Right: Info panel */}
-                        <div className="info-section" style={{ margin: 0 }}>
+                        <div className="info-section view-warehouse-detail-info-card" style={{ margin: 0, minWidth: 0 }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Thông tin kho</h2>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
                                 <div className="form-field">
                                     <label className="form-label">Tên kho</label>
                                     <div className="input-wrapper">

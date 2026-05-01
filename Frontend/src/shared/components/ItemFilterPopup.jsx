@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, TextField, Autocomplete } from '@mui/material';
 import { ListFilterPopupShell, LIST_FILTER_INPUT_SX, LIST_FILTER_LABEL_SX } from './listFilterPopup';
+import { ITEM_TYPE_FIELD_LABEL, ITEM_TYPE_OPTIONS } from '../constants/itemTypes';
 
 const TRANG_THAI_OPTIONS = [
     { value: '', label: 'Tất cả' },
@@ -8,12 +9,7 @@ const TRANG_THAI_OPTIONS = [
     { value: 'false', label: 'Tắt' },
 ];
 
-const DANG_VAT_TU_OPTIONS = [
-    { value: '', label: 'Tất cả' },
-    { value: 'Product', label: 'Product' },
-    { value: 'Material', label: 'Material' },
-    { value: 'Service', label: 'Service' },
-];
+const DANG_VAT_TU_OPTIONS = [{ value: '', label: 'Tất cả' }, ...ITEM_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))];
 
 export default function ItemFilterPopup({ open, onClose, initialValues = {}, onApply }) {
     const [itemCode, setItemCode] = useState('');

@@ -919,6 +919,23 @@ select.form-input:disabled {
     margin-bottom: 24px;
 }
 
+/* Chi tiết kho: cột “Thông tin kho” không tràn grid; địa chỉ dài ellipsis */
+.create-supplier-page.view-warehouse-detail-page .view-warehouse-detail-info-card .input-wrapper {
+    min-width: 0;
+}
+
+.create-supplier-page.view-warehouse-detail-page .view-warehouse-detail-info-card .form-input {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1024px) {
+    .create-supplier-page.view-warehouse-detail-page .view-warehouse-detail-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
 /* ViewItemDetail — một luồng cuộn (MainLayout), tránh cuộn kép với .create-supplier-page */
 .create-supplier-page.view-item-detail-page {
     min-height: unset;

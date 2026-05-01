@@ -28,6 +28,7 @@ import { getBrandList } from "../lib/brandService";
 import { getPackagingSpecList } from "../lib/packagingSpecService";
 import { getItemParameterList } from "../lib/itemParameterService";
 import "../styles/CreateSupplier.css";
+import { DEFAULT_ITEM_TYPE, ITEM_TYPE_FIELD_LABEL, ITEM_TYPE_PLACEHOLDER, getItemTypeSelectOptions } from "../constants/itemTypes";
 
 const FIELD_GAP = 16;
 const ROW_HEIGHT = 32;
@@ -38,7 +39,7 @@ const FIELD_WRAPPER = { display: "flex", flexDirection: "column", gap: "4px" };
 // Form constants
 const INITIAL_FORM = {
   itemName: "",
-  itemType: "Product",
+  itemType: DEFAULT_ITEM_TYPE,
   description: "",
   categoryId: "",
   brandId: "",
@@ -60,12 +61,6 @@ const NUMBER_FIELDS = new Set([
 ]);
 
 // Shared UI components (matching ViewItemDetail)
-/** Giá trị gửi API giữ nguyên (backend ItemType); label hiển thị tiếng Việt. */
-const ITEM_TYPE_OPTIONS = [
-  { value: "Product", label: "Sản phẩm" },
-  { value: "Material", label: "Nguyên vật liệu" },
-  { value: "Service", label: "Dịch vụ" },
-];
 const toArray = (value) => (Array.isArray(value) ? value : []);
 const fromPagedResult = (value) => {
   if (Array.isArray(value?.items)) return value.items;
@@ -467,7 +462,6 @@ const CreateItem = () => {
         brandId: form.brandId !== "" && form.brandId != null ? Number(form.brandId) : null,
         baseUomId,
         packagingSpecId: form.packagingSpecId !== "" && form.packagingSpecId != null ? Number(form.packagingSpecId) : null,
-        specId: specId,
         hasSpecifications: Boolean(form.laThongSo),
         requiresCo: Boolean(form.requiresCO),
         requiresCq: Boolean(form.requiresCQ),
@@ -475,6 +469,8 @@ const CreateItem = () => {
         initialPurchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
         priceEffectiveFrom: null,
         imageUrls: imageUrl ? [imageUrl] : null,
+        /** Backend CreateItemRequest: ParameterValues — không có trường specId. */
+        parameterValues: specId != null ? [{ paramId: specId, paramValue: null }] : null,
       };
       await createItemApi(payload);
       showToast("Tạo sản phẩm thành công.", "success");
@@ -597,13 +593,13 @@ const CreateItem = () => {
 
                       {/* Thương hiệu */}
                       <div style={FIELD_WRAPPER}>
-                        <div style={LABEL_STYLE}>Loại vật tư</div>
+                        <div style={LABEL_STYLE}>{ITEM_TYPE_FIELD_LABEL}</div>
                         <EditSelectUnderline
                           name="itemType"
-                          value={form.itemType || "Product"}
+                          value={form.itemType || DEFAULT_ITEM_TYPE}
                           onChange={handleChange}
-                          options={ITEM_TYPE_OPTIONS}
-                          placeholder="Chọn loại vật tư"
+                          options={getItemTypeSelectOptions(form.itemType)}
+                          placeholder={ITEM_TYPE_PLACEHOLDER}
                         />
                       </div>
 

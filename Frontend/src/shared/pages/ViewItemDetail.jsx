@@ -1,7 +1,7 @@
 /*
  * ViewItemDetail — Chi tiết vật tư (xem + edit inline tại chỗ).
  * Đã kiểm duyệt với DB: Items, ItemPrices, InventoryOnHand.
- * Sửa vật tư: WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER (kế toán chỉ xem; giá đầy đủ: kế toán/giám đốc).
+ * Sửa vật tư: WAREHOUSE_KEEPER, SALE_ENGINEER (Sale Support chỉ xem; kế toán chỉ xem; giá đầy đủ: kế toán/giám đốc).
  * UI refactor theo design language của ViewPurchaseReturnDetail.
  */
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
@@ -40,6 +40,7 @@ import { getItemDetail, updateItem } from '../lib/itemService';
 import { getItemParameterList } from '../lib/itemParameterService';
 import { MOCK_INVENTORY_LOTS, getGrnCodeFromLineId, formatLotMoney, formatLotQuantityInt } from '../utils/inventoryLotsMock';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
+import { DEFAULT_ITEM_TYPE, ITEM_TYPE_FIELD_LABEL, ITEM_TYPE_PLACEHOLDER, getItemTypeLabel, getItemTypeSelectOptions } from '../constants/itemTypes';
 import { useMasterData } from '../../app/context/MasterDataContext';
 import { createUom } from '../lib/uomService';
 import { createPackagingSpec, validatePackagingSpecFields } from '../lib/packagingSpecService';
@@ -49,7 +50,7 @@ import '../styles/CreateSupplier.css';
 
 // ─── Role helpers ─────────────────────────────────────────────────────────
 const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
-const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER'].includes(role);
+const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_ENGINEER'].includes(role);
 const canSeeFullPrices = (role) => role === 'ACCOUNTANTS' || role === 'DIRECTOR';
 const showStockBlockForRole = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS', 'DIRECTOR'].includes(role);
 const isActiveOption = (x) => (x?.isActive ?? x?.IsActive ?? true) === true;
@@ -96,13 +97,6 @@ const ITEM_HISTORY_PAGE_SIZE = 10;
 const NUMBER_FIELDS = new Set([
     'categoryId', 'brandId', 'baseUomId', 'packagingSpecId', 'specId',
 ]);
-
-/** Giá trị gửi API giữ nguyên (backend ItemType); label hiển thị tiếng Việt — cùng CreateItem */
-const ITEM_TYPE_OPTIONS = [
-    { value: 'Product', label: 'Sản phẩm' },
-    { value: 'Material', label: 'Nguyên vật liệu' },
-    { value: 'Service', label: 'Dịch vụ' },
-];
 
 // ─── Design tokens ────────────────────────────────────────────────────────
 const EDIT_BG = '#f8fafc';
@@ -632,18 +626,16 @@ export default function ViewItemDetail() {
         let cancelled = false;
         (async () => {
             try {
-                const res = await getItemParameterList({ page: 1, pageSize: 200 });
-                const rows = Array.isArray(res?.data?.items) ? res.data.items
-                    : Array.isArray(res?.items) ? res.items
-                    : Array.isArray(res?.data) ? res.data
-                    : Array.isArray(res) ? res : [];
+                // Backend ItemParameterService: pageSize tối đa 100 — dùng 200 sẽ 400 và danh sách rỗng.
+                const res = await getItemParameterList({ page: 1, pageSize: 100 });
+                const rows = Array.isArray(res?.items) ? res.items : [];
                 if (!cancelled) {
                     setLocalSpecOptions(
                         rows
                             .filter(isActiveOption)
                             .map((s) => ({
                                 id: s.specificationId ?? s.paramId ?? s.ParamId ?? s.specId ?? s.id,
-                                name: s.specName ?? s.paramName ?? s.name,
+                                name: s.specificationName ?? s.specName ?? s.paramName ?? s.name ?? '',
                             })),
                     );
                 }
@@ -661,16 +653,44 @@ export default function ViewItemDetail() {
         if (!item) return;
         setFormData({
             itemName: item.itemName ?? '',
-            itemType: item.itemType ?? 'Product',
+            itemType: item.itemType ?? DEFAULT_ITEM_TYPE,
             description: item.description ?? '',
-            categoryId: item.categoryId ?? '',
-            brandId: item.brandId ?? '',
-            baseUomId: item.baseUomId ?? '',
-            packagingSpecId: item.packagingSpecId ?? '',
-            specId: item.specId ?? '',
+            categoryId: item.categoryId ?? item.CategoryId ?? '',
+            brandId: item.brandId ?? item.BrandId ?? '',
+            baseUomId: item.baseUomId ?? item.BaseUomId ?? '',
+            packagingSpecId: item.packagingSpecId ?? item.PackagingSpecId ?? '',
+            specId: item.specId ?? item.SpecId ?? '',
             requiresCO: item.requiresCO ?? false,
             requiresCQ: item.requiresCQ ?? false,
         });
+        // Bổ sung option cho dropdown nếu danh sách master/API chưa có (tránh hiển thị placeholder dù đã có giá trị)
+        const packId = item.packagingSpecId ?? item.PackagingSpecId;
+        const packName = item.packagingSpecName ?? item.PackagingSpecName;
+        if (packId != null && packId !== '') {
+            const n = Number(packId);
+            if (Number.isFinite(n) && n > 0) {
+                setLocalPackOptions((prev) =>
+                    (prev.some((o) => Number(o.id) === n) ? prev : [...prev, { id: n, name: packName || `QCĐG #${n}` }]));
+            }
+        }
+        const specIdVal = item.specId ?? item.SpecId;
+        const specNameVal = item.specName ?? item.SpecName;
+        if (specIdVal != null && specIdVal !== '') {
+            const n = Number(specIdVal);
+            if (Number.isFinite(n) && n > 0) {
+                setLocalSpecOptions((prev) =>
+                    (prev.some((o) => Number(o.id) === n) ? prev : [...prev, { id: n, name: specNameVal || `Thông số #${n}` }]));
+            }
+        }
+        const uomIdVal = item.baseUomId ?? item.BaseUomId;
+        const uomNameVal = item.baseUomName ?? item.BaseUomName;
+        if (uomIdVal != null && uomIdVal !== '') {
+            const n = Number(uomIdVal);
+            if (Number.isFinite(n) && n > 0) {
+                setLocalUomOptions((prev) =>
+                    (prev.some((o) => Number(o.id) === n) ? prev : [...prev, { id: n, code: '', name: uomNameVal || `ĐVT #${n}` }]));
+            }
+        }
         setIsEditing(true);
         setIsDirty(false);
     };
@@ -763,11 +783,7 @@ export default function ViewItemDetail() {
         label: o.name,
     })), [allSpecOptions]);
 
-    const itemTypeViewLabel = useMemo(() => {
-        const v = item?.itemType;
-        if (v == null || v === '') return '—';
-        return ITEM_TYPE_OPTIONS.find((o) => o.value === v)?.label ?? v;
-    }, [item?.itemType]);
+    const itemTypeViewLabel = useMemo(() => getItemTypeLabel(item?.itemType), [item?.itemType]);
 
     // ─── Render helpers ───────────────────────────────────────────────────
     if (loading) {
@@ -910,14 +926,14 @@ export default function ViewItemDetail() {
                                     </div>
 
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Loại vật tư</div>
+                                        <div style={LABEL_STYLE}>{ITEM_TYPE_FIELD_LABEL}</div>
                                         {isEditing ? (
                                             <EditSelectUnderline
                                                 name="itemType"
-                                                value={formData.itemType || 'Product'}
+                                                value={formData.itemType || DEFAULT_ITEM_TYPE}
                                                 onChange={handleChange}
-                                                options={ITEM_TYPE_OPTIONS}
-                                                placeholder="Chọn loại vật tư"
+                                                options={getItemTypeSelectOptions(formData.itemType)}
+                                                placeholder={ITEM_TYPE_PLACEHOLDER}
                                             />
                                         ) : (
                                             <ReadOnlyBox>{itemTypeViewLabel}</ReadOnlyBox>
@@ -1026,9 +1042,29 @@ export default function ViewItemDetail() {
                                             options={specSelectOptions}
                                             placeholder="Chọn thông số sản phẩm"
                                         />
+                                    ) : (Array.isArray(item.parameterValues) && item.parameterValues.length > 0 ? (
+                                        <div style={{
+                                            borderBottom: '1px solid #cbd5e1',
+                                            padding: '2px 0 8px 0',
+                                            fontSize: '14px',
+                                            color: '#1e293b',
+                                            lineHeight: 1.6,
+                                        }}
+                                        >
+                                            <ul style={{ margin: 0, paddingLeft: 18 }}>
+                                                {item.parameterValues.map((pv) => (
+                                                    <li key={pv.itemParamValueId ?? `${pv.paramId}-${pv.paramValue}`}>
+                                                        <span style={{ fontWeight: 600 }}>{pv.paramName || `Thông số #${pv.paramId}`}</span>
+                                                        {pv.paramValue != null && pv.paramValue !== ''
+                                                            ? `: ${pv.paramValue}`
+                                                            : ''}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     ) : (
                                         <ReadOnlyBox>{item.specName || item.specId || '—'}</ReadOnlyBox>
-                                    )}
+                                    ))}
                                 </div>
 
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '10px 20px' }}>

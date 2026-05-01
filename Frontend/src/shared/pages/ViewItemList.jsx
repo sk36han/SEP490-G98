@@ -186,10 +186,9 @@ const selectionBodyCellSx = {
 };
 
 /** Full quyền Item: tất cả role trừ ADMIN và Giám đốc */
-/** Nút tạo vật tư: Giám đốc, Kế toán, Thủ kho (khớp backend CreateItem Roles TK,KT,GD).
- *  ẨN với Sale Support và Sale Engineer. */
+/** Nút tạo vật tư: Giám đốc, Thủ kho (route /items/create = ROLES_WD). Ẩn Sale và Kế toán. */
 const canShowCreateItemButton = (permissionRole) =>
-    permissionRole && !['SALE_SUPPORT', 'SALE_ENGINEER'].includes(permissionRole);
+    permissionRole && !['SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(permissionRole);
 const showAccountantColumnsForRole = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
 /** Trọng số cột để chia % độ rộng: STT nhỏ, Tên/Mô tả lớn hơn */

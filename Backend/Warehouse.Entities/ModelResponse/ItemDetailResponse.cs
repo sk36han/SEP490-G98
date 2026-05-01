@@ -15,10 +15,18 @@ namespace Warehouse.Entities.ModelResponse
         public string ItemName { get; set; } = string.Empty;
         public string? ItemType { get; set; }
         public string? Description { get; set; }
+        /// <summary>FK danh mục — cần cho form chỉnh sửa (trước đây API chỉ trả tên).</summary>
+        public long? CategoryId { get; set; }
         public string? CategoryName { get; set; }
+        public long? BrandId { get; set; }
         public string? BrandName { get; set; }
+        public long BaseUomId { get; set; }
         public string? BaseUomName { get; set; }
+        public long? PackagingSpecId { get; set; }
         public string? PackagingSpecName { get; set; }
+        /// <summary>Tham số/thông số gắn vật tư (ParamId đầu tiên nếu có nhiều dòng).</summary>
+        public long? SpecId { get; set; }
+        public string? SpecName { get; set; }
         public bool RequiresCo { get; set; }
         public bool RequiresCq { get; set; }
         public bool IsActive { get; set; }
@@ -30,6 +38,19 @@ namespace Warehouse.Entities.ModelResponse
         public string? Specification { get; set; }
         public long? DefaultWarehouseId { get; set; }
         public string? DefaultWarehouseName { get; set; }
+
+        /// <summary>Các dòng giá trị thông số gắn vật tư (ItemParameterValues + tên Param).</summary>
+        public List<ItemParameterValueBriefResponse> ParameterValues { get; set; } = new();
+    }
+
+    /// <summary>Dòng thông số trên vật tư — dùng cho chi tiết & hiển thị.</summary>
+    public class ItemParameterValueBriefResponse
+    {
+        public long ItemParamValueId { get; set; }
+        public long ParamId { get; set; }
+        public string ParamCode { get; set; } = string.Empty;
+        public string ParamName { get; set; } = string.Empty;
+        public string? ParamValue { get; set; }
     }
 
     public class ItemWarehouseVariantResponse

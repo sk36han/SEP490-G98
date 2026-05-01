@@ -95,13 +95,21 @@ namespace Warehouse.DataAcces.Service
 			
 			var itemValues = allValues.Where(v => v.ItemId == itemId).ToList();
 
-			var responseList = itemValues.Select(v => new ItemParameterValueResponse
+			var allParams = await _itemParameterRepository.GetAllAsync();
+			var paramDict = allParams.ToDictionary(p => p.ParamId, p => p);
+
+			var responseList = itemValues.Select(v =>
 			{
-				ItemParamValueId = v.ItemParamValueId,
-				ItemId = v.ItemId,
-				ParamId = v.ParamId,
-				ParamValue = v.ParamValue,
-			
+				paramDict.TryGetValue(v.ParamId, out var p);
+				return new ItemParameterValueResponse
+				{
+					ItemParamValueId = v.ItemParamValueId,
+					ItemId = v.ItemId,
+					ParamId = v.ParamId,
+					ParamValue = v.ParamValue,
+					ParamName = p?.ParamName,
+					ParamCode = p?.ParamCode,
+				};
 			}).ToList();
 
 			return responseList;
@@ -191,13 +199,15 @@ namespace Warehouse.DataAcces.Service
 			if (v == null)
 				throw new KeyNotFoundException($"Không tìm thấy giá trị thông số với ID = {id}.");
 
+			var p = await _itemParameterRepository.GetByIdAsync(v.ParamId);
 			return new ItemParameterValueResponse
 			{
 				ItemParamValueId = v.ItemParamValueId,
 				ItemId = v.ItemId,
 				ParamId = v.ParamId,
 				ParamValue = v.ParamValue,
-				
+				ParamName = p?.ParamName,
+				ParamCode = p?.ParamCode,
 			};
 		}
 	}

@@ -16,6 +16,7 @@ import { useToast } from "../hooks/useToast";
 import { getItemForDisplayById, updateItem, uploadItemImage } from "../lib/itemService";
 import { ImageDialog, CreateUomDialog, UomFormDialog } from '@ui/dialogs';
 import { useMasterData } from "../../app/context/MasterDataContext";
+import { DEFAULT_ITEM_TYPE, getItemTypeSelectOptions } from "../constants/itemTypes";
 
 const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tạo mới đơn vị tính" };
 // Packaging spec, spec, brand dialogs removed (files deleted)
@@ -88,7 +89,7 @@ const EditItem = () => {
   const [imageDialogTempUrl, setImageDialogTempUrl] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
   const [form, setForm] = useState({
-    itemCode: "", itemName: "", itemType: "Product", description: "",
+    itemCode: "", itemName: "", itemType: DEFAULT_ITEM_TYPE, description: "",
     categoryId: "", brandId: "", baseUomId: "", packagingSpecId: "", specId: "",
     laThongSo: false, requiresCO: false, requiresCQ: false, isActive: true,
     defaultWarehouseId: "",
@@ -118,7 +119,7 @@ const EditItem = () => {
         setForm({
           itemCode: item.itemCode ?? "",
           itemName: item.itemName ?? "",
-          itemType: item.itemType || "Product",
+          itemType: item.itemType || DEFAULT_ITEM_TYPE,
           description: item.description ?? "",
           categoryId: item.categoryId ?? "",
           brandId: item.brandId ?? "",
@@ -439,8 +440,10 @@ const EditItem = () => {
                     renderInput={(params) => <TextField {...params} label="Nhan hieu" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />}
                     sx={autocompleteRootSx} />
 
-                  <TextField select fullWidth size="small" label="Loại sản phẩm" name="itemType" value={form.itemType} onChange={handleChange} sx={selectInputSx} SelectProps={{ MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
-                    <MenuItem value="Product">Product</MenuItem><MenuItem value="Material">Material</MenuItem><MenuItem value="Service">Service</MenuItem>
+                  <TextField select fullWidth size="small" label="Loại vật tư" name="itemType" value={form.itemType || DEFAULT_ITEM_TYPE} onChange={handleChange} sx={selectInputSx} SelectProps={{ MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
+                    {getItemTypeSelectOptions(form.itemType).map((o) => (
+                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    ))}
                   </TextField>
 
                   <TextField select fullWidth size="small" label="La thong so" name="laThongSo" value={String(form.laThongSo)} onChange={handleChange} sx={selectInputSx}
