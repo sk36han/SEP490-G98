@@ -9,7 +9,7 @@ namespace Warehouse.Api.ApiController
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+  //  [Authorize]
     public class WarehouseController : ControllerBase
     {
         private readonly IWarehouseService _warehouseService;
@@ -46,33 +46,14 @@ namespace Warehouse.Api.ApiController
 			}
 		}
 
-		/// <summary>
-		/// Lấy chi tiết thông tin kho
-		/// GET: /api/warehouse/detail/{id}
-		/// </summary>
-		[HttpGet("detail/{id}")]
-		public async Task<IActionResult> GetWarehouseDetail(long id)
-		{
-			try
-			{
-				var result = await _warehouseService.GetWarehouseDetailAsync(id);
-				return Ok(ApiResponse<WarehouseDetailResponse>.SuccessResponse(result, "Lấy chi tiết kho thành công."));
-			}
-			catch (KeyNotFoundException ex)
-			{
-				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
-			}
-			catch (Exception)
-			{
-				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
-			}
-		}
+
 
 		/// <summary>
 		/// Tạo kho mới
 		/// POST: /api/warehouse/create
 		/// </summary>
 		[HttpPost("create-warehouse")]
+		[Authorize(Roles = "GD,KT,Admin")]
 		public async Task<IActionResult> CreateWarehouse([FromBody] CreateWarehouseRequest request)
 		{
 			if (!ModelState.IsValid)
@@ -104,6 +85,7 @@ namespace Warehouse.Api.ApiController
 		/// PUT: /api/warehouse/{id}
 		/// </summary>
 		[HttpPut("update-warehouse/{id}")]
+		[Authorize(Roles = "GD,KT,Admin,TK,SE")]
 		public async Task<IActionResult> UpdateWarehouse(long id, [FromBody] UpdateWarehouseRequest request)
 		{
 			if (!ModelState.IsValid)
@@ -135,6 +117,7 @@ namespace Warehouse.Api.ApiController
 		/// PATCH: /api/warehouse/toggle-status/{id}
 		/// </summary>
 		[HttpPatch("toggle-status/{id}")]
+		[Authorize(Roles = "GD,KT,Admin,TK,SE")]
 		public async Task<IActionResult> ToggleWarehouseStatus(long id)
 		{
 			try
@@ -152,6 +135,32 @@ namespace Warehouse.Api.ApiController
 				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
+		/// <summary>
+		/// Lấy chi tiết kho kèm danh sách vật tư đang có tồn kho tại kho đó.
+		/// Dùng khi chọn kho để kiểm kê — chỉ trả về items thuộc kho được chọn (lọc từ InventoryOnHand).
+		/// GET: /api/Warehouse/{id}/detail
+		/// </summary>
+		[HttpGet("{id}/detail")]
+		public async Task<IActionResult> GetWarehouseDetail(long id)
+		{
+			if (id <= 0)
+				return BadRequest(ApiResponse<object>.ErrorResponse("WarehouseId phải là số nguyên dương."));
+
+			try
+			{
+				var result = await _warehouseService.GetWarehouseDetailAsync(id);
+				return Ok(ApiResponse<WarehouseDetailResponse>.SuccessResponse(result, "Lấy chi tiết kho thành công."));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+
 		/// <summary>
 		/// Lấy danh sách kho cho Dropdown (chỉ kho đang hoạt động)
 		/// GET: /api/Warehouse/dropdown

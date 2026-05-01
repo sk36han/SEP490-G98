@@ -22,9 +22,9 @@
     width: 100%;
 }
 
-/* Đảm bảo vùng bảng luôn có chiều cao tối thiểu, tránh bảng bị "mất" khi layout flex co về 0 */
+/* Flex co về 0 được; không ép min-height lớn để tránh đẩy scroll cả khối layout */
 .list-view .list-grid-card {
-    min-height: 400px;
+    min-height: 0;
 }
 
 .list-view .list-grid-wrapper,
@@ -40,6 +40,18 @@
     overflow-y: auto;
 }
 
+.list-view .MuiTable-root,
+.view-detail-view .MuiTable-root {
+    width: 100% !important;
+}
+
+/* ViewWarehouseList: một luồng cuộn dọc (MainLayout), không cuộn trong TableContainer khi ít dòng */
+.list-view.warehouse-list-page .MuiTableContainer-root,
+.list-view.storage-location-list-page .MuiTableContainer-root {
+    overflow-y: visible !important;
+    max-height: none !important;
+}
+
 .list-view .list-filter-card .list-search-input .MuiInputBase-input,
 .list-view .list-filter-card .list-search-input .MuiInputBase-input::placeholder {
     font-size: 0.8125rem;
@@ -51,15 +63,25 @@
 .list-view .list-page-btn,
 .list-view .list-filter-card .list-page-btn,
 .view-detail-view .list-page-btn {
-    font-size: 13px !important;
+    font-size: 12px !important;
     font-weight: 600 !important;
     text-transform: none !important;
-    border-radius: 10px !important;
-    min-height: 36px !important;
-    padding: 6px 16px !important;
+    border-radius: 8px !important;
+    min-height: 32px !important;
+    padding: 4px 12px !important;
 }
 
 .list-view .list-grid-error-overlay,
 .view-detail-view .list-grid-error-overlay {
     pointer-events: none;
+}
+
+/* Spin animation for refresh button */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
 }

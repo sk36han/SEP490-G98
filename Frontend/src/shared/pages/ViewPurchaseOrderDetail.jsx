@@ -1,961 +1,910 @@
-import React, { useState, useEffect, useMemo } from 'react';
+/**
+ * ViewPurchaseOrderDetail - Chi tiết yêu cầu nhập hàng (read-only)
+ * Kế toán: duyệt / từ chối đơn, xác nhận thanh toán
+ * Thủ Kho: tạo phiếu nhập kho
+ * Sale Support: tạo đơn
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+    Chip,
     Dialog,
-    DialogTitle,
-    DialogContent,
     DialogActions,
-    Button,
-    Switch,
-    TextField,
-    Collapse,
-    Box,
+    DialogContent,
+    DialogTitle,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
+import { StatusBadge } from '@ui/badges';
 import {
     ArrowLeft,
+    CheckCircle,
+    Clock,
+    XCircle,
+    Warehouse,
     Building2,
+    Calendar,
     MapPin,
     User,
-    Calendar,
-    Package,
-    Eye,
-    ImageIcon,
-    Edit,
-    CheckCircle,
-    XCircle,
-    Clock,
-    FileText,
-    Save,
-    X,
     Loader,
-    Plus,
-    Trash2,
-    Search,
-    Phone,
+    Check,
+    Paperclip,
+    FileText,
+    Pencil,
+    RotateCcw,
+    Send,
+    Truck,
 } from 'lucide-react';
-import Toast from '../../components/Toast/Toast';
-import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isWarehouseKeeper } from '../permissions/roleUtils';
+import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
+import { useToastContext } from '../../app/context/ToastContext';
+import { getGoodReceiptNotes, hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
+import { getPurchaseReturnNotes } from '../lib/purchaseReturnNoteService';
 import '../styles/CreateSupplier.css';
+import '../styles/ViewPurchaseOrderDetail.css';
 
-const MAX_REASON_LENGTH = 250;
+const formatCurrency = (value) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+
+const LIFECYCLE_STATUS_MAP = {
+    PendingRcv: { label: 'Chờ nhận hàng', color: '#f59e0b', bgColor: '#fef3c7' },
+    PartiallyRcv: { label: 'Nhận một phần', color: '#3b82f6', bgColor: '#dbeafe' },
+    Received: { label: 'Đã nhận đủ', color: '#10b981', bgColor: '#d1fae5' },
+    Closed: { label: 'Đã đóng', color: '#6b7280', bgColor: '#f3f4f6' },
+    Cancelled: { label: 'Đã hủy', color: '#ef4444', bgColor: '#fee2e2' },
+};
+
+// UTC-safe: parse ISO string as UTC to avoid browser timezone shift
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const toAbsoluteFileUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
+    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+const parseTime = (value) => {
+    if (!value) return 0;
+    const raw = String(value);
+    const hasTimePart = /T\d{2}:\d{2}/.test(raw);
+    const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(raw);
+    const normalized = hasTimePart && !hasTimezone ? `${raw}Z` : raw;
+    const ts = new Date(normalized).getTime();
+    return Number.isNaN(ts) ? 0 : ts;
+};
+
+const formatDateTime = (value) => {
+    if (!value) return 'Đang cập nhật';
+    const raw = String(value);
+    const hasTimePart = /T\d{2}:\d{2}/.test(raw);
+    const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(raw);
+    const normalized = hasTimePart && !hasTimezone ? `${raw}Z` : raw;
+    const d = new Date(normalized);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+const buildPoEvents = (poRaw, orderCode) => {
+    if (!poRaw) return [];
+    const code = orderCode || poRaw.PoCode || poRaw.poCode || 'PO';
+    return [
+        {
+            key: 'po-created',
+            type: 'created',
+            title: `Tạo yêu cầu nhập hàng ${code}`,
+            actor: poRaw.CreatedByName ?? poRaw.createdByName ?? poRaw.RequestedByName ?? poRaw.requestedByName ?? '',
+            at: poRaw.CreatedAt ?? poRaw.createdAt ?? null,
+            flowOrder: 1,
+        },
+        (poRaw.SubmittedAt ?? poRaw.submittedAt) ? {
+            key: 'po-submitted',
+            type: 'submitted',
+            title: `Gửi duyệt yêu cầu nhập hàng ${code}`,
+            actor: poRaw.SubmittedByName ?? poRaw.submittedByName ?? '',
+            at: poRaw.SubmittedAt ?? poRaw.submittedAt,
+            flowOrder: 2,
+        } : null,
+        (poRaw.ApprovedAt ?? poRaw.approvedAt) ? {
+            key: 'po-approved',
+            type: 'approved',
+            title: `Duyệt yêu cầu nhập hàng ${code}`,
+            actor: poRaw.ApprovedByName ?? poRaw.approvedByName ?? '',
+            at: poRaw.ApprovedAt ?? poRaw.approvedAt,
+            flowOrder: 3,
+        } : null,
+        (poRaw.RejectedAt ?? poRaw.rejectedAt) ? {
+            key: 'po-rejected',
+            type: 'rejected',
+            title: `Từ chối yêu cầu nhập hàng ${code}`,
+            actor: poRaw.RejectedByName ?? poRaw.rejectedByName ?? '',
+            note: poRaw.RejectedReason ?? poRaw.rejectedReason ?? '',
+            at: poRaw.RejectedAt ?? poRaw.rejectedAt,
+            flowOrder: 3,
+        } : null,
+    ].filter(Boolean);
+};
+
+const buildGrnEvents = (grn) => {
+    const grnCode = grn.GrnCode ?? grn.grnCode ?? grn.code ?? `GRN #${grn.GrnId ?? grn.grnId ?? ''}`;
+    return [
+        {
+            key: `grn-${grnCode}-created`,
+            type: 'created',
+            title: `Tạo phiếu nhập kho ${grnCode}`,
+            actor: grn.CreatedByName ?? grn.createdByName ?? '',
+            at: grn.CreatedAt ?? grn.createdAt ?? null,
+            flowOrder: 4,
+        },
+        (grn.SubmittedAt ?? grn.submittedAt) ? {
+            key: `grn-${grnCode}-submitted`,
+            type: 'submitted',
+            title: `Gửi duyệt phiếu nhập kho ${grnCode}`,
+            actor: grn.SubmittedByName ?? grn.submittedByName ?? '',
+            at: grn.SubmittedAt ?? grn.submittedAt,
+            flowOrder: 5,
+        } : null,
+        (grn.ApprovedAt ?? grn.approvedAt) ? {
+            key: `grn-${grnCode}-approved`,
+            type: 'approved',
+            title: `Duyệt phiếu nhập kho ${grnCode}`,
+            actor: grn.ApprovedByName ?? grn.approvedByName ?? '',
+            at: grn.ApprovedAt ?? grn.approvedAt,
+            flowOrder: 6,
+        } : null,
+        (grn.PostedAt ?? grn.postedAt) ? {
+            key: `grn-${grnCode}-posted`,
+            type: 'completed',
+            title: `Ghi sổ phiếu nhập kho ${grnCode}`,
+            actor: grn.PostedByName ?? grn.postedByName ?? '',
+            at: grn.PostedAt ?? grn.postedAt,
+            flowOrder: 7,
+        } : null,
+    ].filter(Boolean);
+};
+
+const buildReturnEvents = (prn, grnCodeById) => {
+    const code = prn.returnCode ?? prn.ReturnCode ?? `PRN #${prn.purchaseReturnId ?? prn.PurchaseReturnId ?? ''}`;
+    const relatedGrnId = prn.relatedGrnId ?? prn.RelatedGrnId ?? prn.grnId ?? prn.GrnId ?? null;
+    const relatedGrnCode = relatedGrnId != null ? grnCodeById.get(String(relatedGrnId)) : null;
+    const suffix = relatedGrnCode ? ` (từ ${relatedGrnCode})` : '';
+
+    return [
+        {
+            key: `prn-${code}-created`,
+            type: 'return',
+            title: `Tạo phiếu trả hàng ${code}${suffix}`,
+            actor: prn.createdByName ?? prn.CreatedByName ?? '',
+            at: prn.createdAt ?? prn.CreatedAt ?? null,
+            flowOrder: 8,
+        },
+        (prn.submittedAt ?? prn.SubmittedAt) ? {
+            key: `prn-${code}-submitted`,
+            type: 'submitted',
+            title: `Gửi duyệt phiếu trả hàng ${code}`,
+            actor: prn.submittedByName ?? prn.SubmittedByName ?? '',
+            at: prn.submittedAt ?? prn.SubmittedAt,
+            flowOrder: 9,
+        } : null,
+        (prn.approvedAt ?? prn.ApprovedAt) ? {
+            key: `prn-${code}-approved`,
+            type: 'approved',
+            title: `Duyệt phiếu trả hàng ${code}`,
+            actor: prn.approvedByName ?? prn.ApprovedByName ?? '',
+            at: prn.approvedAt ?? prn.ApprovedAt,
+            flowOrder: 10,
+        } : null,
+        ((prn.status ?? prn.Status ?? '').toUpperCase() === 'POSTED' || (prn.postedAt ?? prn.PostedAt)) ? {
+            key: `prn-${code}-posted`,
+            type: 'completed',
+            title: `Hoàn tất phiếu trả hàng ${code}`,
+            actor: prn.postedByName ?? prn.PostedByName ?? '',
+            at: prn.postedAt ?? prn.PostedAt ?? prn.updatedAt ?? prn.UpdatedAt ?? null,
+            flowOrder: 11,
+        } : null,
+    ].filter(Boolean);
+};
+
+const mapOrderDetail = (data) => ({
+    purchaseOrderId:
+        data.purchaseOrderId ??
+        data.PurchaseOrderId ??
+        data.id ??
+        null,
+    orderCode: data.poCode ?? data.OrderCode ?? '',
+    supplierId: data.supplierId ?? data.SupplierId ?? null,
+    supplierName: data.supplierName ?? data.SupplierName ?? '',
+    warehouseId: data.warehouseId ?? data.WarehouseId ?? null,
+    warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
+    creatorId: data.requestedBy ?? data.RequestedBy ?? data.createdBy ?? data.CreatedBy ?? null,
+    creatorName: data.requestedByName || data.RequestedByName || '',
+    responsibleUserId: data.responsibleUserId ?? data.ResponsibleUserId ?? null,
+    responsiblePersonName: data.responsibleUserName || data.ResponsibleUserName || '',
+    expectedDeliveryDate: data.expectedDeliveryDate ? formatDate(data.expectedDeliveryDate) : '',
+    justification: data.justification || '',
+    discountType: data.discountType ?? 'percent',
+    discount: data.discount ?? 0,
+    approvalStatus: (data.status ?? data.Status ?? 'DRAFT').toUpperCase(),
+    lifecycleStatus: data.lifecycleStatus ?? data.LifecycleStatus ?? null,
+    currentStageNo: data.currentStageNo ?? data.CurrentStageNo ?? 1,
+    requestedDate: data.requestedDate ? formatDate(data.requestedDate) : '',
+    createdAt: data.createdAt ? formatDate(data.createdAt) : '',
+    submittedAt: data.submittedAt ? formatDate(data.submittedAt) : '',
+    updatedAt: data.updatedAt ? formatDate(data.updatedAt) : '',
+    totalAmount: data.totalAmount ?? data.TotalAmount ?? null,
+    discountAmount: data.discountAmount ?? data.DiscountAmount ?? null,
+    netAmount: data.netAmount ?? data.NetAmount ?? null,
+    totalOrderedQty: data.totalOrderedQty ?? data.TotalOrderedQty ?? 0,
+    quotationFileUrl: toAbsoluteFileUrl(data.quotationFileUrl ?? data.QuotationFileUrl ?? ''),
+    contractAppendixFileUrl: toAbsoluteFileUrl(data.contractAppendixFileUrl ?? data.ContractAppendixFileUrl ?? ''),
+    lines: (data.lines || []).map((line, index) => ({
+        id: line.purchaseOrderLineId || line.id || index + 1,
+        itemId: line.itemId ?? line.ItemId ?? null,
+        itemName: line.itemName || line.ItemName || '',
+        itemCode: line.itemCode || line.ItemCode || '',
+        uomId: line.uomId ?? line.UomId ?? null,
+        uom: line.uomName || line.UomName || '',
+        orderedQty: line.orderedQty ?? line.OrderedQty ?? 0,
+        receivedQty: line.receivedQty ?? line.ReceivedQty ?? 0,
+        unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
+        lineTotal: line.lineTotal ?? line.LineTotal ?? 0,
+        totalPrice:
+            line.lineTotal ??
+            line.LineTotal ??
+            line.totalPrice ??
+            line.TotalPrice ??
+            ((line.orderedQty ?? line.OrderedQty ?? 0) * (line.unitPrice ?? line.UnitPrice ?? 0)),
+        currency: line.currency ?? line.Currency ?? 'VND',
+        lineStatus: line.lineStatus ?? line.LineStatus ?? 'Open',
+        note: line.note || line.Note || '',
+        requiresCo: Boolean(line.requiresCo ?? line.RequiresCo ?? false),
+        requiresCq: Boolean(line.requiresCq ?? line.RequiresCq ?? false),
+    })),
+});
+
+const styles = {
+    heroMetrics: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: 14,
+        marginTop: 20,
+    },
+    metricCard: {
+        background: '#ffffff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: '16px 18px',
+        boxShadow: '0 6px 18px rgba(15, 23, 42, 0.04)',
+    },
+    metricLabel: {
+        fontSize: 12,
+        fontWeight: 700,
+        color: '#6b7280',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        marginBottom: 8,
+    },
+    metricValue: {
+        fontSize: 18,
+        fontWeight: 700,
+        color: '#111827',
+        lineHeight: 1.35,
+        wordBreak: 'break-word',
+    },
+    metricSubValue: {
+        marginTop: 4,
+        fontSize: 12,
+        color: '#9ca3af',
+    },
+    contentGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1.6fr) minmax(320px, 0.95fr)',
+        gap: 24,
+        alignItems: 'start',
+    },
+    leftStack: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+        minWidth: 0,
+    },
+    sectionCard: {
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 20,
+        boxShadow: '0 10px 28px rgba(15, 23, 42, 0.05)',
+        overflow: 'hidden',
+    },
+    sectionHeader: {
+        padding: '18px 20px',
+        borderBottom: '1px solid #f1f5f9',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        flexWrap: 'wrap',
+    },
+    sectionTitle: {
+        margin: 0,
+        fontSize: 18,
+        fontWeight: 700,
+        color: '#111827',
+    },
+    sectionBody: {
+        padding: 20,
+    },
+    emptyState: {
+        padding: '48px 24px',
+        textAlign: 'center',
+        color: '#9ca3af',
+    },
+    tableWrap: {
+        overflowX: 'auto',
+        overflowY: 'visible',
+    },
+    table: {
+        width: '100%',
+        borderCollapse: 'separate',
+        borderSpacing: 0,
+        tableLayout: 'fixed',
+    },
+    th: {
+        position: 'sticky',
+        top: 0,
+        zIndex: 1,
+        background: '#f8fafc',
+        color: '#475569',
+        fontSize: 12,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.03em',
+        padding: '14px 12px',
+        borderBottom: '1px solid #e5e7eb',
+        whiteSpace: 'nowrap',
+    },
+    td: {
+        padding: '12px 10px',
+        borderBottom: '1px solid #f1f5f9',
+        fontSize: 13,
+        color: '#111827',
+        verticalAlign: 'middle',
+        backgroundColor: '#ffffff',
+    },
+    infoGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: 14,
+    },
+    fieldWrap: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+    },
+    fieldLabel: {
+        fontSize: 13,
+        fontWeight: 700,
+        color: '#6b7280',
+    },
+    fieldBox: {
+        minHeight: 46,
+        borderRadius: 14,
+        border: '1px solid #e5e7eb',
+        background: '#f8fafc',
+        padding: '12px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        color: '#111827',
+        fontSize: 14,
+        lineHeight: 1.5,
+    },
+    fieldBoxMultiline: {
+        minHeight: 88,
+        alignItems: 'flex-start',
+    },
+    sideStack: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+    },
+    summaryGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 14,
+    },
+    summaryBox: {
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: 16,
+        background: '#f8fafc',
+    },
+    summaryBoxLabel: {
+        fontSize: 12,
+        fontWeight: 700,
+        color: '#6b7280',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        marginBottom: 8,
+    },
+    summaryBoxValue: {
+        fontSize: 18,
+        fontWeight: 800,
+        color: '#111827',
+        lineHeight: 1.3,
+    },
+    amountRows: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        marginTop: 16,
+        paddingTop: 16,
+        borderTop: '1px dashed #e5e7eb',
+    },
+    amountRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 16,
+        fontSize: 14,
+        color: '#374151',
+    },
+    totalHighlight: {
+        marginTop: 18,
+        borderRadius: 18,
+        padding: '18px 20px',
+        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+        border: '1px solid #bfdbfe',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+    },
+    totalHighlightLabel: {
+        fontSize: 16,
+        fontWeight: 700,
+        color: '#1d4ed8',
+    },
+    totalHighlightValue: {
+        fontSize: 26,
+        fontWeight: 800,
+        color: '#1d4ed8',
+        fontVariantNumeric: 'tabular-nums',
+    },
+};
 
 const ViewPurchaseOrderDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { toast, showToast, clearToast } = useToast();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const { showToast } = useToastContext();
+
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    /** TK (Thủ kho): không hiển thị NCC, tệp đính kèm (và metric NCC ở hero). */
+    const hideSensitiveForWarehouseKeeper = isWarehouseKeeper(permissionRole);
+
     const [loading, setLoading] = useState(true);
-    const [imageErrors, setImageErrors] = useState({});
-    const [isEditing, setIsEditing] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
+    const [accessDenied, setAccessDenied] = useState(false);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-    const [confirmDialogType, setConfirmDialogType] = useState('approve'); // 'approve' | 'reject'
-    const [includeReason, setIncludeReason] = useState(false);
-    const [reasonText, setReasonText] = useState('');
-    const [selectedLineIds, setSelectedLineIds] = useState([]);
-    const [showProductSearch, setShowProductSearch] = useState(false);
-    const [searchKeyword, setSearchKeyword] = useState('');
-    const [filteredProducts, setFilteredProducts] = useState([]);
-    const [selectedProductIds, setSelectedProductIds] = useState([]);
-
-    const MAX_JUSTIFICATION_LENGTH = 250;
-
-    // Mock data - sau này sẽ load từ API
-    const [orderData, setOrderData] = useState({
-        purchaseOrderId: 1,
-        orderCode: 'PO-2025-001',
-        supplierName: 'Công ty TNHH ABC',
-        supplierPhone: '0901 234 567',
-        supplierEmail: 'ncc.abc@example.com',
-        supplierTaxCode: '0101234567',
-        supplierAddressStreet: 'Số 1 Đường A',
-        supplierAddressWard: 'Phường 1',
-        supplierAddressDistrict: 'Quận 1',
-        supplierAddressProvince: 'TP. Hồ Chí Minh',
-        warehouseName: 'Kho Hà Nội',
-        creatorName: 'Nguyễn Văn A',
-        responsiblePersonName: 'Trần Thị B',
-        expectedReceiptDate: '2025-03-15',
-        justification: 'Đặt hàng bổ sung tồn kho cho quý 1/2025',
-        discountType: 'percent', // 'percent' | 'amount'
-        discount: 5,
-        discountAmountFixed: 0,
-        additionalCosts: [], // [{ id, name, amount }]
-        approvalStatus: 'Approved', // Pending, Approved, Rejected
-        receivingStatus: 'Partial', // Pending, Partial, Completed
-        createdAt: '2025-03-01',
-        lines: [
-            {
-                id: 1,
-                itemId: 1,
-                itemName: 'Laptop Dell XPS 13',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 10,
-                receivedQty: 5,
-                unitPrice: 25000000,
-                totalPrice: 250000000,
-                hasCO: false,
-                hasCQ: false,
-                note: 'Cần giao trước ngày 15/3'
-            },
-            {
-                id: 2,
-                itemId: 2,
-                itemName: 'Màn hình LG 27 inch',
-                itemImage: null,
-                orderedQty: 20,
-                receivedQty: 20,
-                unitPrice: 5000000,
-                totalPrice: 100000000,
-                hasCO: false,
-                hasCQ: false,
-                note: ''
-            },
-            {
-                id: 3,
-                itemId: 3,
-                itemName: 'Bàn phím cơ Keychron',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 15,
-                receivedQty: 0,
-                unitPrice: 2000000,
-                totalPrice: 30000000,
-                hasCO: false,
-                hasCQ: false,
-                note: 'Ưu tiên giao sớm'
-            },
-            {
-                id: 4,
-                itemId: 4,
-                itemName: 'Chuột Logitech MX Master 3',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 25,
-                receivedQty: 15,
-                unitPrice: 1500000,
-                totalPrice: 37500000,
-                hasCO: false,
-                hasCQ: false,
-                note: ''
-            },
-            {
-                id: 5,
-                itemId: 5,
-                itemName: 'Tai nghe Sony WH-1000XM4',
-                itemImage: null,
-                orderedQty: 12,
-                receivedQty: 12,
-                unitPrice: 7000000,
-                totalPrice: 84000000,
-                hasCO: false,
-                hasCQ: false,
-                note: 'Đã nhập đủ'
-            },
-            {
-                id: 6,
-                itemId: 6,
-                itemName: 'Webcam Logitech C920',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 30,
-                receivedQty: 10,
-                unitPrice: 1800000,
-                totalPrice: 54000000,
-                hasCO: false,
-                hasCQ: false,
-                note: 'Còn thiếu 20 cái'
-            },
-            {
-                id: 7,
-                itemId: 7,
-                itemName: 'USB Hub Anker 7-Port',
-                itemImage: null,
-                orderedQty: 40,
-                receivedQty: 0,
-                unitPrice: 500000,
-                totalPrice: 20000000,
-                hasCO: false,
-                hasCQ: false,
-                note: 'Chưa nhập'
-            },
-            {
-                id: 8,
-                itemId: 8,
-                itemName: 'Đế tản nhiệt laptop Cooler Master',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 18,
-                receivedQty: 18,
-                unitPrice: 800000,
-                totalPrice: 14400000,
-                hasCO: false,
-                hasCQ: false,
-                note: ''
-            },
-            {
-                id: 9,
-                itemId: 9,
-                itemName: 'Ổ cứng SSD Samsung 1TB',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 50,
-                receivedQty: 25,
-                unitPrice: 2500000,
-                totalPrice: 125000000,
-                hasCO: false,
-                hasCQ: false,
-                note: 'Nhập từng đợt'
-            },
-            {
-                id: 10,
-                itemId: 10,
-                itemName: 'RAM Corsair 16GB DDR4',
-                itemImage: null,
-                orderedQty: 35,
-                receivedQty: 35,
-                unitPrice: 1200000,
-                totalPrice: 42000000,
-                note: 'Hoàn thành'
-            },
-            {
-                id: 11,
-                itemId: 11,
-                itemName: 'Cable HDMI 2.1 - 2m',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 100,
-                receivedQty: 50,
-                unitPrice: 150000,
-                totalPrice: 15000000,
-                note: 'Giao nốt 50 cái'
-            },
-            {
-                id: 12,
-                itemId: 12,
-                itemName: 'Loa Bluetooth JBL Flip 5',
-                itemImage: null,
-                orderedQty: 22,
-                receivedQty: 0,
-                unitPrice: 2200000,
-                totalPrice: 48400000,
-                note: 'Đang chờ hàng về'
-            },
-            {
-                id: 13,
-                itemId: 13,
-                itemName: 'Bộ chuyển đổi USB-C Hub',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 45,
-                receivedQty: 22,
-                unitPrice: 650000,
-                totalPrice: 29250000,
-                note: 'Còn thiếu 23 cái'
-            },
-            {
-                id: 14,
-                itemId: 14,
-                itemName: 'Micro không dây Rode Wireless Go',
-                itemImage: 'https://via.placeholder.com/40',
-                orderedQty: 8,
-                receivedQty: 8,
-                unitPrice: 5500000,
-                totalPrice: 44000000,
-                note: ''
-            },
-            {
-                id: 15,
-                itemId: 15,
-                itemName: 'Đèn LED ring light 18 inch',
-                itemImage: null,
-                orderedQty: 16,
-                receivedQty: 5,
-                unitPrice: 1100000,
-                totalPrice: 17600000,
-                note: 'Đợt 1: 5 cái'
-            }
-        ],
-        history: [
-            { time: '14:30', phone: '0866563616', action: 'Đã phê duyệt đơn hàng', date: '2025-03-02' },
-            { time: '10:15', phone: '0866563616', action: 'Gửi yêu cầu phê duyệt', date: '2025-03-01' },
-            { time: '09:00', phone: '0866563616', action: 'Thêm mới đơn nhập hàng PO-2025-001', date: '2025-03-01' }
-        ]
+    const [confirmDialogType, setConfirmDialogType] = useState(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [processDialogOpen, setProcessDialogOpen] = useState(false);
+    const [processHistory, setProcessHistory] = useState([]);
+    const [processLoading, setProcessLoading] = useState(false);
+    const [hasPendingGRNState, setHasPendingGRNState] = useState({
+        purchaseOrderId: null,
+        hasPending: false,
+        checking: false,
     });
 
+    const [orderData, setOrderData] = useState({
+        purchaseOrderId: null,
+        orderCode: '',
+        supplierId: null,
+        supplierName: '',
+        warehouseId: null,
+        warehouseName: '',
+        creatorId: null,
+        creatorName: '',
+        responsibleUserId: null,
+        responsiblePersonName: '',
+        expectedDeliveryDate: '',
+        justification: '',
+        discountType: 'percent',
+        discount: 0,
+        approvalStatus: '',
+        lifecycleStatus: null,
+        currentStageNo: 1,
+        requestedDate: '',
+        createdAt: '',
+        submittedAt: '',
+        updatedAt: '',
+        totalAmount: null,
+        discountAmount: null,
+        netAmount: null,
+        totalOrderedQty: 0,
+        quotationFileUrl: '',
+        contractAppendixFileUrl: '',
+        lines: [],
+    });
+    const [orderRaw, setOrderRaw] = useState(null);
+
+    const loadOrderDetail = useCallback(
+        async ({ showLoading = true } = {}) => {
+            if (!id) {
+                setLoading(false);
+                return null;
+            }
+
+            if (showLoading) {
+                setLoading(true);
+            }
+
+            try {
+                const data = await getPurchaseOrderDetail(id);
+                if (!data) return null;
+
+                const mapped = mapOrderDetail(data);
+
+                // Dùng authService.getCurrentUserId() thay vì tự đọc userInfo
+                // vì userInfo trong localStorage có thể thiếu trường userId
+                const currentUserId = authService.getCurrentUserId();
+                const isDraft = (mapped.approvalStatus || '').toUpperCase() === 'DRAFT';
+                const isCreator = mapped.creatorId != null && String(mapped.creatorId) === String(currentUserId);
+
+                // Nếu là DRAFT: chỉ chặn khi CHẮC CHẮN không phải người tạo
+                // creatorId null (backend chưa trả) → cho phép xem (tránh chặn nhầm creator)
+                if (isDraft && mapped.creatorId != null && !isCreator) {
+                    setAccessDenied(true);
+                    return mapped;
+                }
+
+                setOrderData(mapped);
+                setOrderRaw(data);
+                return mapped;
+            } catch (error) {
+                console.error('Lỗi khi tải chi tiết yêu cầu nhập hàng:', error);
+                showToast('Không thể tải thông tin yêu cầu nhập hàng', 'error');
+                return null;
+            } finally {
+                if (showLoading) {
+                    setLoading(false);
+                }
+            }
+        },
+        [id, showToast]
+    );
+
     useEffect(() => {
-        // Mock load data
-        setTimeout(() => {
-            setLoading(false);
-        }, 500);
-    }, [id]);
+        loadOrderDetail();
+    }, [loadOrderDetail]);
 
-    const handleImageError = (id) => {
-        setImageErrors(prev => ({ ...prev, [id]: true }));
-    };
+    useEffect(() => {
+        let cancelled = false;
 
-    const isValidImageUrl = (url) => {
-        if (!url || typeof url !== 'string') return false;
-        try {
-            const urlObj = new URL(url);
-            return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-        } catch {
-            return false;
-        }
-    };
-
-    const formatCurrency = (value) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-    };
-
-    const totalQuantity = orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
-    const subtotal = orderData.lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
-    const discountAmount = orderData.discountType === 'amount'
-        ? (Number(orderData.discountAmountFixed) || 0)
-        : (subtotal * (Number(orderData.discount) || 0)) / 100;
-    const totalAdditionalCosts = (orderData.additionalCosts || []).reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-    const grandTotal = subtotal - discountAmount + totalAdditionalCosts;
-
-    const getApprovalStatusStyle = (status) => {
-        const styles = {
-            'Pending': { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
-            'Approved': { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
-            'Rejected': { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' }
-        };
-        return styles[status] || { label: status, color: '#6b7280', bgColor: '#f3f4f6' };
-    };
-
-    const getReceivingStatusStyle = (status) => {
-        const styles = {
-            'Pending': { label: 'Chờ nhập', color: '#f59e0b', bgColor: '#fef3c7' },
-            'Partial': { label: 'Nhập một phần', color: '#3b82f6', bgColor: '#dbeafe' },
-            'Completed': { label: 'Hoàn thành', color: '#10b981', bgColor: '#d1fae5' }
-        };
-        return styles[status] || { label: status, color: '#6b7280', bgColor: '#f3f4f6' };
-    };
-
-    const approvalStyle = getApprovalStatusStyle(orderData.approvalStatus);
-    const receivingStyle = getReceivingStatusStyle(orderData.receivingStatus);
-
-    // Mock search-select data (giống CreatePurchaseOrder)
-    const MOCK_SUPPLIERS = [
-        {
-            id: 'SUP-001',
-            name: 'Nhà cung cấp A',
-            phone: '0901 234 567',
-            email: 'ncc.a@example.com',
-            taxCode: '0101234567',
-            address: {
-                street: 'Số 1 Đường A',
-                ward: 'Phường 1',
-                district: 'Quận 1',
-                province: 'TP. Hồ Chí Minh',
-            },
-        },
-        {
-            id: 'SUP-002',
-            name: 'Nhà cung cấp B',
-            phone: '0908 765 432',
-            email: 'ncc.b@example.com',
-            taxCode: '0312345678',
-            address: {
-                street: 'Số 99 Đường B',
-                ward: 'Phường Bến Nghé',
-                district: 'Quận 1',
-                province: 'TP. Hồ Chí Minh',
-            },
-        },
-    ];
-
-    const MOCK_EMPLOYEES = [
-        { id: 'EMP-001', name: 'Nguyễn Văn A' },
-        { id: 'EMP-002', name: 'Trần Thị B' },
-    ];
-
-    const MOCK_WAREHOUSES = [
-        { id: 'WH-001', name: 'Kho Hà Nội' },
-        { id: 'WH-002', name: 'Kho Hồ Chí Minh' },
-    ];
-
-    const [supplierQuery, setSupplierQuery] = useState('');
-    const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
-    const [employeeQuery, setEmployeeQuery] = useState('');
-    const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
-    const [warehouseQuery, setWarehouseQuery] = useState('');
-    const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
-
-    const filteredSuppliers = useMemo(() => {
-        const q = supplierQuery.trim().toLowerCase();
-        if (!q) return MOCK_SUPPLIERS;
-        return MOCK_SUPPLIERS.filter(
-            (s) => s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q)
-        );
-    }, [supplierQuery]);
-
-    const filteredEmployees = useMemo(() => {
-        const q = employeeQuery.trim().toLowerCase();
-        if (!q) return MOCK_EMPLOYEES;
-        return MOCK_EMPLOYEES.filter(
-            (e) => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q)
-        );
-    }, [employeeQuery]);
-
-    const filteredWarehouses = useMemo(() => {
-        const q = warehouseQuery.trim().toLowerCase();
-        if (!q) return MOCK_WAREHOUSES;
-        return MOCK_WAREHOUSES.filter(
-            (w) => w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q)
-        );
-    }, [warehouseQuery]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        
-        // Giới hạn 250 ký tự cho trường justification
-        if (name === 'justification' && value.length > MAX_JUSTIFICATION_LENGTH) {
-            return;
-        }
-        
-        setOrderData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
-    // Mock danh sách sản phẩm dùng cho search-select khi thêm dòng (giống CreatePurchaseOrder)
-    const MOCK_PRODUCTS = [
-        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
-        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
-        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
-        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
-        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
-        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-    ];
-
-    const handleSearchChange = (e) => {
-        const keyword = e.target.value;
-        setSearchKeyword(keyword);
-
-        if (keyword.trim() === '') {
-            setFilteredProducts([]);
-            return;
-        }
-
-        const filtered = MOCK_PRODUCTS.filter(
-            (product) =>
-                product.name.toLowerCase().includes(keyword.toLowerCase()) ||
-                product.sku.toLowerCase().includes(keyword.toLowerCase())
-        );
-        setFilteredProducts(filtered);
-    };
-
-    const handleSelectProduct = (product) => {
-        setOrderData((prev) => {
-            const existing = prev.lines.find((l) => l.itemId === product.id);
-            if (existing) {
-                showToast('Sản phẩm đã có trong danh sách!', 'warning');
-                return prev;
+        const loadProcessHistory = async () => {
+            if (!orderData.purchaseOrderId) {
+                setProcessHistory([]);
+                return;
             }
 
-            const newLine = {
-                id: Date.now(),
-                itemId: product.id,
-                itemName: product.name,
-                itemImage: product.image,
-                uom: product.uom ?? '',
-                orderedQty: 1,
-                unitPrice: product.unitPrice,
-                totalPrice: product.unitPrice,
-                hasCO: false,
-                hasCQ: false,
-                note: '',
-            };
+            setProcessLoading(true);
+            try {
+                const grnRes = await getGoodReceiptNotes({
+                    page: 1,
+                    pageSize: 200,
+                    purchaseOrderId: orderData.purchaseOrderId,
+                });
+                const allGrnItems = Array.isArray(grnRes?.items) ? grnRes.items : [];
+                const targetPoId = Number(orderData.purchaseOrderId);
+                const grnItems = allGrnItems.filter((g) => {
+                    const grnPoIdRaw = g.purchaseOrderId ?? g.PurchaseOrderId ?? g.poId ?? g.PoId ?? null;
+                    const grnPoId = Number(grnPoIdRaw);
+                    return Number.isFinite(grnPoId) && grnPoId === targetPoId;
+                });
 
-            return {
-                ...prev,
-                lines: [...prev.lines, newLine],
-            };
-        });
+                const grnIdSet = new Set(
+                    grnItems
+                        .map((g) => g.GrnId ?? g.grnId)
+                        .filter((id) => id != null)
+                        .map((id) => String(id))
+                );
+                const grnCodeById = new Map(
+                    grnItems
+                        .map((g) => [String(g.GrnId ?? g.grnId ?? ''), g.GrnCode ?? g.grnCode ?? ''])
+                        .filter(([id]) => id)
+                );
 
-        setSearchKeyword('');
-        setFilteredProducts([]);
-        setShowProductSearch(false);
-        setSelectedProductIds([]);
-        showToast('Đã thêm sản phẩm vào danh sách', 'success');
-    };
+                const prnRes = await getPurchaseReturnNotes({ page: 1, pageSize: 500 });
+                const prnItems = Array.isArray(prnRes?.items) ? prnRes.items : [];
+                const relatedPrn = prnItems.filter((p) => {
+                    const relatedGrnId = p.relatedGrnId ?? p.RelatedGrnId ?? p.grnId ?? p.GrnId;
+                    return relatedGrnId != null && grnIdSet.has(String(relatedGrnId));
+                });
 
-    const toggleProductSelection = (productId) => {
-        setSelectedProductIds((prev) =>
-            prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
-        );
-    };
+                const events = [
+                    ...buildPoEvents(orderRaw, orderData.orderCode),
+                    ...grnItems.flatMap((g) => buildGrnEvents(g)),
+                    ...relatedPrn.flatMap((p) => buildReturnEvents(p, grnCodeById)),
+                ].sort((a, b) => {
+                    if (a.flowOrder !== b.flowOrder) return a.flowOrder - b.flowOrder;
+                    return parseTime(a.at) - parseTime(b.at);
+                });
 
-    const addSelectedProducts = () => {
-        if (selectedProductIds.length === 0) {
-            showToast('Vui lòng chọn ít nhất 1 sản phẩm', 'warning');
-            return;
-        }
-
-        const productsToAdd = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id));
-
-        setOrderData((prev) => {
-            const newLines = [];
-            let duplicateCount = 0;
-
-            productsToAdd.forEach((product) => {
-                const existingLine = prev.lines.find((l) => l.itemId === product.id);
-                if (!existingLine) {
-                    newLines.push({
-                        id: Date.now() + Math.random(),
-                        itemId: product.id,
-                        itemName: product.name,
-                        itemImage: product.image,
-                        uom: product.uom ?? '',
-                        orderedQty: 1,
-                        unitPrice: product.unitPrice,
-                        totalPrice: product.unitPrice,
-                        hasCO: false,
-                        hasCQ: false,
-                        note: '',
-                    });
-                } else {
-                    duplicateCount++;
+                if (!cancelled) {
+                    setProcessHistory(events);
                 }
+            } catch {
+                if (!cancelled) {
+                    setProcessHistory(buildPoEvents(orderRaw, orderData.orderCode));
+                }
+            } finally {
+                if (!cancelled) {
+                    setProcessLoading(false);
+                }
+            }
+        };
+
+        loadProcessHistory();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [orderData.purchaseOrderId, orderData.orderCode, orderRaw]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const currentPoId = orderData.purchaseOrderId;
+        const isApproved = orderData.approvalStatus === 'APPROVED';
+
+        if (!currentPoId || !isApproved) {
+            setHasPendingGRNState({
+                purchaseOrderId: currentPoId ?? null,
+                hasPending: false,
+                checking: false,
             });
-
-            if (duplicateCount > 0) {
-                showToast(`${duplicateCount} sản phẩm đã có trong danh sách`, 'warning');
-            }
-
-            if (!newLines.length) return prev;
-
-            showToast(`Đã thêm ${newLines.length} sản phẩm vào danh sách`, 'success');
-
-            return {
-                ...prev,
-                lines: [...prev.lines, ...newLines],
+            return () => {
+                cancelled = true;
             };
+        }
+
+        setHasPendingGRNState({
+            purchaseOrderId: currentPoId,
+            hasPending: false,
+            checking: true,
         });
 
-        setSearchKeyword('');
-        setFilteredProducts([]);
-        setShowProductSearch(false);
-        setSelectedProductIds([]);
-    };
+        const checkPendingGRN = async () => {
+            try {
+                const result = await hasPendingGRNForPO(currentPoId);
+                if (cancelled) return;
 
-    const openProductSearch = () => {
-        setShowProductSearch(true);
-        setSearchKeyword('');
-        setFilteredProducts([]);
-    };
+                const resultPoId =
+                    result?.purchaseOrderId ??
+                    result?.poId ??
+                    currentPoId;
 
-    const closeProductSearch = () => {
-        setShowProductSearch(false);
-        setSearchKeyword('');
-        setFilteredProducts([]);
-        setSelectedProductIds([]);
-    };
+                const normalizedPoMatches =
+                    Number(resultPoId) === Number(currentPoId);
 
-    const addLine = () => {
-        openProductSearch();
-    };
+                const hasPending =
+                    typeof result === 'boolean'
+                        ? result
+                        : Boolean(
+                            result?.hasPending ??
+                            result?.exists ??
+                            result?.isPending ??
+                            false
+                        );
 
-    const removeLine = (index) => {
-        setOrderData((prev) => ({
-            ...prev,
-            lines: prev.lines.filter((_, i) => i !== index),
-        }));
-        setSelectedLineIds((prev) => {
-            const target = orderData.lines[index]?.id;
-            return target ? prev.filter((id) => id !== target) : prev;
-        });
-    };
+                setHasPendingGRNState({
+                    purchaseOrderId: currentPoId,
+                    hasPending: normalizedPoMatches ? hasPending : false,
+                    checking: false,
+                });
+            } catch (error) {
+                console.error('Lỗi kiểm tra GRN pending:', error);
+                if (cancelled) return;
 
-    const toggleLineSelection = (lineId) => {
-        setSelectedLineIds((prev) =>
-            prev.includes(lineId) ? prev.filter((id) => id !== lineId) : [...prev, lineId]
-        );
-    };
-
-    const toggleSelectAll = () => {
-        if (!orderData.lines?.length) return;
-        if (selectedLineIds.length === orderData.lines.length) {
-            setSelectedLineIds([]);
-        } else {
-            setSelectedLineIds(orderData.lines.map((l) => l.id));
-        }
-    };
-
-    const removeSelectedLines = () => {
-        if (!selectedLineIds.length) return;
-        setOrderData((prev) => ({
-            ...prev,
-            lines: prev.lines.filter((l) => !selectedLineIds.includes(l.id)),
-        }));
-        setSelectedLineIds([]);
-    };
-
-    const setDiscountType = (type) => {
-        setOrderData(prev => ({ ...prev, discountType: type }));
-    };
-
-    const addAdditionalCost = () => {
-        setOrderData(prev => ({
-            ...prev,
-            additionalCosts: [
-                ...(prev.additionalCosts || []),
-                { id: Date.now(), name: '', amount: 0 }
-            ]
-        }));
-    };
-
-    const removeAdditionalCost = (id) => {
-        setOrderData(prev => ({
-            ...prev,
-            additionalCosts: (prev.additionalCosts || []).filter(c => c.id !== id)
-        }));
-    };
-
-    const updateAdditionalCost = (id, field, value) => {
-        setOrderData(prev => ({
-            ...prev,
-            additionalCosts: (prev.additionalCosts || []).map(c =>
-                c.id === id ? { ...c, [field]: field === 'amount' ? (Number(value) || 0) : value } : c
-            )
-        }));
-    };
-
-    const updateLine = (index, field, value) => {
-        setOrderData(prev => ({
-            ...prev,
-            lines: prev.lines.map((line, i) => {
-                if (i === index) {
-                    const updated = { ...line, [field]: value };
-                    if (field === 'orderedQty' || field === 'unitPrice') {
-                        updated.totalPrice = (Number(updated.orderedQty) || 0) * (Number(updated.unitPrice) || 0);
-                    }
-                    return updated;
-                }
-                return line;
-            })
-        }));
-    };
-
-    const validateOrderSummary = () => {
-        if (orderData.discountType === 'percent') {
-            const v = Number(orderData.discount);
-            if (isNaN(v) || v < 0 || v > 100) {
-                showToast('Chiết khấu (%) phải từ 0 đến 100.', 'error');
-                return false;
+                setHasPendingGRNState({
+                    purchaseOrderId: currentPoId,
+                    hasPending: false,
+                    checking: false,
+                });
             }
-        } else {
-            const v = Number(orderData.discountAmountFixed);
-            if (isNaN(v) || v < 0) {
-                showToast('Chiết khấu (số tiền) phải lớn hơn hoặc bằng 0.', 'error');
-                return false;
-            }
-        }
-        const costs = orderData.additionalCosts || [];
-        for (let i = 0; i < costs.length; i++) {
-            const amount = Number(costs[i].amount) || 0;
-            const name = (costs[i].name || '').trim();
-            if (amount > 0 && !name) {
-                showToast(`Dòng chi phí thứ ${i + 1}: nhập tên chi phí khi có số tiền.`, 'error');
-                return false;
-            }
-            if (amount < 0) {
-                showToast(`Dòng chi phí thứ ${i + 1}: số tiền phải lớn hơn hoặc bằng 0.`, 'error');
-                return false;
-            }
-        }
-        return true;
-    };
+        };
 
-    const handleSave = async () => {
-        if (!validateOrderSummary()) return;
-        try {
-            setSubmitting(true);
-            // Mock API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            showToast('Cập nhật đơn mua hàng thành công!', 'success');
-            setIsEditing(false);
-        } catch (error) {
-            showToast(error.message || 'Có lỗi xảy ra', 'error');
-        } finally {
-            setSubmitting(false);
-        }
-    };
+        checkPendingGRN();
 
-    const handleCancel = () => {
-        setIsEditing(false);
-        // Reload data
-        setLoading(true);
-        setTimeout(() => setLoading(false), 500);
-    };
+        return () => {
+            cancelled = true;
+        };
+    }, [orderData.purchaseOrderId, orderData.approvalStatus]);
+
+    const subtotal = orderData.totalAmount ?? orderData.lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
+    const discountAmt = orderData.discountAmount ?? (
+        orderData.discountType === 'amount'
+            ? Number(orderData.discount ?? 0)
+            : (subtotal * Number(orderData.discount ?? 0)) / 100
+    );
+    const grandTotal = orderData.netAmount ?? (subtotal - discountAmt);
+    const totalQty = orderData.totalOrderedQty > 0
+        ? orderData.totalOrderedQty
+        : orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
+
+    const isPending = orderData.approvalStatus === 'PENDING_ACC' || orderData.approvalStatus === 'PENDING';
+    const canApprove = permissionRole === 'ACCOUNTANTS' && isPending;
+
+    const isPendingGrnCheckedForCurrentPO =
+        Number(hasPendingGRNState.purchaseOrderId) === Number(orderData.purchaseOrderId);
+
+    const showPendingGRNChip =
+        permissionRole === 'WAREHOUSE_KEEPER' &&
+        orderData.approvalStatus === 'APPROVED' &&
+        isPendingGrnCheckedForCurrentPO &&
+        !hasPendingGRNState.checking &&
+        hasPendingGRNState.hasPending;
+
+    const canCreateGRN =
+        permissionRole === 'WAREHOUSE_KEEPER' &&
+        orderData.approvalStatus === 'APPROVED' &&
+        isPendingGrnCheckedForCurrentPO &&
+        !hasPendingGRNState.checking &&
+        !hasPendingGRNState.hasPending;
 
     const openConfirmDialog = (type) => {
         setConfirmDialogType(type);
-        setIncludeReason(false);
-        setReasonText('');
         setConfirmDialogOpen(true);
     };
+
     const closeConfirmDialog = () => {
-        if (submitting) return;
         setConfirmDialogOpen(false);
-        setIncludeReason(false);
-        setReasonText('');
+        setConfirmDialogType(null);
+        setRejectionReason('');
     };
-    const handleReasonChange = (e) => {
-        setReasonText(e.target.value.slice(0, MAX_REASON_LENGTH));
-    };
-    const canConfirmAction = !submitting;
 
     const handleConfirmAction = async () => {
-        if (!canConfirmAction) return;
+        if (confirmDialogType === 'reject' && !rejectionReason.trim()) {
+            showToast('Vui lòng nhập lý do từ chối.', 'warning');
+            return;
+        }
+
+        setSubmitting(true);
+
         try {
-            setSubmitting(true);
-            await new Promise((r) => setTimeout(r, 600));
-            const reason = includeReason ? reasonText.trim() : '';
-            const isApprove = confirmDialogType === 'approve';
-            setOrderData((prev) => ({
-                ...prev,
-                approvalStatus: isApprove ? 'Approved' : 'Rejected',
-            }));
-            showToast(isApprove ? 'Đã duyệt đơn mua hàng.' : 'Đã hủy đơn mua hàng.', 'success');
+            if (confirmDialogType === 'approve') {
+                await approvePurchaseOrder(orderData.purchaseOrderId);
+                showToast('Đã duyệt yêu cầu nhập hàng.');
+            } else {
+                await rejectPurchaseOrder(orderData.purchaseOrderId, rejectionReason);
+                showToast('Đã từ chối yêu cầu nhập hàng.');
+            }
+
             closeConfirmDialog();
-        } catch (e) {
-            showToast(e?.message || 'Có lỗi xảy ra', 'error');
+
+            const refreshed = await loadOrderDetail({ showLoading: false });
+
+            if (!refreshed || refreshed.approvalStatus !== 'APPROVED') {
+                setHasPendingGRNState({
+                    purchaseOrderId: refreshed?.purchaseOrderId ?? orderData.purchaseOrderId ?? null,
+                    hasPending: false,
+                    checking: false,
+                });
+            }
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Có lỗi xảy ra.', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleApprove = () => openConfirmDialog('approve');
-    const handleReject = () => openConfirmDialog('reject');
+    const renderReadonlyField = (label, value, Icon, options = {}) => {
+        const { multiline = false } = options;
+
+        return (
+            <div style={styles.fieldWrap}>
+                <label style={styles.fieldLabel}>{label}</label>
+                <div
+                    style={{
+                        ...styles.fieldBox,
+                        ...(multiline ? styles.fieldBoxMultiline : {}),
+                    }}
+                >
+                    <Icon size={16} style={{ color: '#64748b', flexShrink: 0, marginTop: multiline ? 2 : 0 }} />
+                    <span style={{ whiteSpace: multiline ? 'pre-wrap' : 'normal' }}>
+                        {value || '—'}
+                    </span>
+                </div>
+            </div>
+        );
+    };
 
     if (loading) {
         return (
-            <div className="create-supplier-page">
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                    <div style={{ fontSize: '16px', color: '#6b7280' }}>Đang tải dữ liệu...</div>
-                </div>
+            <div
+                className="create-supplier-page"
+                style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}
+            >
+                <Loader size={32} style={{ color: '#9ca3af', animation: 'spin 1s linear infinite' }} />
+            </div>
+        );
+    }
+
+    if (accessDenied) {
+        return (
+            <div
+                className="create-supplier-page"
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: '400px',
+                    gap: '16px',
+                }}
+            >
+                <XCircle size={64} style={{ color: '#ef4444', opacity: 0.6 }} />
+                <h2 style={{ color: '#374151', margin: 0 }}>Không có quyền truy cập</h2>
+                <p style={{ color: '#6b7280', margin: 0 }}>
+                    Bạn không có quyền xem yêu cầu nhập hàng này.
+                </p>
+                <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => navigate('/purchase-orders')}
+                >
+                    Quay lại danh sách
+                </button>
             </div>
         );
     }
 
     return (
-        <div className="create-supplier-page">
-            {/* Popup xác nhận Duyệt đơn / Hủy đơn */}
-            <Dialog
+        <div className="create-supplier-page view-po-detail-page">
+            <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
-                fullWidth
-                maxWidth="sm"
-                disableEscapeKeyDown={submitting}
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '620px',
-                        borderRadius: '16px',
-                        border: '1px solid #e5e7eb',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                        overflow: 'hidden',
-                        m: 2,
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        px: 3,
-                        pt: 2.25,
-                        pb: 1.75,
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: '#111827',
-                        borderBottom: '1px solid #eef2f7',
-                    }}
-                >
-                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận hủy đơn'}
-                </DialogTitle>
-
-                <DialogContent
-                    sx={{
-                        px: 3,
-                        pt: 3.5,
-                        pb: 2.5,
-                    }}
-                >
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            py: 1.5,
-                            mb: includeReason ? 1.5 : 0,
-                            pl: 0.5,
-                        }}
-                    >
-                        <Switch
-                            checked={includeReason}
-                            onChange={(e) => setIncludeReason(e.target.checked)}
-                            size="small"
-                            sx={{
-                                mr: 1,
-                                width: 40,
-                                height: 24,
-                                p: 0,
-                                display: 'flex',
-                                '& .MuiSwitch-switchBase': {
-                                    p: '3px',
-                                    '&.Mui-checked': {
-                                        transform: 'translateX(16px)',
-                                        color: '#ffffff',
-                                        '& + .MuiSwitch-track': {
-                                            backgroundColor: '#0ea5e9',
-                                            opacity: 1,
-                                        },
-                                    },
-                                },
-                                '& .MuiSwitch-thumb': {
-                                    width: 18,
-                                    height: 18,
-                                    boxShadow: 'none',
-                                },
-                                '& .MuiSwitch-track': {
-                                    borderRadius: 12,
-                                    backgroundColor: '#cfefff',
-                                    opacity: 1,
-                                },
-                            }}
+                onConfirm={handleConfirmAction}
+                title={confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
+                message={confirmDialogType === 'approve'
+                    ? 'Bạn có chắc chắn muốn duyệt yêu cầu nhập hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
+                    : 'Bạn có chắc chắn muốn từ chối yêu cầu nhập hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
+                content={confirmDialogType === 'reject' && (
+                    <div style={{ marginTop: 18 }}>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+                            Lý do từ chối <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            disabled={submitting}
+                            rows={4}
+                            placeholder="Nhập lý do từ chối đơn hàng"
+                            maxLength={250}
+                            style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '14px', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', backgroundColor: '#ffffff' }}
                         />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: rejectionReason.length >= 250 ? '#ef4444' : '#6b7280', marginTop: '6px' }}>
+                            {rejectionReason.length}/250 ký tự
+                        </div>
+                    </div>
+                )}
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={submitting}
+                confirmDanger={confirmDialogType === 'reject'}
+                confirmDisabled={confirmDialogType === 'reject' && !rejectionReason.trim()}
+            />
 
-                        <Box
-                            component="span"
-                            sx={{
-                                fontSize: '14px',
-                                fontWeight: 500,
-                                color: '#374151',
-                                userSelect: 'none',
-                            }}
-                        >
-                            Kèm lý do
-                        </Box>
-                    </Box>
-
-                    <Collapse in={includeReason} timeout={200}>
-                        <Box>
-                            <TextField
-                                fullWidth
-                                multiline
-                                minRows={3}
-                                maxRows={5}
-                                value={reasonText}
-                                onChange={handleReasonChange}
-                                placeholder="Nhập lý do (tùy chọn)"
-                                variant="outlined"
-                                inputProps={{ maxLength: MAX_REASON_LENGTH }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        alignItems: 'flex-start',
-                                        backgroundColor: '#f3f4f6',
-                                        borderRadius: '12px',
-                                        '& fieldset': {
-                                            border: '1px solid transparent',
-                                        },
-                                        '&:hover fieldset': {
-                                            border: '1px solid transparent',
-                                        },
-                                        '&.Mui-focused fieldset': {
-                                            border: '1px solid #d1d5db',
-                                        },
-                                        '& textarea': {
-                                            padding: '16px 18px !important',
-                                            fontSize: '14px',
-                                            lineHeight: 1.5,
-                                            color: '#111827',
-                                        },
-                                    },
-                                    '& .MuiInputBase-input::placeholder': {
-                                        color: '#9ca3af',
-                                        opacity: 1,
-                                    },
-                                }}
-                            />
-
-                            <Box
-                                sx={{
-                                    mt: 0.75,
-                                    textAlign: 'right',
-                                    fontSize: '12px',
-                                    color: '#6b7280',
-                                    lineHeight: 1,
-                                }}
-                            >
-                                {reasonText.length}/{MAX_REASON_LENGTH}
-                            </Box>
-                        </Box>
-                    </Collapse>
-                </DialogContent>
-
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2,
-                        gap: 1.5,
-                        justifyContent: 'flex-end',
-                        borderTop: '1px solid #eef2f7',
-                    }}
-                >
-                    <Button
-                        onClick={closeConfirmDialog}
-                        disabled={submitting}
-                        disableRipple
-                        sx={{
-                            minWidth: '72px',
-                            height: 40,
-                            px: 1,
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: '#6b7280',
-                            backgroundColor: 'transparent',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor: 'transparent',
-                                color: '#4b5563',
-                                boxShadow: 'none',
-                            },
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmAction}
-                        disabled={!canConfirmAction}
-                        sx={{
-                            minWidth: '110px',
-                            height: 40,
-                            px: 2,
-                            borderRadius: '12px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            backgroundColor: confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor: confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
-                                boxShadow: 'none',
-                            },
-                            '&:disabled': {
-                                backgroundColor: '#bae6fd',
-                                color: '#ffffff',
-                            },
-                        }}
-                    >
-                        {submitting ? 'Đang xử lý...' : 'Xác nhận'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
                     <button type="button" onClick={() => navigate(-1)} className="back-button">
@@ -963,1636 +912,550 @@ const ViewPurchaseOrderDetail = () => {
                         <span>Quay lại</span>
                     </button>
                 </div>
+
                 <div className="page-header-actions">
-                    {!isEditing ? (
-                        <>
-                            {permissionRole === 'ACCOUNTANTS' && (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="btn btn-cancel"
-                                        disabled={submitting}
-                                        onClick={handleReject}
-                                    >
-                                        <XCircle size={16} className="btn-icon" />
-                                        Hủy đơn
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary"
-                                        disabled={submitting}
-                                        onClick={handleApprove}
-                                    >
-                                        <CheckCircle size={16} className="btn-icon" />
-                                        Duyệt đơn
-                                    </button>
-                                </>
-                            )}
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => setIsEditing(true)}
-                            >
-                                <Edit size={16} className="btn-icon" />
-                                Chỉnh sửa
-                            </button>
-                        </>
-                    ) : (
+                    {canApprove && (
                         <>
                             <button
                                 type="button"
-                                onClick={handleCancel}
                                 className="btn btn-cancel"
                                 disabled={submitting}
+                                onClick={() => openConfirmDialog('reject')}
                             >
-                                <X size={16} className="btn-icon" />
-                                Hủy
+                                <XCircle size={16} className="btn-icon" />
+                                Từ chối
                             </button>
+
                             <button
                                 type="button"
                                 className="btn btn-primary"
                                 disabled={submitting}
-                                onClick={handleSave}
+                                onClick={() => openConfirmDialog('approve')}
                             >
-                                {submitting ? (
-                                    <>
-                                        <Loader size={16} className="btn-icon spinner" />
-                                        Đang lưu...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save size={16} className="btn-icon" />
-                                        Lưu thay đổi
-                                    </>
-                                )}
+                                <CheckCircle size={16} className="btn-icon" />
+                                Duyệt đơn
                             </button>
                         </>
+                    )}
+
+                    {canCreateGRN && (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => navigate(`/good-receipt-notes/create?poId=${orderData.purchaseOrderId}`)}
+                        >
+                            <Warehouse size={16} className="btn-icon" />
+                            Tạo phiếu nhập kho
+                        </button>
+                    )}
+
+                    {orderData.approvalStatus === 'DRAFT' && permissionRole !== 'WAREHOUSE_KEEPER' && (
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => navigate(`/purchase-orders/edit/${orderData.purchaseOrderId}`)}
+                        >
+                            <Pencil size={16} className="btn-icon" />
+                            Chỉnh sửa
+                        </button>
+                    )}
+
+                    {permissionRole === 'WAREHOUSE_KEEPER' &&
+                        orderData.approvalStatus === 'APPROVED' &&
+                        hasPendingGRNState.checking && (
+                            <Chip
+                                label="Đang kiểm tra Phiếu Nhập Kho..."
+                                sx={{
+                                    bgcolor: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    fontWeight: 600,
+                                    fontSize: '12px',
+                                    height: 32,
+                                }}
+                            />
+                        )}
+
+                    {showPendingGRNChip && (
+                        <Chip
+                            label="Đã có Phiếu Nhập Kho - Đang chờ duyệt"
+                            sx={{
+                                bgcolor: '#fef3c7',
+                                color: '#92400e',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                                height: 32,
+                            }}
+                        />
                     )}
                 </div>
             </div>
 
-            {/* Form Card */}
             <div className="form-card">
                 <div className="form-wrapper">
-                    {/* Intro */}
-                    <div className="form-card-intro">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                    <div className="form-card-intro view-po-detail-intro">
+                        <div className="view-po-detail-intro-row">
                             <div>
-                                <h1 className="page-title">Chi tiết đơn mua</h1>
-                                <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
-                                    Mã đơn: <span style={{ fontWeight: 600, color: '#2196F3' }}>{orderData.orderCode}</span>
+                                <h1 className="page-title">Chi tiết yêu cầu nhập hàng</h1>
+                                <p className="form-card-required-note" style={{ marginTop: 4 }}>
+                                    Mã đơn:{' '}
+                                    <strong>{orderData.orderCode || '—'}</strong>
+                                    {orderData.currentStageNo != null && orderData.currentStageNo > 1 && (
+                                        <span className="view-po-detail-stage-note">
+                                            {' '}
+                                            · Bước {orderData.currentStageNo}
+                                        </span>
+                                    )}
                                 </p>
                             </div>
-                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                                <div style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '20px',
-                                    backgroundColor: approvalStyle.bgColor,
-                                    color: approvalStyle.color,
-                                    fontWeight: 600,
-                                    fontSize: '13px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                }}>
-                                    {orderData.approvalStatus === 'Approved' && <CheckCircle size={16} />}
-                                    {orderData.approvalStatus === 'Rejected' && <XCircle size={16} />}
-                                    {orderData.approvalStatus === 'Pending' && <Clock size={16} />}
-                                    {approvalStyle.label}
-                                </div>
-                                <div style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '20px',
-                                    backgroundColor: receivingStyle.bgColor,
-                                    color: receivingStyle.color,
-                                    fontWeight: 600,
-                                    fontSize: '13px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                }}>
-                                    {orderData.receivingStatus === 'Completed' && <CheckCircle size={16} />}
-                                    {orderData.receivingStatus === 'Partial' && <Clock size={16} />}
-                                    {orderData.receivingStatus === 'Pending' && <Clock size={16} />}
-                                    {receivingStyle.label}
-                                </div>
+                            <div className="view-po-detail-status-row">
+                                <StatusBadge status={orderData.approvalStatus} />
+                                {orderData.lifecycleStatus != null && orderData.lifecycleStatus !== '' && (
+                                    <StatusBadge
+                                        status={orderData.lifecycleStatus}
+                                        label={LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]?.label}
+                                    />
+                                )}
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setProcessDialogOpen(true)}
+                                >
+                                    <FileText size={15} />
+                                    Lịch sử quy trình nhập kho
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Layout 2 cột: Chi tiết sản phẩm (trái) + (Thông tin chung + Lịch sử) (phải) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
-                        {/* 1. Chi tiết sản phẩm (Trái) */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Chi tiết sản phẩm</h2>
-                                {isEditing && (
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        {selectedLineIds.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={removeSelectedLines}
-                                                className="btn btn-sm"
-                                                style={{
-                                                    fontWeight: 600,
-                                                    backgroundColor: '#ef4444',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                }}
-                                            >
-                                                <Trash2 size={16} />
-                                                Xóa ({selectedLineIds.length})
-                                            </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={addLine}
-                                            className="btn btn-sm"
-                                            style={{ fontSize: '14px', fontWeight: 600 }}
-                                        >
-                                            <Plus size={16} />
-                                            Thêm sản phẩm
-                                        </button>
-                                    </div>
-                                )}
+                    <div className="view-po-detail-metrics" style={styles.heroMetrics}>
+                        {!hideSensitiveForWarehouseKeeper && (
+                            <div style={styles.metricCard}>
+                                <div style={styles.metricLabel}>Nhà cung cấp</div>
+                                <div style={styles.metricValue}>{orderData.supplierName || '—'}</div>
                             </div>
+                        )}
 
-                            {isEditing && showProductSearch && (
-                                <div
-                                    style={{
-                                        marginTop: 12,
-                                        marginBottom: 12,
-                                        animation: 'slideDown 0.3s ease-out',
-                                        position: 'relative',
-                                    }}
-                                >
-                                    <div style={{ position: 'relative' }}>
-                                        <Search
-                                            size={20}
-                                            style={{
-                                                position: 'absolute',
-                                                left: '12px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                color: '#9ca3af',
-                                                zIndex: 1,
-                                            }}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={searchKeyword}
-                                            onChange={handleSearchChange}
-                                            placeholder="Tìm kiếm theo tên hoặc mã SKU..."
-                                            autoFocus
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 44px 12px 44px',
-                                                border: '2px solid #2196F3',
-                                                borderRadius: '10px',
-                                                fontSize: '14px',
-                                                outline: 'none',
-                                                boxSizing: 'border-box',
-                                                boxShadow: '0 0 0 4px rgba(33, 150, 243, 0.1)',
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={closeProductSearch}
-                                            style={{
-                                                position: 'absolute',
-                                                right: '8px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                background: 'transparent',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                padding: '4px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                color: '#6b7280',
-                                                zIndex: 1,
-                                            }}
-                                        >
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-                                    {searchKeyword !== '' && (
-                                        <div
-                                            style={{
-                                                position: 'absolute',
-                                                top: '100%',
-                                                left: 0,
-                                                right: 0,
-                                                marginTop: '4px',
-                                                backgroundColor: 'white',
-                                                border: '1px solid #e5e7eb',
-                                                borderRadius: '10px',
-                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                                maxHeight: '400px',
-                                                overflowY: 'auto',
-                                                zIndex: 100,
-                                                animation: 'fadeIn 0.2s ease-out',
-                                            }}
-                                        >
-                                            {filteredProducts.length === 0 ? (
-                                                <div
-                                                    style={{
-                                                        padding: '24px',
-                                                        textAlign: 'center',
-                                                        color: '#9ca3af',
-                                                    }}
-                                                >
-                                                    <Package
-                                                        size={32}
-                                                        style={{ margin: '0 auto 8px', opacity: 0.5 }}
-                                                    />
-                                                    <p style={{ margin: 0, fontSize: '13px' }}>
-                                                        Không tìm thấy sản phẩm nào
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    {filteredProducts.map((product) => (
-                                                        <div
-                                                            key={product.id}
-                                                            style={{
-                                                                padding: '12px 16px',
-                                                                borderBottom: '1px solid #f3f4f6',
-                                                                transition: 'background-color 0.15s',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '12px',
-                                                            }}
-                                                            onMouseEnter={(e) =>
-                                                                (e.currentTarget.style.backgroundColor =
-                                                                    '#f9fafb')
-                                                            }
-                                                            onMouseLeave={(e) =>
-                                                                (e.currentTarget.style.backgroundColor =
-                                                                    'transparent')
-                                                            }
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedProductIds.includes(
-                                                                    product.id
-                                                                )}
-                                                                onChange={(e) => {
-                                                                    e.stopPropagation();
-                                                                    toggleProductSelection(product.id);
-                                                                }}
-                                                                style={{
-                                                                    cursor: 'pointer',
-                                                                    width: '16px',
-                                                                    height: '16px',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            />
-                                                            {isValidImageUrl(product.image) &&
-                                                            !imageErrors[`product-${product.id}`] ? (
-                                                                <img
-                                                                    src={product.image}
-                                                                    alt={product.name}
-                                                                    onError={() =>
-                                                                        handleImageError(
-                                                                            `product-${product.id}`
-                                                                        )
-                                                                    }
-                                                                    style={{
-                                                                        width: '40px',
-                                                                        height: '40px',
-                                                                        objectFit: 'cover',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #e5e7eb',
-                                                                        flexShrink: 0,
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <div
-                                                                    style={{
-                                                                        width: '40px',
-                                                                        height: '40px',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #e5e7eb',
-                                                                        backgroundColor: '#f3f4f6',
-                                                                        flexShrink: 0,
-                                                                    }}
-                                                                >
-                                                                    <ImageIcon size={20} color="#9ca3af" />
-                                                                </div>
-                                                            )}
-                                                            <div
-                                                                style={{ flex: 1, cursor: 'pointer' }}
-                                                                onClick={() => handleSelectProduct(product)}
-                                                            >
-                                                                <div
-                                                                    style={{
-                                                                        display: 'flex',
-                                                                        justifyContent: 'space-between',
-                                                                        alignItems: 'start',
-                                                                        marginBottom: '4px',
-                                                                    }}
-                                                                >
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '14px',
-                                                                            fontWeight: 500,
-                                                                            color: '#1f2937',
-                                                                        }}
-                                                                    >
-                                                                        {product.name}
-                                                                    </span>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '14px',
-                                                                            fontWeight: 600,
-                                                                            color: '#2196F3',
-                                                                            marginLeft: '12px',
-                                                                        }}
-                                                                    >
-                                                                        {formatCurrency(product.unitPrice)}
-                                                                    </span>
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        display: 'flex',
-                                                                        gap: '12px',
-                                                                        fontSize: '12px',
-                                                                        color: '#6b7280',
-                                                                    }}
-                                                                >
-                                                                    <span>Mã: {product.sku}</span>
-                                                                    <span>•</span>
-                                                                    <span>ĐVT: {product.uom}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                    {selectedProductIds.length > 0 && (
-                                                        <div
-                                                            style={{
-                                                                padding: '12px 16px',
-                                                                borderTop: '2px solid #e5e7eb',
-                                                                backgroundColor: '#f9fafb',
-                                                                position: 'sticky',
-                                                                bottom: 0,
-                                                            }}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={addSelectedProducts}
-                                                                className="btn btn-sm"
-                                                                style={{
-                                                                    width: '100%',
-                                                                    backgroundColor: '#2196F3',
-                                                                    color: 'white',
-                                                                    border: 'none',
-                                                                    fontWeight: 600,
-                                                                    justifyContent: 'center',
-                                                                }}
-                                                            >
-                                                                <Plus size={16} />
-                                                                Thêm {selectedProductIds.length} sản phẩm
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                        <div style={styles.metricCard}>
+                            <div style={styles.metricLabel}>Kho nhận</div>
+                            <div style={styles.metricValue}>{orderData.warehouseName || '—'}</div>
+                        </div>
 
-                            <div className="table-container" style={{ flex: 1, overflowY: 'auto', maxHeight: '500px' }}>
-                                <table className="product-table">
+                        <div style={styles.metricCard}>
+                            <div style={styles.metricLabel}>Tổng số lượng</div>
+                            <div style={styles.metricValue}>{totalQty}</div>
+                            <div style={styles.metricSubValue}>Sản phẩm đặt mua</div>
+                        </div>
+
+                        <div style={styles.metricCard}>
+                            <div style={styles.metricLabel}>Tổng giá trị</div>
+                            <div style={{ ...styles.metricValue, color: '#1d4ed8' }}>
+                                {formatCurrency(grandTotal)}
+                            </div>
+                            <div style={styles.metricSubValue}>Sau chiết khấu</div>
+                        </div>
+                    </div>
+
+                    <div style={styles.contentGrid}>
+                <div style={styles.leftStack}>
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Danh sách sản phẩm</h2>
+                            <Chip
+                                label={`${orderData.lines.length} dòng sản phẩm`}
+                                size="small"
+                                sx={{
+                                    backgroundColor: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    fontWeight: 700,
+                                    fontSize: '12px',
+                                }}
+                            />
+                        </div>
+
+                        {orderData.lines.length === 0 ? (
+                            <div style={styles.emptyState}>
+                                <Clock size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                                <p style={{ margin: 0 }}>Chưa có sản phẩm nào trong yêu cầu nhập hàng.</p>
+                            </div>
+                        ) : (
+                            <div style={styles.tableWrap}>
+                                <table style={styles.table}>
                                     <thead>
                                         <tr>
-                                            {isEditing && (
-                                                <th style={{ width: '40px' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={
-                                                            orderData.lines.length > 0 &&
-                                                            selectedLineIds.length === orderData.lines.length
-                                                        }
-                                                        onChange={toggleSelectAll}
-                                                        style={{ cursor: 'pointer' }}
-                                                    />
-                                                </th>
-                                            )}
-                                            <th style={{ width: '40px' }}>STT</th>
-                                            <th>Sản phẩm</th>
-                                            <th style={{ width: '100px' }}>SL đặt</th>
-                                            <th style={{ width: '110px' }}>SL đã nhận</th>
-                                            <th style={{ width: '120px' }}>Đơn giá</th>
-                                            <th style={{ width: '140px' }}>Thành tiền</th>
-                                            <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ xuất xứ (CO)">CO</th>
-                                            <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ chất lượng (CQ)">CQ</th>
-                                            <th style={{ width: '120px', textAlign: 'center' }}>Trạng thái</th>
-                                            <th style={{ width: '60px' }}></th>
+                                            <th style={{ ...styles.th, width: 56, textAlign: 'center' }}>STT</th>
+                                            <th style={{ ...styles.th, minWidth: 220 }}>Sản phẩm</th>
+                                            <th style={{ ...styles.th, width: 80, textAlign: 'center' }}>ĐVT</th>
+                                            <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đặt</th>
+                                            <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đã nhận</th>
+                                            <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Đơn giá</th>
+                                            <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Giá sau CK</th>
+                                            <th style={{ ...styles.th, width: 140, textAlign: 'right' }}>Thành tiền</th>
+                                            <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CO</th>
+                                            <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CQ</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {orderData.lines.map((line, index) => {
-                                            return (
+                                        {orderData.lines.map((line, index) => (
                                                 <tr key={line.id}>
-                                                    {isEditing && (
-                                                        <td style={{ textAlign: 'center' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedLineIds.includes(line.id)}
-                                                                onChange={() => toggleLineSelection(line.id)}
-                                                                style={{ cursor: 'pointer' }}
-                                                            />
-                                                        </td>
-                                                    )}
-                                                    <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                            {/* Ảnh hoặc Icon sản phẩm */}
-                                                            {isValidImageUrl(line.itemImage) && !imageErrors[`line-${line.id}`] ? (
-                                                                <img 
-                                                                    src={line.itemImage} 
-                                                                    alt={line.itemName}
-                                                                    onError={() => handleImageError(`line-${line.id}`)}
-                                                                    style={{
-                                                                        width: '40px',
-                                                                        height: '40px',
-                                                                        objectFit: 'cover',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #e5e7eb',
-                                                                        flexShrink: 0
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <div style={{
-                                                                    width: '40px',
-                                                                    height: '40px',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #e5e7eb',
-                                                                    backgroundColor: '#f3f4f6',
-                                                                    flexShrink: 0
-                                                                }}>
-                                                                    <ImageIcon size={20} color="#9ca3af" />
-                                                                </div>
+                                                    <td style={{ ...styles.td, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+                                                        {index + 1}
+                                                    </td>
+
+                                                    <td style={styles.td}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                            <span
+                                                                style={{
+                                                                    fontSize: 13,
+                                                                    fontWeight: 600,
+                                                                    color: '#111827',
+                                                                    lineHeight: 1.4,
+                                                                    display: '-webkit-box',
+                                                                    WebkitLineClamp: 2,
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    overflow: 'hidden',
+                                                                }}
+                                                                title={line.itemName}
+                                                            >
+                                                                {line.itemName || '—'}
+                                                            </span>
+                                                            {line.itemCode && (
+                                                                <span style={{ fontSize: 11, color: '#64748b' }}>
+                                                                    {line.itemCode}
+                                                                </span>
                                                             )}
-                                                            
-                                                            {/* Tên sản phẩm + ĐVT */}
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                    <a
-                                                                        href="#"
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault();
-                                                                            console.log('View product detail:', line.itemId);
-                                                                        }}
-                                                                        style={{
-                                                                            color: '#2196F3',
-                                                                            textDecoration: 'none',
-                                                                            fontSize: '14px',
-                                                                            fontWeight: 500,
-                                                                            flex: 1
-                                                                        }}
-                                                                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                                                                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                                                                    >
-                                                                        {line.itemName || (isEditing ? 'Nhập tên sản phẩm' : '')}
-                                                                    </a>
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 12,
-                                                                        color: '#6b7280',
-                                                                        fontWeight: 600,
-                                                                    }}
-                                                                >
-                                                                    ĐVT: {line.uom || '—'}
-                                                                </div>
-                                                            </div>
+                                                            {line.note && (
+                                                                <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
+                                                                    {line.note}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="number"
-                                                                value={line.orderedQty}
-                                                                onChange={(e) => updateLine(index, 'orderedQty', Number(e.target.value))}
-                                                                min="1"
-                                                                className="form-input"
-                                                                style={{ textAlign: 'right', width: '100%' }}
-                                                            />
-                                                        ) : (
-                                                            line.orderedQty
-                                                        )}
+
+                                                    <td style={{ ...styles.td, textAlign: 'center', color: '#64748b' }}>
+                                                        {line.uom || '—'}
                                                     </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#2196F3' }}>
-                                                        {/* SL đã nhận – mock hiển thị, không chỉnh sửa tại đây */}
+
+                                                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                        {Number(line.orderedQty) || 0}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            ...styles.td,
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 700,
+                                                        }}
+                                                    >
                                                         {Number(line.receivedQty) || 0}
                                                     </td>
-                                                    <td style={{ textAlign: 'right' }}>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="number"
-                                                                value={line.unitPrice}
-                                                                onChange={(e) => updateLine(index, 'unitPrice', Number(e.target.value))}
-                                                                min="0"
-                                                                className="form-input"
-                                                                style={{ textAlign: 'right', width: '100%' }}
-                                                            />
-                                                        ) : (
-                                                            formatCurrency(line.unitPrice)
-                                                        )}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#2196F3' }}>
-                                                        {formatCurrency(line.totalPrice)}
-                                                    </td>
-                                                    <td
-                                                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
-                                                        title="Chứng chỉ xuất xứ (CO)"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={!!line.hasCO}
-                                                            readOnly
-                                                            disabled
-                                                            style={{
-                                                                width: 18,
-                                                                height: 18,
-                                                                cursor: 'default',
-                                                                margin: 0,
-                                                            }}
-                                                        />
-                                                    </td>
-                                                    <td
-                                                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
-                                                        title="Chứng chỉ chất lượng (CQ)"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={!!line.hasCQ}
-                                                            readOnly
-                                                            disabled
-                                                            style={{
-                                                                width: 18,
-                                                                height: 18,
-                                                                cursor: 'default',
-                                                                margin: 0,
-                                                            }}
-                                                        />
-                                                    </td>
-                                                    <td
-                                                        style={{
-                                                            textAlign: 'center',
-                                                            verticalAlign: 'middle',
-                                                            fontSize: 12,
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        {Number(line.receivedQty) >= Number(line.orderedQty) ? (
-                                                            <span style={{ color: '#16a34a' }}>Đã nhận đủ</span>
-                                                        ) : (
-                                                            <span style={{ color: '#dc2626' }}>Chưa nhận đủ</span>
-                                                        )}
-                                                    </td>
-                                                    <td
-                                                        style={{
-                                                            textAlign: 'center',
-                                                            verticalAlign: 'middle',
-                                                        }}
-                                                    >
-                                                        <div
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: 8,
-                                                            }}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                className="btn-icon-only"
-                                                                style={{ color: '#2196F3' }}
-                                                                title="Xem chi tiết sản phẩm"
-                                                                onClick={() => {
-                                                                    console.log('View product detail:', line.itemId);
-                                                                }}
-                                                            >
-                                                                <Eye size={18} />
-                                                            </button>
-                                                            {isEditing && (
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn-icon-only"
-                                                                    style={{ color: '#ef4444' }}
-                                                                    onClick={() => removeLine(index)}
-                                                                    title="Xóa dòng"
-                                                                >
-                                                                    <Trash2 size={18} />
-                                                                </button>
+
+                                                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                                            <span>{formatCurrency(Number(line.unitPrice) || 0)}</span>
+                                                            {line.currency && line.currency !== 'VND' && (
+                                                                <span style={{ fontSize: 11, color: '#9ca3af' }}>{line.currency}</span>
                                                             )}
                                                         </div>
                                                     </td>
+
+                                                    <td
+                                                        style={{
+                                                            ...styles.td,
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 700,
+                                                            color: '#10b981',
+                                                        }}
+                                                    >
+                                                        {formatCurrency(
+                                                            orderData.discount > 0
+                                                                ? (Number(line.unitPrice) || 0) * (orderData.discountType === 'amount' ? 1 : (100 - (orderData.discount ?? 0)) / 100)
+                                                                : (Number(line.unitPrice) || 0)
+                                                        )}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            ...styles.td,
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 800,
+                                                            color: '#1d4ed8',
+                                                        }}
+                                                    >
+                                                        {formatCurrency(Number(line.totalPrice) || 0)}
+                                                    </td>
+
+                                                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                                                        {line.requiresCo ? (
+                                                            <Check size={16} color="#10b981" />
+                                                        ) : (
+                                                            <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                                        )}
+                                                    </td>
+
+                                                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                                                        {line.requiresCq ? (
+                                                            <Check size={16} color="#10b981" />
+                                                        ) : (
+                                                            <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                                        )}
+                                                    </td>
                                                 </tr>
-                                            );
-                                        })}
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
-
-                        {/* Nhà cung cấp */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Nhà cung cấp</h2>
-                            </div>
-                            <div className="form-field">
-                                <label className="form-label">Nhà cung cấp</label>
-                                <div className="input-wrapper" style={{ position: 'relative' }}>
-                                    <Building2 className="input-icon" size={16} />
-                                    <input
-                                        type="text"
-                                        name="supplierName"
-                                        value={
-                                            isEditing
-                                                ? supplierQuery || orderData.supplierName || ''
-                                                : orderData.supplierName || ''
-                                        }
-                                        onChange={(e) => {
-                                            if (!isEditing) return;
-                                            setSupplierQuery(e.target.value);
-                                            setSupplierDropdownOpen(true);
-                                        }}
-                                        onFocus={() => {
-                                            if (isEditing) setSupplierDropdownOpen(true);
-                                        }}
-                                        readOnly={!isEditing}
-                                        className="form-input"
-                                        style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
-                                        placeholder={isEditing ? 'Tìm hoặc chọn nhà cung cấp' : '-'}
-                                        autoComplete="off"
-                                    />
-                                    {isEditing && supplierDropdownOpen && (
-                                        <ul
-                                            className="form-input"
-                                            style={{
-                                                position: 'absolute',
-                                                top: '100%',
-                                                left: 0,
-                                                right: 0,
-                                                marginTop: '4px',
-                                                maxHeight: '220px',
-                                                overflowY: 'auto',
-                                                listStyle: 'none',
-                                                padding: '8px 0',
-                                                zIndex: 10,
-                                                backgroundColor: '#fff',
-                                                border: '1px solid #d1d5db',
-                                                borderRadius: '8px',
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                            }}
-                                        >
-                                            {filteredSuppliers.length === 0 ? (
-                                                <li
-                                                    style={{
-                                                        padding: '8px 12px',
-                                                        color: '#6b7280',
-                                                        fontSize: '14px',
-                                                    }}
-                                                >
-                                                    Không có nhà cung cấp phù hợp
-                                                </li>
-                                            ) : (
-                                                filteredSuppliers.map((supplier) => (
-                                                    <li
-                                                        key={supplier.id}
-                                                        onClick={() => {
-                                                            setOrderData((prev) => ({
-                                                                ...prev,
-                                                                supplierName: supplier.name,
-                                                                supplierId: supplier.id,
-                                                            }));
-                                                            setSupplierQuery(supplier.name);
-                                                            setSupplierDropdownOpen(false);
-                                                        }}
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            cursor: 'pointer',
-                                                            fontSize: '14px',
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.backgroundColor = 'transparent';
-                                                        }}
-                                                    >
-                                                        {supplier.name} ({supplier.id})
-                                                    </li>
-                                                ))
-                                            )}
-                                        </ul>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Mã số thuế */}
-                            <div className="form-field">
-                                <label className="form-label">Mã số thuế</label>
-                                <div className="input-wrapper">
-                                    <FileText className="input-icon" size={16} />
-                                    <input
-                                        type="text"
-                                        value={orderData.supplierTaxCode || '-'}
-                                        readOnly
-                                        className="form-input"
-                                        style={{ backgroundColor: '#f5f5f5' }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Số điện thoại */}
-                            <div className="form-field">
-                                <label className="form-label">Số điện thoại</label>
-                                <div className="input-wrapper">
-                                    <Phone className="input-icon" size={16} />
-                                    <input
-                                        type="text"
-                                        value={orderData.supplierPhone || '-'}
-                                        readOnly
-                                        className="form-input"
-                                        style={{ backgroundColor: '#f5f5f5' }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Địa chỉ */}
-                            <div className="form-field">
-                                <label className="form-label">Địa chỉ</label>
-                                <div className="input-wrapper">
-                                    <MapPin className="input-icon" size={16} />
-                                    <input
-                                        type="text"
-                                        value={orderData.supplierAddress || '-'}
-                                        readOnly
-                                        className="form-input"
-                                        style={{ backgroundColor: '#f5f5f5' }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-
-                        {/* 2. Thông tin chung (Phải) */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Thông tin chung</h2>
-                                </div>
-                                
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {/* Nhân viên tạo */}
-                                <div className="form-field">
-                                    <label className="form-label">Nhân viên tạo</label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={orderData.creatorName}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Nhân viên phụ trách - search select khi Edit */}
-                                <div className="form-field">
-                                    <label className="form-label">Nhân viên phụ trách</label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <User className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            name="responsiblePersonName"
-                                            value={
-                                                isEditing
-                                                    ? employeeQuery || orderData.responsiblePersonName || ''
-                                                    : orderData.responsiblePersonName || ''
-                                            }
-                                            onChange={(e) => {
-                                                if (!isEditing) return;
-                                                setEmployeeQuery(e.target.value);
-                                                setEmployeeDropdownOpen(true);
-                                            }}
-                                            onFocus={() => {
-                                                if (isEditing) setEmployeeDropdownOpen(true);
-                                            }}
-                                            readOnly={!isEditing}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
-                                            placeholder={isEditing ? 'Tìm hoặc chọn nhân viên' : '-'}
-                                            autoComplete="off"
-                                        />
-                                        {isEditing && employeeDropdownOpen && (
-                                            <ul
-                                                className="form-input"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '220px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredEmployees.length === 0 ? (
-                                                    <li
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            color: '#6b7280',
-                                                            fontSize: '14px',
-                                                        }}
-                                                    >
-                                                        Không có nhân viên phù hợp
-                                                    </li>
-                                                ) : (
-                                                    filteredEmployees.map((emp) => (
-                                                        <li
-                                                            key={emp.id}
-                                                            onClick={() => {
-                                                                setOrderData((prev) => ({
-                                                                    ...prev,
-                                                                    responsiblePersonName: emp.name,
-                                                                }));
-                                                                setEmployeeQuery(emp.name);
-                                                                setEmployeeDropdownOpen(false);
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {emp.name} ({emp.id})
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Kho nhận - search select khi Edit */}
-                                <div className="form-field">
-                                    <label className="form-label">Kho nhận</label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <MapPin className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            name="warehouseName"
-                                            value={
-                                                isEditing
-                                                    ? warehouseQuery || orderData.warehouseName || ''
-                                                    : orderData.warehouseName || ''
-                                            }
-                                            onChange={(e) => {
-                                                if (!isEditing) return;
-                                                setWarehouseQuery(e.target.value);
-                                                setWarehouseDropdownOpen(true);
-                                            }}
-                                            onFocus={() => {
-                                                if (isEditing) setWarehouseDropdownOpen(true);
-                                            }}
-                                            readOnly={!isEditing}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
-                                            placeholder={isEditing ? 'Tìm hoặc chọn kho nhận' : '-'}
-                                            autoComplete="off"
-                                        />
-                                        {isEditing && warehouseDropdownOpen && (
-                                            <ul
-                                                className="form-input"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '220px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredWarehouses.length === 0 ? (
-                                                    <li
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            color: '#6b7280',
-                                                            fontSize: '14px',
-                                                        }}
-                                                    >
-                                                        Không có kho phù hợp
-                                                    </li>
-                                                ) : (
-                                                    filteredWarehouses.map((wh) => (
-                                                        <li
-                                                            key={wh.id}
-                                                            onClick={() => {
-                                                                setOrderData((prev) => ({
-                                                                    ...prev,
-                                                                    warehouseName: wh.name,
-                                                                }));
-                                                                setWarehouseQuery(wh.name);
-                                                                setWarehouseDropdownOpen(false);
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {wh.name} ({wh.id})
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Ngày dự kiến nhập */}
-                                <div className="form-field">
-                                    <label className="form-label">Ngày nhập dự kiến</label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input
-                                            type={isEditing ? "date" : "text"}
-                                            name="expectedReceiptDate"
-                                            value={isEditing ? orderData.expectedReceiptDate : new Date(orderData.expectedReceiptDate).toLocaleDateString('vi-VN')}
-                                            onChange={handleChange}
-                                            readOnly={!isEditing}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Ngày tạo */}
-                                <div className="form-field">
-                                    <label className="form-label">Ngày tạo</label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={new Date(orderData.createdAt).toLocaleDateString('vi-VN')}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Lịch sử đơn đặt hàng nhập */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Lịch sử đơn đặt hàng nhập</h2>
-                            </div>
-                            
-                            <div
-                                style={{
-                                    padding: '16px',
-                                    backgroundColor: '#f9fafb',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e5e7eb',
-                                }}
-                            >
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {orderData.history.map((item, index) => (
-                                        <div
-                                            key={index}
-                                            style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
-                                        >
-                                            <div
-                                                style={{
-                                                    width: '10px',
-                                                    height: '10px',
-                                                    borderRadius: '50%',
-                                                    backgroundColor: index === 0 ? '#2196F3' : '#9ca3af',
-                                                    marginTop: '6px',
-                                                    flexShrink: 0,
-                                                }}
-                                            ></div>
-                                            <div
-                                                style={{
-                                                    flex: 1,
-                                                    borderLeft:
-                                                        index < orderData.history.length - 1
-                                                            ? '2px solid #e5e7eb'
-                                                            : 'none',
-                                                    paddingLeft: '16px',
-                                                    paddingBottom:
-                                                        index < orderData.history.length - 1 ? '12px' : '0',
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        alignItems: 'center',
-                                                        marginBottom: '4px',
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            fontSize: '13px',
-                                                            fontWeight: 600,
-                                                            color: '#111827',
-                                                        }}
-                                                    >
-                                                        {item.time}
-                                                    </span>
-                                                    <span style={{ fontSize: '13px', color: '#6b7280' }}>
-                                                        {item.phone}
-                                                    </span>
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        fontSize: '13px',
-                                                        fontWeight: 500,
-                                                        color: '#2563eb',
-                                                        marginBottom: '2px',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                >
-                                                    {item.title}
-                                                </div>
-                                                <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                                    {item.date}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        </div>
+                        )}
                     </div>
 
-                    {/* Layout 2 cột: Nhà cung cấp + Ghi chú + Tổng hợp */}
-                    <div
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 350px',
-                            gap: '24px',
-                            alignItems: 'start',
-                        }}
-                    >
-                        {/* Bên trái: Nhà cung cấp + Ghi chú + Tổng hợp */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* 3. Nhà cung cấp - search-select khi Edit + chi tiết NCC */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Nhà cung cấp</h2>
-                                </div>
-                                <div className="form-field">
-                                    <label className="form-label">Nhà cung cấp</label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <Building2 className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            name="supplierName"
-                                            value={
-                                                isEditing
-                                                    ? supplierQuery || orderData.supplierName || ''
-                                                    : orderData.supplierName || ''
-                                            }
-                                            onChange={(e) => {
-                                                if (!isEditing) return;
-                                                setSupplierQuery(e.target.value);
-                                                setSupplierDropdownOpen(true);
-                                            }}
-                                            onFocus={() => {
-                                                if (isEditing) setSupplierDropdownOpen(true);
-                                            }}
-                                            readOnly={!isEditing}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
-                                            placeholder={isEditing ? 'Tìm hoặc chọn nhà cung cấp' : '-'}
-                                            autoComplete="off"
-                                        />
-                                        {isEditing && supplierDropdownOpen && (
-                                            <ul
-                                                className="form-input"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '220px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredSuppliers.length === 0 ? (
-                                                    <li
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            color: '#6b7280',
-                                                            fontSize: '14px',
-                                                        }}
-                                                    >
-                                                        Không có nhà cung cấp phù hợp
-                                                    </li>
-                                                ) : (
-                                                    filteredSuppliers.map((sup) => (
-                                                        <li
-                                                            key={sup.id}
-                                                            onClick={() => {
-                                                                setOrderData((prev) => ({
-                                                                    ...prev,
-                                                                    supplierName: sup.name,
-                                                                    supplierPhone: sup.phone,
-                                                                    supplierEmail: sup.email,
-                                                                    supplierTaxCode: sup.taxCode,
-                                                                    supplierAddressStreet: sup.address?.street || '',
-                                                                    supplierAddressWard: sup.address?.ward || '',
-                                                                    supplierAddressDistrict: sup.address?.district || '',
-                                                                    supplierAddressProvince: sup.address?.province || '',
-                                                                }));
-                                                                setSupplierQuery(sup.name);
-                                                                setSupplierDropdownOpen(false);
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {sup.name} ({sup.id})
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Tổng hợp đơn hàng</h2>
+                        </div>
+
+                        <div style={styles.sectionBody}>
+                            <div style={styles.summaryGrid}>
+                                <div style={styles.summaryBox}>
+                                    <div style={styles.summaryBoxLabel}>Tổng số lượng</div>
+                                    <div style={styles.summaryBoxValue}>{totalQty}</div>
                                 </div>
 
-                                {/* Chi tiết nhà cung cấp (read-only, mock) */}
-                                {orderData.supplierName && (
-                                    <div
-                                        style={{
-                                            marginTop: '16px',
-                                            padding: '12px 14px',
-                                            borderRadius: '10px',
-                                            backgroundColor: '#f9fafb',
-                                            border: '1px solid #e5e7eb',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: 6,
-                                            fontSize: 13,
-                                            color: '#374151',
-                                        }}
-                                    >
-                                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>
-                                            Chi tiết nhà cung cấp
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>Tên NCC: </span>
-                                            <span>{orderData.supplierName || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>SĐT: </span>
-                                            <span>{orderData.supplierPhone || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>Email: </span>
-                                            <span>{orderData.supplierEmail || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 500 }}>Mã số thuế: </span>
-                                            <span>{orderData.supplierTaxCode || '-'}</span>
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                                gap: 8,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Tỉnh/Thành phố
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {orderData.supplierAddressProvince || '—'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Quận/Huyện
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {orderData.supplierAddressDistrict || '—'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Phường/Xã
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {orderData.supplierAddressWard || '—'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Địa chỉ cụ thể
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {orderData.supplierAddressStreet || '—'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* 4. Ghi chú */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Ghi chú</h2>
-                                </div>
-                                <div className="form-field">
-                                    <label className="form-label">Ghi chú / Lý do đặt hàng</label>
-                                    <textarea
-                                        name="justification"
-                                        value={orderData.justification || ''}
-                                        onChange={handleChange}
-                                        readOnly={!isEditing}
-                                        rows={4}
-                                        className="form-input"
-                                        placeholder={isEditing ? "Nhập ghi chú / lý do đặt hàng" : ""}
-                                        style={{ resize: 'vertical', backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
-                                    />
-                                    {isEditing && (
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'flex-end',
-                                                fontSize: '12px',
-                                                color:
-                                                    orderData.justification.length >= MAX_JUSTIFICATION_LENGTH
-                                                        ? '#ef4444'
-                                                        : '#6b7280',
-                                                marginTop: '4px',
-                                                fontWeight: 500,
-                                            }}
-                                        >
-                                            {orderData.justification.length}/{MAX_JUSTIFICATION_LENGTH} ký tự
-                                        </div>
-                                    )}
+                                <div style={styles.summaryBox}>
+                                    <div style={styles.summaryBoxLabel}>Tạm tính</div>
+                                    <div style={styles.summaryBoxValue}>{formatCurrency(subtotal)}</div>
                                 </div>
                             </div>
 
-                            {/* 5. Tổng hợp */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng hợp đơn hàng</h2>
-                                </div>
-                                
-                                {/* Khi chỉnh sửa: dùng lại UI Tổng hợp đơn hàng giống CreatePurchaseOrder (không có Chi phí) */}
-                                {isEditing ? (
-                                    <div className="form-grid">
-                                        <div className="form-field">
-                                            <label className="form-label">Tổng số lượng đặt</label>
-                                            <div
-                                                style={{
-                                                    padding: '10px',
-                                                    backgroundColor: '#f5f5f5',
-                                                    borderRadius: '8px',
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {totalQuantity} sản phẩm
-                                            </div>
-                                        </div>
-
-                                        <div className="form-field">
-                                            <label className="form-label">Tạm tính</label>
-                                            <div
-                                                style={{
-                                                    padding: '10px',
-                                                    backgroundColor: '#f5f5f5',
-                                                    borderRadius: '8px',
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {formatCurrency(subtotal)}
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                gridColumn: '1 / -1',
-                                                display: 'grid',
-                                                gridTemplateColumns: '1fr 1fr',
-                                                gap: '24px',
-                                                alignItems: 'start',
-                                            }}
-                                        >
-                                            <div className="form-field">
-                                                <label className="form-label">Chiết khấu</label>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                        <button
-                                                            type="button"
-                                                            className={`btn btn-sm ${
-                                                                orderData.discountType === 'amount'
-                                                                    ? 'btn-primary'
-                                                                    : 'btn-card-text'
-                                                            }`}
-                                                            onClick={() => setDiscountType('amount')}
-                                                        >
-                                                            Số tiền
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={`btn btn-sm ${
-                                                                orderData.discountType === 'percent'
-                                                                    ? 'btn-primary'
-                                                                    : 'btn-card-text'
-                                                            }`}
-                                                            onClick={() => setDiscountType('percent')}
-                                                        >
-                                                            %
-                                                        </button>
-                                                    </div>
-                                                    {orderData.discountType === 'percent' ? (
-                                                        <input
-                                                            type="number"
-                                                            name="discount"
-                                                            value={orderData.discount}
-                                                            onChange={handleChange}
-                                                            min="0"
-                                                            max="100"
-                                                            className="form-input"
-                                                            placeholder="0–100"
-                                                        />
-                                                    ) : (
-                                                        <input
-                                                            type="number"
-                                                            name="discountAmountFixed"
-                                                            value={orderData.discountAmountFixed || ''}
-                                                            onChange={handleChange}
-                                                            min="0"
-                                                            className="form-input"
-                                                            placeholder="Nhập số tiền (VND)"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="form-field span-2" style={{ gridColumn: '1 / -1' }}>
-                                            <div style={{ fontSize: '13px', color: '#666' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
-                                                    <span style={{ color: '#ef4444' }}>
-                                                        - {formatCurrency(discountAmount)}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    marginTop: '16px',
-                                                    padding: '20px',
-                                                    backgroundColor: '#e3f2fd',
-                                                    borderRadius: '12px',
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center',
-                                                    borderLeft: '4px solid #2196F3',
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        fontSize: '18px',
-                                                        fontWeight: 700,
-                                                        color: '#2196F3',
-                                                    }}
-                                                >
-                                                    Tổng giá trị đơn:
-                                                </span>
-                                                <span
-                                                    style={{
-                                                        fontSize: '24px',
-                                                        fontWeight: 700,
-                                                        color: '#2196F3',
-                                                    }}
-                                                >
-                                                    {formatCurrency(grandTotal)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    // Khi chỉ xem: layout đơn giản, không có Chi phí
-                                    <div className="form-grid">
-                                        <div className="form-field">
-                                            <label className="form-label">Tổng số lượng đặt</label>
-                                            <div
-                                                style={{
-                                                    padding: '10px',
-                                                    backgroundColor: '#f5f5f5',
-                                                    borderRadius: '8px',
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {totalQuantity} sản phẩm
-                                            </div>
-                                        </div>
-
-                                        <div className="form-field">
-                                            <label className="form-label">Tạm tính</label>
-                                            <div
-                                                style={{
-                                                    padding: '10px',
-                                                    backgroundColor: '#f5f5f5',
-                                                    borderRadius: '8px',
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {formatCurrency(subtotal)}
-                                            </div>
-                                        </div>
-
-                                        <div className="form-field span-2">
-                                            <div style={{ fontSize: '13px', color: '#666' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
-                                                    <span style={{ color: '#ef4444' }}>
-                                                        - {formatCurrency(discountAmount)}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    marginTop: '16px',
-                                                    padding: '20px',
-                                                    backgroundColor: '#e3f2fd',
-                                                    borderRadius: '12px',
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center',
-                                                    borderLeft: '4px solid #2196F3',
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        fontSize: '18px',
-                                                        fontWeight: 700,
-                                                        color: '#2196F3',
-                                                    }}
-                                                >
-                                                    Tổng giá trị đơn:
-                                                </span>
-                                                <span
-                                                    style={{
-                                                        fontSize: '24px',
-                                                        fontWeight: 700,
-                                                        color: '#2196F3',
-                                                    }}
-                                                >
-                                                    {formatCurrency(grandTotal)}
-                                                </span>
-                                            </div>
-                                        </div>
+                            <div style={styles.amountRows}>
+                                {orderData.discount > 0 && (
+                                    <div style={styles.amountRow}>
+                                        <span>
+                                            Chiết khấu {orderData.discountType === 'percent' ? `(${orderData.discount}%)` : ''}
+                                        </span>
+                                        <strong style={{ color: '#ef4444' }}>- {formatCurrency(discountAmt)}</strong>
                                     </div>
                                 )}
+
+                                <div style={styles.amountRow}>
+                                    <span>Giá sau chiết khấu</span>
+                                    <strong>{formatCurrency(grandTotal)}</strong>
+                                </div>
+                            </div>
+
+                            <div style={styles.totalHighlight}>
+                                <span style={styles.totalHighlightLabel}>Tổng giá trị</span>
+                                <span style={styles.totalHighlightValue}>{formatCurrency(grandTotal)}</span>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <div style={styles.sideStack}>
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Thông tin đơn hàng</h2>
+                        </div>
+
+                        <div style={styles.sectionBody}>
+                            <div style={styles.infoGrid}>
+                                {renderReadonlyField('Kho nhận', orderData.warehouseName, MapPin)}
+                                {renderReadonlyField('Người tạo', orderData.creatorName, User)}
+
+                                {orderData.responsiblePersonName &&
+                                    renderReadonlyField('Người phụ trách', orderData.responsiblePersonName, User)}
+
+                                {orderData.requestedDate &&
+                                    renderReadonlyField('Ngày yêu cầu', orderData.requestedDate, Calendar)}
+
+                                {orderData.createdAt &&
+                                    renderReadonlyField('Ngày tạo', orderData.createdAt, Calendar)}
+
+                                {orderData.submittedAt &&
+                                    renderReadonlyField('Ngày gửi duyệt', orderData.submittedAt, Calendar)}
+
+                                {orderData.expectedDeliveryDate &&
+                                    renderReadonlyField('Ngày nhận dự kiến', orderData.expectedDeliveryDate, Calendar)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {!hideSensitiveForWarehouseKeeper && (
+                        <div style={styles.sectionCard}>
+                            <div style={styles.sectionHeader}>
+                                <h2 style={styles.sectionTitle}>Nhà cung cấp</h2>
+                            </div>
+                            <div style={styles.sectionBody}>
+                                <div style={styles.infoGrid}>
+                                    {renderReadonlyField('Tên nhà cung cấp', orderData.supplierName, Building2)}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Ghi chú</h2>
+                        </div>
+                        <div style={styles.sectionBody}>
+                            {orderData.justification ? (
+                                renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })
+                            ) : (
+                                <div style={styles.fieldWrap}>
+                                    <label style={styles.fieldLabel}>Nội dung</label>
+                                    <div style={{ ...styles.fieldBox, ...styles.fieldBoxMultiline, color: '#94a3b8' }}>
+                                        <Clock size={16} style={{ color: '#94a3b8', flexShrink: 0, marginTop: 2 }} />
+                                        <span>Không có ghi chú.</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {!hideSensitiveForWarehouseKeeper && (
+                        <div style={styles.sectionCard}>
+                            <div style={styles.sectionHeader}>
+                                <h2 style={styles.sectionTitle}>Tệp đính kèm</h2>
+                            </div>
+                            <div style={styles.sectionBody}>
+                                {orderData.quotationFileUrl || orderData.contractAppendixFileUrl ? (
+                                    <div style={styles.fieldWrap}>
+                                        <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
+                                        <div
+                                            style={{
+                                                ...styles.fieldBox,
+                                                ...styles.fieldBoxMultiline,
+                                                flexDirection: 'column',
+                                                alignItems: 'flex-start',
+                                                gap: 10,
+                                            }}
+                                        >
+                                            {orderData.quotationFileUrl && (
+                                                <a
+                                                    href={orderData.quotationFileUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        color: '#1d4ed8',
+                                                        textDecoration: 'none',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 8,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    <Paperclip size={16} />
+                                                    File báo giá
+                                                </a>
+                                            )}
+                                            {orderData.contractAppendixFileUrl && (
+                                                <a
+                                                    href={orderData.contractAppendixFileUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        color: '#1d4ed8',
+                                                        textDecoration: 'none',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 8,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    <FileText size={16} />
+                                                    Hợp đồng nguyên tắc
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={styles.fieldWrap}>
+                                        <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
+                                        <div style={{ ...styles.fieldBox, color: '#94a3b8' }}>
+                                            <Paperclip size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                                            <span>Chưa có tệp đính kèm.</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                    </div>
+                </div>
             </div>
 
-            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+            <Dialog open={processDialogOpen} onClose={() => setProcessDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Inbound Process History</DialogTitle>
+                <DialogContent dividers>
+                    {processLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+                            <Loader size={18} style={{ color: '#64748b', animation: 'spin 1s linear infinite' }} />
+                        </div>
+                    ) : processHistory.length === 0 ? (
+                        <div style={{ color: '#94a3b8', fontSize: 13 }}>Chưa có lịch sử quy trình nhập kho.</div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {processHistory.map((event) => (
+                                <div key={event.key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                                    <div
+                                        style={{
+                                            width: 20,
+                                            height: 20,
+                                            borderRadius: '50%',
+                                            backgroundColor:
+                                                event.type === 'rejected'
+                                                    ? '#dc2626'
+                                                    : event.type === 'submitted'
+                                                        ? '#f59e0b'
+                                                        : event.type === 'return'
+                                                            ? '#7c3aed'
+                                                            : event.type === 'completed'
+                                                                ? '#16a34a'
+                                                                : '#2563eb',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginTop: 2,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {event.type === 'submitted' ? (
+                                            <Send size={12} color="#fff" />
+                                        ) : event.type === 'return' ? (
+                                            <RotateCcw size={12} color="#fff" />
+                                        ) : event.type === 'completed' ? (
+                                            <Truck size={12} color="#fff" />
+                                        ) : event.type === 'rejected' ? (
+                                            <XCircle size={12} color="#fff" />
+                                        ) : (
+                                            <CheckCircle size={12} color="#fff" />
+                                        )}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                                            {event.title}
+                                            {event.note ? (
+                                                <span style={{ fontWeight: 400, color: '#6b7280' }}> — {event.note}</span>
+                                            ) : null}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                                            {event.actor ? `${event.actor} • ` : ''}
+                                            {formatDateTime(event.at)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <button type="button" className="btn btn-secondary" onClick={() => setProcessDialogOpen(false)}>
+                        Đóng
+                    </button>
+                </DialogActions>
+            </Dialog>
         </div>
     );
 };

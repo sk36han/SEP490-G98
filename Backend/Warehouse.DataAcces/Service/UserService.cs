@@ -7,6 +7,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
+using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
 
@@ -16,9 +18,11 @@ namespace Warehouse.DataAcces.Service
     {
         private static readonly Regex StrongPasswordRegex = new(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{6,100}$", RegexOptions.Compiled);
         private static readonly Regex PhoneRegex = new(@"^[0-9+\-\s()]{8,20}$", RegexOptions.Compiled);
+        private readonly IAuditLogService _auditLogService;
 
-        public UserService(Mkiwms5Context context) : base(context)
+        public UserService(Mkiwms5Context context, IAuditLogService auditLogService) : base(context)
         {
+            _auditLogService = auditLogService;
         }
 
         public async Task<UserResponse?> GetUserProfileAsync(long userId)
@@ -82,19 +86,55 @@ namespace Warehouse.DataAcces.Service
 
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
+
+            // Audit log
+            await _auditLogService.LogAsync(
+                userId,
+                AuditAction.ChangePassword,
+                AuditEntity.User,
+                userId,
+                $"Người dùng {user.FullName} đã đổi mật khẩu");
         }
 
         public async Task<UserResponse?> UpdateProfilePhoneAsync(long userId, string phone)
         {
-            if (string.IsNullOrWhiteSpace(phone))
+            // Giữ lại để không breaking change interface cũ
+            return await UpdateProfileAsync(userId, new UpdateProfileRequest { Phone = phone });
+        }
+
+        public async Task<UserResponse?> UpdateProfileAsync(long userId, UpdateProfileRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Phone))
             {
                 throw new InvalidOperationException("Số điện thoại là bắt buộc.");
             }
 
-            var normalizedPhone = phone.Trim();
+            var normalizedPhone = request.Phone.Trim();
             if (!PhoneRegex.IsMatch(normalizedPhone))
             {
                 throw new InvalidOperationException("Số điện thoại không hợp lệ.");
+            }
+
+            // Validate Gender nếu có
+            var allowedGenders = new[] { "Nam", "Nữ", "Khác" };
+            if (!string.IsNullOrWhiteSpace(request.Gender) &&
+                !Array.Exists(allowedGenders, g => g == request.Gender.Trim()))
+            {
+                throw new InvalidOperationException("Giới tính không hợp lệ. Chỉ chấp nhận: Nam, Nữ, Khác.");
+            }
+
+            // Validate Dob nếu có
+            if (request.Dob.HasValue)
+            {
+                var today = DateOnly.FromDateTime(DateTime.Today);
+                if (request.Dob.Value > today)
+                {
+                    throw new InvalidOperationException("Ngày sinh không được lớn hơn ngày hiện tại.");
+                }
+                if (request.Dob.Value.Year < 1900)
+                {
+                    throw new InvalidOperationException("Ngày sinh không hợp lệ.");
+                }
             }
 
             var user = await _context.Users
@@ -107,9 +147,36 @@ namespace Warehouse.DataAcces.Service
                 return null;
             }
 
+            // Lưu giá trị cũ để audit log
+            var oldPhone  = user.Phone;
+            var oldGender = user.Gender;
+            var oldDob    = user.Dob;
+
+            // Cập nhật
             user.Phone = normalizedPhone;
+
+            if (!string.IsNullOrWhiteSpace(request.Gender))
+            {
+                user.Gender = request.Gender.Trim();
+            }
+
+            if (request.Dob.HasValue)
+            {
+                user.Dob = request.Dob.Value;
+            }
+
             user.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            // Audit log
+            await _auditLogService.LogAsync(
+                userId,
+                AuditAction.Update,
+                AuditEntity.User,
+                userId,
+                $"Cập nhật thông tin cá nhân cho {user.FullName}",
+                $"Phone: {oldPhone}, Gender: {oldGender}, Dob: {oldDob}",
+                $"Phone: {normalizedPhone}, Gender: {user.Gender}, Dob: {user.Dob}");
 
             return new UserResponse
             {
@@ -119,7 +186,9 @@ namespace Warehouse.DataAcces.Service
                 Phone = user.Phone,
                 IsActive = user.IsActive,
                 RoleName = user.UserRoleUser?.Role?.RoleName,
-                LastLoginAt = user.LastLoginAt
+                LastLoginAt = user.LastLoginAt,
+                Gender = user.Gender,
+                Dob = user.Dob
             };
         }
 

@@ -1,24 +1,30 @@
+﻿extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System.Security.Claims;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class UserControllerUpdateProfileTests
 {
     private readonly Mock<IUserService> _userServiceMock = new();
     private readonly Mock<IMapper> _mapperMock = new();
 
-    private static UpdateProfileRequest BuildRequest(string phone = "0901234567") => new()
+    private static UpdateProfileRequest BuildRequest(
+        string phone = "0901234567",
+        string? gender = null,
+        DateOnly? dob = null) => new()
     {
-        Phone = phone
+        Phone = phone,
+        Gender = gender,
+        Dob = dob
     };
 
     private (UserController controller, Mock<IUserService> userServiceMock) BuildController(string? userIdClaim = "1")
@@ -57,19 +63,21 @@ public class UserControllerUpdateProfileTests
             Email = "john.doe@example.com",
             FullName = "John Doe",
             Phone = "0901234567",
+            Gender = "Nam",
+            Dob = new DateOnly(2000, 1, 1),
             IsActive = true
         };
 
         var (controller, userServiceMock) = BuildController("1");
 
         userServiceMock
-            .Setup(x => x.UpdateProfilePhoneAsync(1, request.Phone))
+            .Setup(x => x.UpdateProfileAsync(1, request))
             .ReturnsAsync(updatedUser);
 
         var actionResult = await controller.UpdateProfile(request);
 
         var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value!.ToString().Should().Contain("Cập nhật số điện thoại thành công");
+        okResult.Value!.ToString().Should().Contain("Cập nhật thông tin cá nhân thành công");
 
         var dataProp = okResult.Value!.GetType().GetProperty("data");
         dataProp.Should().NotBeNull();
@@ -77,8 +85,10 @@ public class UserControllerUpdateProfileTests
         var dataValue = dataProp!.GetValue(okResult.Value);
         var returnedUser = dataValue.Should().BeOfType<UserResponse>().Subject;
         returnedUser.Phone.Should().Be("0901234567");
+        returnedUser.Gender.Should().Be("Nam");
+        returnedUser.Dob.Should().Be(new DateOnly(2000, 1, 1));
 
-        userServiceMock.Verify(x => x.UpdateProfilePhoneAsync(1, request.Phone), Times.Once);
+        userServiceMock.Verify(x => x.UpdateProfileAsync(1, request), Times.Once);
     }
 
     [Fact]
@@ -91,7 +101,7 @@ public class UserControllerUpdateProfileTests
         var actionResult = await controller.UpdateProfile(request);
 
         AssertValidationProblem(actionResult);
-        userServiceMock.Verify(x => x.UpdateProfilePhoneAsync(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
+        userServiceMock.Verify(x => x.UpdateProfileAsync(It.IsAny<long>(), It.IsAny<UpdateProfileRequest>()), Times.Never);
     }
 
     [Fact]
@@ -104,7 +114,7 @@ public class UserControllerUpdateProfileTests
 
         var unauthorized = actionResult.Should().BeOfType<UnauthorizedObjectResult>().Subject;
         unauthorized.Value!.ToString().Should().Contain("Không xác định được người dùng từ token");
-        userServiceMock.Verify(x => x.UpdateProfilePhoneAsync(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
+        userServiceMock.Verify(x => x.UpdateProfileAsync(It.IsAny<long>(), It.IsAny<UpdateProfileRequest>()), Times.Never);
     }
 
     [Fact]
@@ -116,7 +126,7 @@ public class UserControllerUpdateProfileTests
         var actionResult = await controller.UpdateProfile(request);
 
         actionResult.Should().BeOfType<UnauthorizedObjectResult>();
-        userServiceMock.Verify(x => x.UpdateProfilePhoneAsync(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
+        userServiceMock.Verify(x => x.UpdateProfileAsync(It.IsAny<long>(), It.IsAny<UpdateProfileRequest>()), Times.Never);
     }
 
     [Fact]
@@ -126,7 +136,7 @@ public class UserControllerUpdateProfileTests
         var (controller, userServiceMock) = BuildController("1");
 
         userServiceMock
-            .Setup(x => x.UpdateProfilePhoneAsync(1, request.Phone))
+            .Setup(x => x.UpdateProfileAsync(1, request))
             .ReturnsAsync((UserResponse?)null);
 
         var actionResult = await controller.UpdateProfile(request);
@@ -142,7 +152,7 @@ public class UserControllerUpdateProfileTests
         var (controller, userServiceMock) = BuildController("1");
 
         userServiceMock
-            .Setup(x => x.UpdateProfilePhoneAsync(1, request.Phone))
+            .Setup(x => x.UpdateProfileAsync(1, request))
             .ThrowsAsync(new Exception("DB down"));
 
         var actionResult = await controller.UpdateProfile(request);
@@ -150,5 +160,34 @@ public class UserControllerUpdateProfileTests
         var objectResult = actionResult.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(500);
         objectResult.Value!.ToString().Should().Contain("Đã xảy ra lỗi hệ thống");
+    }
+
+    [Fact]
+    public async Task UpdateProfile_WithGenderAndDob_ShouldPassFullRequestToService()
+    {
+        var request = BuildRequest("0901234567", "Nữ", new DateOnly(1998, 12, 31));
+        var updatedUser = new UserResponse
+        {
+            Email = "john.doe@example.com",
+            FullName = "John Doe",
+            Phone = "0901234567",
+            Gender = "Nữ",
+            Dob = new DateOnly(1998, 12, 31),
+            IsActive = true
+        };
+
+        var (controller, userServiceMock) = BuildController("1");
+
+        userServiceMock
+            .Setup(x => x.UpdateProfileAsync(1, It.Is<UpdateProfileRequest>(r =>
+                r.Phone == "0901234567" &&
+                r.Gender == "Nữ" &&
+                r.Dob == new DateOnly(1998, 12, 31))))
+            .ReturnsAsync(updatedUser);
+
+        var actionResult = await controller.UpdateProfile(request);
+
+        actionResult.Should().BeOfType<OkObjectResult>();
+        userServiceMock.Verify(x => x.UpdateProfileAsync(1, It.IsAny<UpdateProfileRequest>()), Times.Once);
     }
 }

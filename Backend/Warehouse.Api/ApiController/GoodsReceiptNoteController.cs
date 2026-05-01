@@ -20,6 +20,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("list")]
+        [Authorize]
         public async Task<IActionResult> GetGoodsReceiptNotes(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
@@ -36,6 +37,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("create")]
+        [Authorize(Roles = "GD,TK")]
         public async Task<IActionResult> CreateGRN([FromBody] CreateGRNRequest request)
         {
             if (!ModelState.IsValid)
@@ -69,6 +71,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("approve/{id:long}")]
+        [Authorize(Roles = "KT,GD")]
         public async Task<IActionResult> ApproveGRN(long id, [FromBody] ApproveGRNRequest request)
         {
             if (!ModelState.IsValid)
@@ -102,6 +105,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("detail/{id:long}")]
+        [Authorize]
         public async Task<IActionResult> GetGRNDetail(long id)
         {
             try
@@ -116,6 +120,60 @@ namespace Warehouse.Api.ApiController
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        [HttpGet("export-pdf/{id:long}")]
+        [Authorize(Roles = "GD,TK,KT,SE,SP")]
+        public async Task<IActionResult> ExportGrnPdf(long id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var bytes = await _goodsReceiptNoteService.ExportGrnPdfAsync(id, currentUserId);
+                return File(bytes, "application/pdf", $"GRN-{id}.pdf");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        [HttpPost("ai-match-items")]
+        public async Task<IActionResult> MatchItemsFromExcel(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng upload file Excel." });
+            }
+
+            var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
+            if (extension != ".xlsx" && extension != ".xls")
+            {
+                return BadRequest(new { message = "Chỉ chấp nhận file định dạng Excel (.xlsx, .xls)." });
+            }
+
+            try
+            {
+                using var stream = file.OpenReadStream();
+                var result = await _goodsReceiptNoteService.ImportAndMatchItemsAsync(stream);
+                return Ok(new
+                {
+                    success = true,
+                    message = "So khớp sản phẩm bằng AI hoàn tất.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xử lý file bằng AI.", detail = ex.Message });
             }
         }
     }

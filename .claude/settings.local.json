@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite:*)",
+      "Read(//d/SEP490 SP26/SEP490-G98/Frontend/**)",
+      "Bash(npm run:*)",
+      "Bash(node:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git -C \"D:\\\\SEP490 SP26\\\\SEP490-G98\" show HEAD:Frontend/src/shared/pages/ViewPurchaseReturnDetail.jsx)",
+      "Bash(\"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\original_detail.jsx\")",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(xxd)",
+      "Bash(node -e \"require\\(''''@babel/core''''\\).parseSync\\(require\\(''''fs''''\\).readFileSync\\(''''src/shared/pages/mockup/SalesRevenueTarget.jsx'''', ''''utf8''''\\), {presets:[''''@babel/preset-react'''']}\\); console.log\\(''''Syntax OK''''\\)\")",
+      "Bash(python:*)",
+      "Bash(find 'D:/SEP490 SP26/SEP490-G98/' -maxdepth 3 -type f -name README* -o -name *.md)",
+      "Bash(git -C \"D:/SEP490 SP26/SEP490-G98/\" branch -a)",
+      "Bash(git:*)",
+      "Bash(ls -la *.jsx)",
+      "Bash(npm install:*)",
+      "Read(//workspace/Frontend/**)",
+      "Read(//d/workspace/Frontend/**)"
+    ]
+  }
+}

@@ -1,556 +1,1427 @@
 /*
- * ItemDetail (xem chi tiết) – khác với form EditItem (chỉnh sửa).
- * Đã kiểm duyệt với DB: [dbo].[Items] (toàn bộ cột có thể hiển thị), [dbo].[ItemPrices] (Amount→Giá bán),
- * [dbo].[InventoryOnHand] (OnHandQty, ReservedQty).
- * Full quyền Item (xem/sửa): WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER, ACCOUNTANTS (trừ ADMIN, Giám đốc). Nút Chỉnh sửa hiện cho các role này.
- * SALE_SUPPORT (SP), SALE_ENGINEER (SE): cũng xem block Thông tin tồn kho (số lượng tồn).
- * ACCOUNTANTS: + block Thông tin kế toán (Tài khoản, Giá bán, Số lượng tồn, Giá trị tồn kho).
+ * ViewItemDetail — Chi tiết vật tư (xem + edit inline tại chỗ).
+ * Đã kiểm duyệt với DB: Items, ItemPrices, InventoryOnHand.
+ * Sửa vật tư: WAREHOUSE_KEEPER, SALE_ENGINEER (Sale Support chỉ xem; kế toán chỉ xem; giá đầy đủ: kế toán/giám đốc).
+ * UI refactor theo design language của ViewPurchaseReturnDetail.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Box, Card, CardContent, Typography, Button, Grid, IconButton, Chip, Container, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
-import { ArrowLeft, Package, Edit3 } from 'lucide-react';
+import {
+    TextField,
+    Button,
+    MenuItem,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Divider,
+    Popover,
+    CircularProgress,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+} from '@mui/material';
+import {
+    ArrowLeft,
+    Package,
+    Edit3,
+    Save,
+    Plus,
+    X,
+    Layers,
+    CheckCircle,
+    ChevronDown,
+} from 'lucide-react';
 import authService from '../lib/authService';
+import { getItemDetail, updateItem } from '../lib/itemService';
+import { getItemParameterList } from '../lib/itemParameterService';
+import { MOCK_INVENTORY_LOTS, getGrnCodeFromLineId, formatLotMoney, formatLotQuantityInt } from '../utils/inventoryLotsMock';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
+import { DEFAULT_ITEM_TYPE, ITEM_TYPE_FIELD_LABEL, ITEM_TYPE_PLACEHOLDER, getItemTypeLabel, getItemTypeSelectOptions } from '../constants/itemTypes';
+import { useMasterData } from '../../app/context/MasterDataContext';
+import { createUom } from '../lib/uomService';
+import { createPackagingSpec, validatePackagingSpecFields } from '../lib/packagingSpecService';
+import Toast from '../../components/Toast/Toast';
+import { useToast } from '../hooks/useToast';
+import '../styles/CreateSupplier.css';
 
+// ─── Role helpers ─────────────────────────────────────────────────────────
 const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
-/** Full quyền Item (tạo/sửa): tất cả role trừ ADMIN và Giám đốc. */
-const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(role);
-/** Chỉ Accountant và Director được xem Giá nhập, Giá trung bình kho, Giá xuất kho; role khác chỉ thấy Giá trung bình trong kho. */
+const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_ENGINEER'].includes(role);
 const canSeeFullPrices = (role) => role === 'ACCOUNTANTS' || role === 'DIRECTOR';
-/** SP (SALE_SUPPORT) và SE (SALE_ENGINEER) cũng xem được số lượng tồn (block Thông tin tồn kho). */
-const showStockBlockForRole = (role) => role === 'WAREHOUSE_KEEPER' || role === 'SALE_SUPPORT' || role === 'SALE_ENGINEER';
-import '../styles/ListView.css';
+const showStockBlockForRole = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS', 'DIRECTOR'].includes(role);
+const isActiveOption = (x) => (x?.isActive ?? x?.IsActive ?? true) === true;
 
+// ─── Formatters ───────────────────────────────────────────────────────────
 const formatPrice = (value) => {
-    if (value == null || value === '') return '-';
+    if (value == null || value === '') return '—';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value));
 };
 
-/** Giá trung bình trong kho (mock: trung bình giá nhập và giá bán). */
-const getAverageWarehousePrice = (item) => {
-    const p = item?.purchasePrice != null ? Number(item.purchasePrice) : 0;
-    const s = item?.salePrice != null ? Number(item.salePrice) : 0;
-    if (p === 0 && s === 0) return null;
-    return (p + s) / 2;
-};
+const formatQty = (value) => (value != null ? Number(value).toLocaleString('vi-VN') : '—');
 
-/** Số lượng có thể bán = OnHandQty - ReservedQty */
 const getSellableQty = (row) => {
     const onHand = row.onHandQty != null ? Number(row.onHandQty) : 0;
     const reserved = row.reservedQty != null ? Number(row.reservedQty) : 0;
     return Math.max(0, onHand - reserved);
 };
 
-/** Mock – khớp ViewItemList (Item + ItemPrices, InventoryOnHand). */
-const MOCK_ITEMS = [
-    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', itemType: 'Product', description: 'Điện thoại iPhone 15 Pro Max bản 256GB', categoryId: 1, brandId: 1, baseUomId: 1, packagingSpecId: 1, packagingSpecName: 'Hộp', requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, defaultWarehouseName: 'Kho chính', inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 26500000, salePrice: 28500000, onHandQty: 42, reservedQty: 2, categoryName: 'Điện thoại', brandName: 'Apple', baseUomName: 'Cái', createdAt: '2025-02-14T08:30:00', updatedAt: '2025-02-14T08:30:00' },
-    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', itemType: 'Product', description: 'Điện thoại Samsung Galaxy S24 Ultra', categoryId: 1, brandId: 2, baseUomId: 1, packagingSpecId: 1, packagingSpecName: 'Hộp', requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, defaultWarehouseName: 'Kho chính', inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 24900000, salePrice: 26900000, onHandQty: 28, reservedQty: 0, categoryName: 'Điện thoại', brandName: 'Samsung', baseUomName: 'Cái', createdAt: '2025-02-13T14:20:00', updatedAt: '2025-02-13T14:20:00' },
-    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', itemType: 'Product', description: 'Laptop MacBook Pro 14 inch chip M3', categoryId: 2, brandId: 1, baseUomId: 1, packagingSpecId: 2, packagingSpecName: 'Thùng', requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, defaultWarehouseName: 'Kho chính', inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 39900000, salePrice: 42900000, onHandQty: 15, reservedQty: 1, categoryName: 'Laptop', brandName: 'Apple', baseUomName: 'Cái', createdAt: '2025-02-12T09:15:00', updatedAt: '2025-02-12T09:15:00' },
-];
-
-/** Mock lịch sử tồn kho theo ItemId (Mã phiếu, phép tính, số lượng, thời gian, người thay đổi). */
-const MOCK_STOCK_HISTORY = {
-    1: [
-        { id: 'HIS-1', docCode: 'GRN-0001', sign: '+', quantity: 20, timestamp: '2025-02-10T10:15:30', changedBy: 'Nguyễn Văn A' },
-        { id: 'HIS-2', docCode: 'GDN-0005', sign: '-', quantity: 5, timestamp: '2025-02-12T14:05:10', changedBy: 'Trần Thị B' },
-        { id: 'HIS-3', docCode: 'GRN-0008', sign: '+', quantity: 10, timestamp: '2025-02-14T09:45:05', changedBy: 'Lê Văn C' },
-        { id: 'HIS-7', docCode: 'GRN-0012', sign: '+', quantity: 8, timestamp: '2025-02-15T08:10:00', changedBy: 'Nguyễn Văn A' },
-        { id: 'HIS-8', docCode: 'GDN-0014', sign: '-', quantity: 3, timestamp: '2025-02-16T13:25:40', changedBy: 'Trần Thị B' },
-        { id: 'HIS-9', docCode: 'GDN-0016', sign: '-', quantity: 4, timestamp: '2025-02-17T17:55:12', changedBy: 'Lê Văn C' },
-        { id: 'HIS-10', docCode: 'GRN-0018', sign: '+', quantity: 12, timestamp: '2025-02-18T09:05:05', changedBy: 'Nguyễn Văn A' },
-        { id: 'HIS-11', docCode: 'ADJ-0003', sign: '+', quantity: 2, timestamp: '2025-02-19T11:45:30', changedBy: 'Admin hệ thống' },
-        { id: 'HIS-12', docCode: 'GDN-0020', sign: '-', quantity: 6, timestamp: '2025-02-20T15:20:18', changedBy: 'Hoàng Văn E' },
-        { id: 'HIS-13', docCode: 'GRN-0022', sign: '+', quantity: 9, timestamp: '2025-02-21T10:40:55', changedBy: 'Phạm Thị D' },
-    ],
-    2: [
-        { id: 'HIS-4', docCode: 'GRN-0010', sign: '+', quantity: 15, timestamp: '2025-02-11T08:20:00', changedBy: 'Phạm Thị D' },
-        { id: 'HIS-5', docCode: 'GDN-0012', sign: '-', quantity: 3, timestamp: '2025-02-13T16:30:45', changedBy: 'Hoàng Văn E' },
-    ],
-    3: [
-        { id: 'HIS-6', docCode: 'GRN-0015', sign: '+', quantity: 5, timestamp: '2025-02-09T11:10:20', changedBy: 'Nguyễn Thị F' },
-    ],
+const parseUtcDate = (v) => {
+    if (v == null || v === '') return null;
+    const d = new Date(v + (v.endsWith('Z') ? '' : 'Z'));
+    return Number.isNaN(d.getTime()) ? null : d;
 };
 
-/** Mock tồn theo từng kho cho từng item (1 mặt hàng có thể ở nhiều kho). */
-const MOCK_ITEM_WAREHOUSES = {
-    1: [
-        { warehouseName: 'Kho chính', onHandQty: 42, reservedQty: 2 },
-        { warehouseName: 'Kho phụ', onHandQty: 10, reservedQty: 0 },
-    ],
-    2: [
-        { warehouseName: 'Kho chính', onHandQty: 28, reservedQty: 0 },
-        { warehouseName: 'Kho phụ', onHandQty: 5, reservedQty: 1 },
-    ],
-    3: [
-        { warehouseName: 'Kho chính', onHandQty: 15, reservedQty: 1 },
-    ],
-};
-
-/** Trường hiển thị chung (tất cả role) – bám bảng Item, nhãn tiếng Việt. */
-const VIEW_ITEM_FIELDS = [
-    { id: 'itemCode', label: 'Mã vật tư', getValue: (item) => item.itemCode },
-    { id: 'itemName', label: 'Tên vật tư', getValue: (item) => item.itemName },
-    { id: 'itemType', label: 'Dạng vật tư', getValue: (item) => item.itemType },
-    { id: 'description', label: 'Mô tả', getValue: (item) => item.description },
-    { id: 'category', label: 'Danh mục', getValue: (item) => item.categoryName || item.categoryId },
-    { id: 'brand', label: 'Thương hiệu', getValue: (item) => item.brandName || item.brandId },
-    { id: 'baseUom', label: 'Đơn vị tính', getValue: (item) => item.baseUomName || item.baseUomId },
-    { id: 'packagingSpec', label: 'Quy cách đóng gói', getValue: (item) => item.packagingSpecName || item.packagingSpecId || '–' },
-    { id: 'requiresCO', label: 'Yêu cầu CO', getValue: (item) => (item.requiresCO ? 'Có' : 'Không') },
-    { id: 'requiresCQ', label: 'Yêu cầu CQ', getValue: (item) => (item.requiresCQ ? 'Có' : 'Không') },
-    { id: 'isActive', label: 'Trạng thái', getValue: (item) => (item.isActive ? 'Hoạt động' : 'Tắt') },
-    { id: 'defaultWarehouseId', label: 'Kho mặc định', getValue: (item) => item.defaultWarehouseName || item.defaultWarehouseId },
-    { id: 'inventoryAccount', label: 'Tài khoản kho', getValue: (item) => item.inventoryAccount },
-    { id: 'revenueAccount', label: 'Tài khoản doanh thu', getValue: (item) => item.revenueAccount },
-];
-const DEFAULT_VISIBLE_FIELD_IDS = VIEW_ITEM_FIELDS.map((f) => f.id);
-
-/** Trường chỉ nhấn mạnh cho Kế toán (ItemDetail): Item.InventoryAccount, Item.RevenueAccount, ItemPrices.Amount (SALE), InventoryOnHand.OnHandQty. */
-const ACCOUNTANT_DETAIL_FIELDS = [
-    { id: 'inventoryAccount', label: 'Tài khoản kho', getValue: (item) => item.inventoryAccount ?? '-' },
-    { id: 'revenueAccount', label: 'Tài khoản doanh thu', getValue: (item) => item.revenueAccount ?? '-' },
-    { id: 'salePrice', label: 'Giá bán', getValue: (item) => formatPrice(item.salePrice) },
-    { id: 'onHandQty', label: 'Số lượng tồn', getValue: (item) => item.onHandQty != null ? Number(item.onHandQty).toLocaleString('vi-VN') : '-' },
-    { id: 'inventoryValue', label: 'Giá trị tồn kho (ước tính)', getValue: (item) => (item.onHandQty != null && item.salePrice != null) ? formatPrice(Number(item.onHandQty) * Number(item.salePrice)) : '-' },
-];
-
-/** Trường tồn kho cho WAREHOUSE_KEEPER – từ [dbo].[InventoryOnHand]. */
-const WAREHOUSE_KEEPER_DETAIL_FIELDS = [
-    { id: 'onHandQty', label: 'Số lượng tồn', getValue: (item) => item.onHandQty != null ? Number(item.onHandQty).toLocaleString('vi-VN') : '–' },
-    { id: 'reservedQty', label: 'Số lượng đặt trước', getValue: (item) => item.reservedQty != null ? Number(item.reservedQty).toLocaleString('vi-VN') : '–' },
-];
-
-const formatDateTime = (v) => {
-    if (v == null || v === '') return '–';
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
-
-/** Định dạng đầy đủ cho lịch sử tồn kho: dd/MM/yyyy - HH:mm:ss */
 const formatDateTimeFull = (v) => {
-    if (v == null || v === '') return '–';
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return String(v);
-    const date = d.toLocaleDateString('vi-VN');
-    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    return `${date} - ${time}`;
+    if (v == null || v === '') return '—';
+    const d = parseUtcDate(v);
+    if (!d) return String(v);
+    return `${d.toLocaleDateString('vi-VN')} - ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 };
 
-/** Toàn bộ trường Item hiển thị cho Thủ kho – thông tin đầy đủ. */
-const FULL_WAREHOUSE_KEEPER_FIELDS = [
-    { id: 'itemCode', label: 'Mã vật tư', getValue: (item) => item.itemCode ?? '–' },
-    { id: 'itemName', label: 'Tên vật tư', getValue: (item) => item.itemName ?? '–' },
-    { id: 'itemType', label: 'Dạng vật tư', getValue: (item) => item.itemType ?? '–' },
-    { id: 'description', label: 'Mô tả', getValue: (item) => item.description || '–' },
-    { id: 'categoryName', label: 'Danh mục', getValue: (item) => (item.categoryName || item.categoryId) ?? '–' },
-    { id: 'brandName', label: 'Thương hiệu', getValue: (item) => (item.brandName || item.brandId) ?? '–' },
-    { id: 'baseUomName', label: 'Đơn vị tính', getValue: (item) => (item.baseUomName || item.baseUomId) ?? '–' },
-    { id: 'packagingSpec', label: 'Quy cách đóng gói', getValue: (item) => (item.packagingSpecName || item.packagingSpecId) ?? '–' },
-    { id: 'requiresCO', label: 'Yêu cầu CO', getValue: (item) => (item.requiresCO ? 'Có' : 'Không') },
-    { id: 'requiresCQ', label: 'Yêu cầu CQ', getValue: (item) => (item.requiresCQ ? 'Có' : 'Không') },
-    { id: 'isActive', label: 'Trạng thái giao dịch', getValue: (item) => (item.isActive ? 'Đang giao dịch' : 'Tạm dừng') },
-    { id: 'defaultWarehouseName', label: 'Kho mặc định', getValue: (item) => (item.defaultWarehouseName || item.defaultWarehouseId) ?? '–' },
-    { id: 'inventoryAccount', label: 'Tài khoản kho', getValue: (item) => item.inventoryAccount ?? '–' },
-    { id: 'revenueAccount', label: 'Tài khoản doanh thu', getValue: (item) => item.revenueAccount ?? '–' },
-    { id: 'purchasePrice', label: 'Giá nhập', getValue: (item) => formatPrice(item.purchasePrice) },
-    { id: 'salePrice', label: 'Giá bán', getValue: (item) => formatPrice(item.salePrice) },
-    { id: 'onHandQty', label: 'Số lượng tồn kho', getValue: (item) => item.onHandQty != null ? Number(item.onHandQty).toLocaleString('vi-VN') : '–' },
-    { id: 'reservedQty', label: 'Số lượng đặt trước', getValue: (item) => item.reservedQty != null ? Number(item.reservedQty).toLocaleString('vi-VN') : '–' },
-    { id: 'sellableQty', label: 'Số lượng có thể bán', getValue: (item) => getSellableQty(item).toLocaleString('vi-VN') },
-    { id: 'createdAt', label: 'Ngày tạo', getValue: (item) => formatDateTime(item.createdAt) },
-    { id: 'updatedAt', label: 'Ngày cập nhật', getValue: (item) => formatDateTime(item.updatedAt) },
-];
-/** Bốn trường hiển thị cùng hàng với ảnh: Mã, Tên, Dạng, Thương hiệu (Mô tả luôn là dòng cuối riêng) */
-const TOP_ROW_FIELD_IDS = ['itemCode', 'itemName', 'itemType', 'brandName'];
-/** Trường giá: chỉ ACCOUNTANTS/DIRECTOR thấy đủ; role khác chỉ thấy Giá trung bình trong kho */
-const PRICE_FIELD_IDS = ['purchasePrice', 'salePrice'];
+/** Ngày (lô hàng — mock) */
+const fmtLotDateOnly = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + (String(dateStr).endsWith('Z') ? '' : 'Z'));
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
-const ViewItemDetail = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const userInfo = authService.getUser();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
-    const isAccountant = isAccountantView(permissionRole);
-    const isWhKeeper = isWarehouseKeeper(permissionRole);
-    const canEdit = canEditItem(permissionRole);
-    const showStockBlock = showStockBlockForRole(permissionRole);
-    const showFullPrices = canSeeFullPrices(permissionRole);
-    const [item, setItem] = useState(null);
+/** Phân trang lịch sử tồn kho — khớp query API /Item/detail/{id} */
+const ITEM_HISTORY_PAGE_SIZE = 10;
 
-    useEffect(() => {
-        const found = MOCK_ITEMS.find((i) => String(i.itemId) === String(id));
-        setItem(found || null);
-    }, [id]);
+// ─── Edit form constants ──────────────────────────────────────────────────
+const NUMBER_FIELDS = new Set([
+    'categoryId', 'brandId', 'baseUomId', 'packagingSpecId', 'specId',
+]);
 
-    if (item == null) {
-        return (
-            <Box sx={{ bgcolor: 'grey.50', minHeight: 320, py: 6 }}>
-                <Container maxWidth="md">
-                    <Stack alignItems="center" spacing={2} textAlign="center">
-                        <Box sx={{ width: 64, height: 64, borderRadius: 2, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Package size={32} color="var(--mui-palette-text-disabled)" />
-                        </Box>
-                        <Typography variant="h6" color="text.secondary">Không tìm thấy vật tư</Typography>
-                        <Typography variant="body2" color="text.secondary">Mã hoặc ID không tồn tại. Vui lòng quay lại danh sách.</Typography>
-                        <Button variant="outlined" startIcon={<ArrowLeft size={18} />} onClick={() => navigate('/products')} sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}>
-                            Quay lại danh sách
-                        </Button>
-                    </Stack>
-                </Container>
-            </Box>
-        );
-    }
+// ─── Design tokens ────────────────────────────────────────────────────────
+const EDIT_BG = '#f8fafc';
+const EDIT_BORDER = '#e2e8f0';
+const EDIT_FOCUS_BORDER = '#94a3b8';
+const EDIT_RADIUS = 8;
+const FIELD_GAP = 16;
+const ROW_HEIGHT = 32;
 
-    const stockHistory = MOCK_STOCK_HISTORY[item.itemId] ?? [];
-    const itemWarehouses =
-        MOCK_ITEM_WAREHOUSES[item.itemId] ??
-        [
-            { warehouseName: item.defaultWarehouseName || 'Kho chính', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 },
-        ];
-    const formatPriceShort = (v) => (v != null && v !== '') ? Number(v).toLocaleString('vi-VN') : '–';
+const LABEL_STYLE = { fontSize: '13px', color: '#64748b', fontWeight: 600 };
+const FIELD_WRAPPER = { display: 'flex', flexDirection: 'column', gap: '4px' };
 
+// ─── Shared edit input styles ─────────────────────────────────────────────
+const baseEditInput = {
+    borderRadius: EDIT_RADIUS,
+    backgroundColor: EDIT_BG,
+    '& fieldset': { borderColor: EDIT_BORDER, borderRadius: EDIT_RADIUS },
+    '&:hover fieldset': { borderColor: '#cbd5e1' },
+    '& .MuiOutlinedInput-root.Mui-focused': {
+        boxShadow: '0 0 0 2px rgba(148,163,184,0.15)',
+        '& fieldset': { borderColor: EDIT_FOCUS_BORDER + ' !important' },
+    },
+};
+
+const editTextSx = {
+    '& .MuiOutlinedInput-root': {
+        ...baseEditInput,
+        minHeight: ROW_HEIGHT,
+        fontSize: '14px',
+        padding: '0 12px',
+        '& .MuiInputBase-input': {
+            padding: '0', fontSize: '14px', color: '#334155',
+        },
+        '& .MuiInputBase-input::placeholder': { color: '#9ca3af', opacity: 1 },
+    },
+    '& .MuiInputLabel-root': {
+        fontSize: '13px', color: '#64748b', fontWeight: 600,
+        transform: 'none', position: 'relative', marginBottom: '2px',
+        '&.Mui-focused': { color: '#64748b' },
+    },
+};
+
+// ─── Shared UI components ─────────────────────────────────────────────────
+
+// StatusBadge — như PurchaseReturnDetail
+const StatusBadge = ({ config }) => (
+    <div style={{
+        padding: '6px 14px', borderRadius: 20,
+        backgroundColor: config.bg, color: config.color,
+        fontWeight: 600, fontSize: '13px',
+        display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+    }}>
+        {config.icon}
+        {config.label}
+    </div>
+);
+
+// PillBadge — cho CO/CQ view mode
+const PillBadge = ({ value }) => {
+    const isYes = Boolean(value);
     return (
-        <Box sx={{ bgcolor: 'grey.50', pb: 4, minHeight: '100%' }}>
-            <Container maxWidth="lg" sx={{ maxWidth: 960 }}>
-                {/* Header: Back + Title (tên sản phẩm) */}
-                <Stack direction="row" alignItems="center" gap={1.5} sx={{ mb: 2 }}>
-                    <IconButton onClick={() => navigate('/products')} size="medium" sx={{ color: 'text.primary' }} aria-label="Quay lại">
-                        <ArrowLeft size={24} />
-                    </IconButton>
-                    <Typography variant="h5" fontWeight="700" sx={{ color: 'text.primary', flex: 1 }}>
-                        {item.itemName}
-                    </Typography>
-                    {isAccountant && <Chip label="Kế toán" size="small" sx={{ fontWeight: 600, bgcolor: 'success.light', color: 'success.dark' }} />}
-                </Stack>
-
-                {/* Card 1: Mô tả sản phẩm – ảnh (placeholder) + Thông tin sản phẩm (đủ trường cho Thủ kho, gọn cho role khác) */}
-                <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1] }}>
-                    <CardContent sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 1.5, display: 'block' }}>Mô tả sản phẩm</Typography>
-                        {isWhKeeper ? (
-                            (() => {
-                                const valueSx = (f) => ({
-                                    color: 'text.primary',
-                                    fontWeight: 600,
-                                    fontVariantNumeric: (f.id === 'inventoryAccount' || f.id === 'revenueAccount') ? 'tabular-nums' : undefined,
-                                });
-                                const EXCLUDED_FROM_DESC = ['description', 'defaultWarehouseName', 'onHandQty', 'reservedQty', 'sellableQty', ...PRICE_FIELD_IDS];
-                                const accountIds = ['inventoryAccount', 'revenueAccount'];
-                                const baseForDesc = FULL_WAREHOUSE_KEEPER_FIELDS.filter(
-                                    (f) => !TOP_ROW_FIELD_IDS.includes(f.id) && !EXCLUDED_FROM_DESC.includes(f.id) && (showFullPrices || !accountIds.includes(f.id))
-                                );
-                                const allDescFields = [...FULL_WAREHOUSE_KEEPER_FIELDS.filter((f) => TOP_ROW_FIELD_IDS.includes(f.id)), ...baseForDesc];
-                                const COLS_PER_GROUP = 5;
-                                const chunks = [];
-                                for (let i = 0; i < allDescFields.length; i += COLS_PER_GROUP) {
-                                    chunks.push(allDescFields.slice(i, i + COLS_PER_GROUP));
-                                }
-                                const underFifteen = allDescFields.length < 15;
-                                return (
-                                    <Box>
-                                        <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 1.5, flexWrap: { xs: 'wrap', sm: underFifteen ? 'nowrap' : 'wrap' } }}>
-                                            <Box
-                                                sx={{
-                                                    width: 120,
-                                                    minWidth: 120,
-                                                    height: 120,
-                                                    borderRadius: 3,
-                                                    border: '1px solid',
-                                                    borderColor: 'divider',
-                                                    bgcolor: 'grey.100',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    overflow: 'hidden',
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                <Package size={40} color="var(--mui-palette-text-disabled)" />
-                                            </Box>
-                                            {underFifteen ? (
-                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, flex: 1, minWidth: 0 }}>
-                                                    {chunks.map((group, colIndex) => (
-                                                        <Stack key={colIndex} component="ul" sx={{ m: 0, pl: 2, minWidth: 0, flex: '1 1 140px', '& li': { mb: 0.25 } }}>
-                                                            {group.map((f) => (
-                                                                <li key={f.id}>
-                                                                    <Typography variant="body2" component="span" color="text.secondary">{f.label}: </Typography>
-                                                                    <Typography variant="body2" component="span" sx={valueSx(f)}>{f.getValue(item)}</Typography>
-                                                                </li>
-                                                            ))}
-                                                        </Stack>
-                                                    ))}
-                                                </Box>
-                                            ) : (
-                                                <>
-                                                    <Stack component="ul" sx={{ m: 0, pl: 2, flex: 1, minWidth: 0, '& li': { mb: 0.25 } }}>
-                                                        {chunks[0]?.map((f) => (
-                                                            <li key={f.id}>
-                                                                <Typography variant="body2" component="span" color="text.secondary">{f.label}: </Typography>
-                                                                <Typography variant="body2" component="span" sx={valueSx(f)}>{f.getValue(item)}</Typography>
-                                                            </li>
-                                                        ))}
-                                                    </Stack>
-                                                </>
-                                            )}
-                                        </Box>
-                                        {!underFifteen && chunks.length > 1 && (
-                                            <Box sx={{ mt: 1.5, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                                                {chunks.slice(1).map((group, colIndex) => (
-                                                    <Stack key={colIndex} component="ul" sx={{ m: 0, pl: 2, minWidth: 0, flex: '1 1 140px', '& li': { mb: 0.25 } }}>
-                                                        {group.map((f) => (
-                                                            <li key={f.id}>
-                                                                <Typography variant="body2" component="span" color="text.secondary">{f.label}: </Typography>
-                                                                <Typography variant="body2" component="span" sx={valueSx(f)}>{f.getValue(item)}</Typography>
-                                                            </li>
-                                                        ))}
-                                                    </Stack>
-                                                ))}
-                                            </Box>
-                                        )}
-                                        {item.description && (
-                                            <Box
-                                                sx={{
-                                                    mt: 1.25,
-                                                    flexBasis: '100%',
-                                                    width: '100%',
-                                                    minHeight: 72,
-                                                    height: 80,
-                                                    p: 1.5,
-                                                    borderRadius: 1.5,
-                                                    border: '1px solid',
-                                                    borderColor: 'divider',
-                                                    bgcolor: 'grey.50',
-                                                    boxSizing: 'border-box',
-                                                }}
-                                            >
-                                                <Typography variant="caption" component="div" color="text.secondary" sx={{ mb: 0.5 }}>
-                                                    Mô tả
-                                                </Typography>
-                                                <Typography
-                                                    variant="body2"
-                                                    component="div"
-                                                    sx={{
-                                                        color: 'text.primary',
-                                                        fontWeight: 600,
-                                                        whiteSpace: 'pre-wrap',
-                                                        wordBreak: 'break-word',
-                                                        overflow: 'auto',
-                                                        height: 'calc(100% - 20px)',
-                                                    }}
-                                                >
-                                                    {item.description}
-                                                </Typography>
-                                            </Box>
-                                        )}
-                                    </Box>
-                                );
-                            })()
-                        ) : (
-                            <Grid container spacing={2} alignItems="flex-start">
-                                <Grid item xs={12} sm={4} md={3}>
-                                    <Box
-                                        sx={{
-                                            width: 140,
-                                            height: 140,
-                                            borderRadius: 3,
-                                            border: '1px solid',
-                                            borderColor: 'divider',
-                                            bgcolor: 'grey.100',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            overflow: 'hidden',
-                                        }}
-                                    >
-                                        <Package size={40} color="var(--mui-palette-text-disabled)" />
-                                    </Box>
-                                </Grid>
-                                <Grid item xs={12} sm={8} md={9}>
-                                    <Typography variant="subtitle2" fontWeight="600" color="text.secondary" sx={{ mb: 1 }}>Thông tin sản phẩm</Typography>
-                                    <Stack component="ul" sx={{ m: 0, pl: 2, '& li': { mb: 0.25 } }}>
-                                        <li>
-                                            <Typography variant="body2" component="span" color="text.secondary">Thương hiệu: </Typography>
-                                            <Typography variant="body2" component="span" sx={{ color: 'text.primary', fontWeight: 600, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>{item.brandName || item.brandId || '–'}</Typography>
-                                        </li>
-                                        <li>
-                                            <Typography variant="body2" component="span" color="text.secondary">Loại sản phẩm: </Typography>
-                                            <Typography variant="body2" component="span" sx={{ color: 'text.primary', fontWeight: 600, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>{item.itemType || item.categoryName || '–'}</Typography>
-                                        </li>
-                                        <li>
-                                            <Typography variant="body2" component="span" color="text.secondary">Danh mục: </Typography>
-                                            <Typography variant="body2" component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{item.categoryName || '–'}</Typography>
-                                        </li>
-                                        {item.description && (
-                                            <li>
-                                                <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600 }}>{item.description}</Typography>
-                                            </li>
-                                        )}
-                                    </Stack>
-                                </Grid>
-                            </Grid>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Card 2: Tổng quan tồn kho theo kho */}
-                <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1] }}>
-                    <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                        <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-                            <Typography variant="subtitle1" fontWeight="700">Số lượng sản phẩm trong kho</Typography>
-                            <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap">
-                                <Typography variant="body2" color="text.secondary">Kích thước</Typography>
-                                <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>Tất cả</Typography>
-                                <Typography variant="body2" color="text.secondary">/</Typography>
-                                <Typography variant="body2" color="text.secondary">Mặc định</Typography>
-                            </Stack>
-                        </Box>
-                        <TableContainer sx={{ maxHeight: 260, overflowY: 'auto' }}>
-                            <Table
-                                size="small"
-                                sx={{
-                                    '& .MuiTableCell-root': {
-                                        borderRight: '1px solid',
-                                        borderColor: 'divider',
-                                    },
-                                    '& .MuiTableCell-root:last-of-type': {
-                                        borderRight: 'none',
-                                    },
-                                }}
-                            >
-                                <TableHead>
-                                    <TableRow sx={{ bgcolor: 'grey.50' }}>
-                                        <TableCell sx={{ fontWeight: 600 }}>Ảnh</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Mã SKU</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Tên phiên bản</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }} align="right">Tồn kho</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }} align="right">Có thể bán</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }} align="right">Đang giao dịch/Đặt trước</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Kho chứa hàng</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {itemWarehouses.map((wh, idx) => {
-                                        const onHand = wh.onHandQty ?? 0;
-                                        const reserved = wh.reservedQty ?? 0;
-                                        const sellable = Math.max(0, onHand - reserved);
-                                        return (
-                                            <TableRow key={idx} hover>
-                                                <TableCell>
-                                                    <Box sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: 'grey.200', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Package size={20} color="var(--mui-palette-text-disabled)" />
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell>{item.itemCode}</TableCell>
-                                                <TableCell>
-                                                    <Typography component="span" sx={{ color: 'primary.main', fontWeight: 500, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>{item.itemName}</Typography>
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                                                    {onHand.toLocaleString('vi-VN')}
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{sellable.toLocaleString('vi-VN')}</TableCell>
-                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                                                    {reserved.toLocaleString('vi-VN')}
-                                                </TableCell>
-                                                <TableCell>{wh.warehouseName ?? '–'}</TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </CardContent>
-                </Card>
-
-                {/* Block bổ sung theo role: Kế toán, Thủ kho/SP/SE */}
-                {isAccountant && (
-                    <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1], border: '1px solid', borderColor: 'success.light' }}>
-                        <Box sx={{ px: 2, py: 1.5, bgcolor: 'success.50', borderBottom: '1px solid', borderColor: 'success.light' }}>
-                            <Typography variant="subtitle1" fontWeight="700" sx={{ color: 'success.dark' }}>Thông tin kế toán</Typography>
-                        </Box>
-                        <CardContent sx={{ p: 2.5 }}>
-                            <Grid container spacing={2}>
-                                {ACCOUNTANT_DETAIL_FIELDS.map((f) => (
-                                    <Grid item xs={12} sm={6} md={4} key={f.id}>
-                                        <Box sx={{ p: 1.5, borderRadius: 1.5, bgcolor: 'grey.50' }}>
-                                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{f.label}</Typography>
-                                            <Typography variant="body1" fontWeight={f.id === 'salePrice' || f.id === 'inventoryValue' ? 600 : 500} sx={{ fontVariantNumeric: (f.id === 'onHandQty' || f.id === 'salePrice' || f.id === 'inventoryValue') ? 'tabular-nums' : undefined }}>{f.getValue(item)}</Typography>
-                                        </Box>
-                                    </Grid>
-                                ))}
-                            </Grid>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {showStockBlock && (
-                    <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1], border: '1px solid', borderColor: 'info.light' }}>
-                        <Box sx={{ px: 2, py: 1.5, bgcolor: 'info.50', borderBottom: '1px solid', borderColor: 'info.light' }}>
-                            <Typography variant="subtitle1" fontWeight="700" sx={{ color: 'info.dark' }}>Lịch sử tồn kho</Typography>
-                        </Box>
-                        <CardContent sx={{ p: 2.5 }}>
-                            {stockHistory.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    Chưa có lịch sử xuất/nhập kho.
-                                </Typography>
-                            ) : (
-                                <TableContainer sx={{ maxHeight: 260, overflowY: 'auto' }}>
-                                    <Table
-                                        size="small"
-                                        stickyHeader
-                                        sx={{
-                                            '& .MuiTableCell-root': {
-                                                borderRight: '1px solid',
-                                                borderColor: 'divider',
-                                            },
-                                            '& .MuiTableCell-root:last-of-type': {
-                                                borderRight: 'none',
-                                            },
-                                            '& .MuiTableHead-root .MuiTableCell-root': {
-                                                bgcolor: 'grey.50',
-                                            },
-                                        }}
-                                    >
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell sx={{ fontWeight: 600 }}>Mã phiếu xuất/nhập kho</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }} align="center"></TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }} align="right">Số lượng</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>Người thay đổi</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>Thời gian</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {stockHistory.map((h) => (
-                                                <TableRow key={h.id} hover>
-                                                    <TableCell>{h.docCode}</TableCell>
-                                                    <TableCell align="center" sx={{ fontWeight: 600 }}>{h.sign}</TableCell>
-                                                    <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                                                        {Number(h.quantity).toLocaleString('vi-VN')}
-                                                    </TableCell>
-                                                    <TableCell>{h.changedBy ?? '–'}</TableCell>
-                                                    <TableCell>{formatDateTimeFull(h.timestamp)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Nút Chỉnh sửa – full quyền Item: Thủ kho, Sale Support, Sale Engineer, Kế toán */}
-                <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1 }}>
-                    {canEdit && (
-                        <Button variant="contained" startIcon={<Edit3 size={18} />} onClick={() => navigate(`/items/edit/${item.itemId}`)} sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}>
-                            Chỉnh sửa
-                        </Button>
-                    )}
-                </Stack>
-            </Container>
-        </Box>
+        <div style={{
+            padding: '3px 10px', borderRadius: 9999, display: 'inline-flex', alignItems: 'center',
+            border: '1px solid', borderColor: isYes ? '#bbf7d0' : '#e2e8f0',
+            backgroundColor: isYes ? '#f0fdf4' : EDIT_BG,
+            fontSize: '12px', fontWeight: 600, color: isYes ? '#15803d' : '#94a3b8',
+            width: 'fit-content', minWidth: 56,
+        }}>
+            {isYes ? 'Có' : 'Không'}
+        </div>
     );
 };
 
-export default ViewItemDetail;
+// EditUnderline / EditSelectUnderline / CheckboxToggle — cùng style gạch chân với CreateItem
+const EditUnderline = ({ value, onChange, placeholder, name, ...props }) => (
+    <TextField
+        fullWidth size="small"
+        name={name}
+        value={value ?? ''}
+        onChange={onChange}
+        placeholder={placeholder}
+        variant="standard"
+        sx={{
+            '& .MuiInput-root': {
+                fontSize: '14px', fontWeight: 500, color: '#334155',
+                minHeight: ROW_HEIGHT,
+                padding: '0 0 6px 0',
+                alignItems: 'center',
+                '&:before': { borderBottom: '1px solid rgba(0,0,0,0.1)' },
+                '&:hover:not(.Mui-disabled):before': { borderBottom: '1px solid #3b82f6' },
+                '&:after': { borderBottom: '1px solid #3b82f6' },
+            },
+            '& .MuiInput-input': {
+                padding: '0 0 0 0', fontSize: '14px', fontWeight: 500, color: '#334155',
+                '&::placeholder': { color: '#9ca3af', opacity: 1 },
+            },
+        }}
+        {...props}
+    />
+);
+
+const CheckboxToggle = ({ checked, onChange, labelTrue, labelFalse, name, onValueChange }) => {
+    const handleToggle = (e) => {
+        e.preventDefault();
+        const newVal = !checked;
+        if (onValueChange) onValueChange(newVal);
+        else if (onChange) onChange({ target: { name, value: newVal, type: 'checkbox', checked: newVal } });
+    };
+    return (
+        <span
+            onClick={handleToggle}
+            style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                cursor: 'pointer', userSelect: 'none', padding: '4px 0',
+                fontSize: '14px', fontWeight: 500,
+                color: checked ? '#1d4ed8' : '#334155',
+            }}
+        >
+            <div style={{
+                width: 18, height: 18, borderRadius: 4,
+                border: '2px solid ' + (checked ? '#3b82f6' : '#cbd5e1'),
+                backgroundColor: checked ? '#3b82f6' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s', flexShrink: 0,
+            }}>
+                {checked && (
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                )}
+            </div>
+            <span>{checked ? labelTrue : labelFalse}</span>
+        </span>
+    );
+};
+
+const EditSelectUnderline = ({ value, onChange, options, placeholder, renderValue, name = '', onAddNew }) => {
+    const [anchorEl, setAnchorEl] = useState(null);
+    const open = Boolean(anchorEl);
+    const handleClick = (e) => setAnchorEl(e.currentTarget);
+    const handleClose = () => setAnchorEl(null);
+    const handleSelect = (val) => {
+        onChange({ target: { name, value: val } });
+        handleClose();
+    };
+    const selected = options.find((o) => String(o.value ?? o.id ?? o) === String(value));
+    const display = selected
+        ? (renderValue ? renderValue(selected) : (selected.label ?? selected.name ?? selected))
+        : (placeholder || 'Chọn...');
+    return (
+        <>
+            <div
+                onClick={handleClick}
+                style={{
+                    padding: '0 0 6px 0',
+                    borderBottom: '1px solid rgba(0,0,0,0.1)',
+                    fontSize: '14px', fontWeight: 500,
+                    color: selected ? '#334155' : '#9ca3af',
+                    minHeight: ROW_HEIGHT,
+                    display: 'flex', alignItems: 'center',
+                    cursor: 'pointer', gap: 4,
+                    position: 'relative',
+                }}
+            >
+                <span style={{ flex: 1 }}>{display}</span>
+                <ChevronDown size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
+            </div>
+            <Popover
+                open={open}
+                anchorEl={anchorEl}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', minWidth: anchorEl?.offsetWidth || 220 } }}
+            >
+                {options.map((opt) => {
+                    const optVal = opt.value ?? opt.id ?? opt;
+                    const optLabel = opt.label ?? opt.name ?? opt;
+                    const isSelected = String(optVal) === String(value);
+                    return (
+                        <MenuItem
+                            key={String(optVal)}
+                            value={optVal}
+                            onClick={() => handleSelect(optVal)}
+                            sx={{ fontSize: '14px', fontWeight: isSelected ? 600 : 400, color: isSelected ? '#3b82f6' : '#334155', gap: 1 }}
+                        >
+                            {optLabel}
+                        </MenuItem>
+                    );
+                })}
+                {onAddNew && (
+                    <>
+                        <Divider sx={{ my: 0.5 }} />
+                        <MenuItem
+                            onClick={() => { handleClose(); onAddNew(); }}
+                            sx={{ fontSize: '14px', color: '#3b82f6', gap: 1 }}
+                        >
+                            <Plus size={14} />
+                            Thêm mới
+                        </MenuItem>
+                    </>
+                )}
+            </Popover>
+        </>
+    );
+};
+
+const DescriptionEditBlock = ({ value, onChange, maxLength = 500, placeholder = 'Nhập mô tả vật tư...' }) => (
+    <TextField
+        fullWidth size="small"
+        name="description"
+        value={value ?? ''}
+        onChange={onChange}
+        multiline rows={3} variant="standard"
+        inputProps={{ maxLength }}
+        placeholder={placeholder}
+        sx={{
+            '& .MuiInput-root': {
+                fontSize: '14px', color: '#334155',
+                lineHeight: 1.6,
+                '&:before': { borderBottom: '1px solid rgba(0,0,0,0.1)' },
+                '&:hover:not(.Mui-disabled):before': { borderBottom: '1px solid #3b82f6' },
+                '&:after': { borderBottom: '1px solid #3b82f6' },
+            },
+            '& .MuiInput-inputMultiline': { padding: '0' },
+        }}
+    />
+);
+
+// ReadOnlyBox
+const ReadOnlyBox = ({ children, highlight = false }) => (
+    <div style={{
+        padding: '2px 0 6px 0',
+        borderBottom: highlight ? '2px solid #93c5fd' : '1px solid #cbd5e1',
+        fontSize: '14px',
+        fontWeight: highlight ? 600 : 500,
+        color: highlight ? '#1d4ed8' : '#1e293b',
+        minHeight: ROW_HEIGHT,
+        display: 'flex',
+        alignItems: 'center',
+        flex: 1,
+        wordBreak: 'break-word',
+        backgroundColor: 'transparent',
+    }}>
+        {children || '—'}
+    </div>
+);
+
+// DescriptionBlock
+const DescriptionBlock = ({ children }) => (
+    <div style={{
+        padding: '4px 0 8px 0',
+        borderBottom: '1px solid #cbd5e1',
+        fontSize: '14px',
+        color: '#1e293b',
+        lineHeight: 1.7,
+        wordBreak: 'break-word',
+        whiteSpace: 'pre-wrap',
+        minHeight: 42,
+    }}>
+        {children || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Chưa có mô tả</span>}
+    </div>
+);
+
+// Inline CreateUomDialog
+function InlineCreateUomDialog({ open, onClose, onSubmit }) {
+    const [uomCode, setUomCode] = useState('');
+    const [uomName, setUomName] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (open) { setUomCode(''); setUomName(''); setSubmitting(false); setError(null); }
+    }, [open]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const code = (uomCode || '').trim();
+        const name = (uomName || '').trim();
+        if (!code || !name) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            const response = await createUom({ uomCode: code, uomName: name });
+            const data = response?.data ?? response;
+            const id = data?.uomId ?? data?.UomId ?? data?.id;
+            if (id == null) { setError('Không nhận được ID đơn vị tính từ server.'); setSubmitting(false); return; }
+            onSubmit({ id, code: data?.uomCode ?? code, name: data?.uomName ?? name });
+            onClose();
+        } catch (err) {
+            setError(err?.response?.data?.message ?? err?.message ?? 'Không thể tạo đơn vị tính.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+            <DialogTitle>Tạo mới đơn vị tính</DialogTitle>
+            <form onSubmit={handleSubmit}>
+                <DialogContent sx={{ pt: 2, pb: 1 }}>
+                    <TextField fullWidth size="small" label="Mã đơn vị tính" value={uomCode}
+                        onChange={(e) => setUomCode(e.target.value)} required placeholder="VD: CAI, HOP"
+                        sx={editTextSx} InputLabelProps={{ shrink: true }} />
+                    <TextField fullWidth size="small" label="Tên đơn vị tính" value={uomName}
+                        onChange={(e) => setUomName(e.target.value)} required placeholder="VD: Cái, Hộp"
+                        error={Boolean(error)} helperText={error} sx={editTextSx} InputLabelProps={{ shrink: true }} />
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={onClose} sx={{ textTransform: 'none' }} disabled={submitting}>Hủy</Button>
+                    <Button type="submit" variant="contained" sx={{ textTransform: 'none' }} disabled={submitting}>
+                        {submitting ? 'Đang tạo…' : 'Tạo'}
+                    </Button>
+                </DialogActions>
+            </form>
+        </Dialog>
+    );
+}
+
+// Inline CreatePackagingSpecDialog
+function InlineCreatePackagingSpecDialog({ open, onClose, onSubmit }) {
+    const { showToast } = useToast();
+    const [specName, setSpecName] = useState('');
+    const [description, setDescription] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
+
+    useEffect(() => {
+        if (open) {
+            setSpecName('');
+            setDescription('');
+            setSubmitting(false);
+            setFieldErrors({});
+        }
+    }, [open]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const v = validatePackagingSpecFields(specName, description);
+        if (!v.valid) {
+            setFieldErrors(v.errors);
+            const first = Object.values(v.errors)[0];
+            if (first) showToast(first, 'error');
+            return;
+        }
+        setFieldErrors({});
+        setSubmitting(true);
+        try {
+            const result = await createPackagingSpec({
+                specName: specName.trim(),
+                description: description.trim(),
+            });
+            const newId = result?.packagingSpecId ?? result?.PackagingSpecId;
+            const name = specName.trim();
+            await Promise.resolve(
+                onSubmit({
+                    packagingSpecId: newId,
+                    id: newId,
+                    specName: name,
+                    name,
+                    description: description.trim(),
+                }),
+            );
+            showToast('Tạo quy cách đóng gói thành công.', 'success');
+            onClose();
+        } catch (err) {
+            showToast(err?.response?.data?.message ?? err?.message ?? 'Không tạo được quy cách đóng gói.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+            <DialogTitle>Tạo mới quy cách đóng gói</DialogTitle>
+            <form onSubmit={handleSubmit}>
+                <DialogContent sx={{ pt: 2, pb: 1 }}>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label="Tên quy cách"
+                        value={specName}
+                        onChange={(e) => setSpecName(e.target.value)}
+                        required
+                        placeholder="VD: Hộp, Thùng carton"
+                        error={Boolean(fieldErrors.specName)}
+                        helperText={fieldErrors.specName || ' '}
+                        FormHelperTextProps={{ sx: { mt: 0, minHeight: 20 } }}
+                        sx={editTextSx}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label="Mô tả"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        required
+                        multiline
+                        minRows={2}
+                        placeholder="Mô tả quy cách (bắt buộc)"
+                        error={Boolean(fieldErrors.description)}
+                        helperText={fieldErrors.description || 'Tối thiểu 2 ký tự, tối đa 500 ký tự.'}
+                        sx={editTextSx}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={onClose} sx={{ textTransform: 'none' }} disabled={submitting}>Hủy</Button>
+                    <Button type="submit" variant="contained" sx={{ textTransform: 'none' }} disabled={submitting}>
+                        {submitting ? 'Đang tạo…' : 'Tạo'}
+                    </Button>
+                </DialogActions>
+            </form>
+        </Dialog>
+    );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────
+export default function ViewItemDetail() {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const { toast, showToast, clearToast } = useToast();
+    const timerRef = useRef(null);
+    const { uoms, categories, brands } = useMasterData() || {};
+    const masterCategories = categories || [];
+    const masterBrands = brands || [];
+
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    const isAccountant = isAccountantView(permissionRole);
+    const canEdit = canEditItem(permissionRole);
+    const showStockBlock = showStockBlockForRole(permissionRole);
+    const canViewItemHistory = showStockBlock || isAccountant;
+    const showFullPrices = canSeeFullPrices(permissionRole);
+
+    const [item, setItem] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyRefreshing, setHistoryRefreshing] = useState(false);
+    const itemRef = useRef(null);
+    itemRef.current = item;
+
+    // Edit state
+    const [isEditing, setIsEditing] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [formData, setFormData] = useState({});
+    const [localUomOptions, setLocalUomOptions] = useState([]);
+    const [localPackOptions, setLocalPackOptions] = useState([]);
+    const [localSpecOptions, setLocalSpecOptions] = useState([]);
+    const [createUomOpen, setCreateUomOpen] = useState(false);
+    const [createPackOpen, setCreatePackOpen] = useState(false);
+
+    /** Tab trong khối "Tồn kho & lô hàng": theo kho | các lô (mock) */
+    const [stockSectionTab, setStockSectionTab] = useState('warehouse');
+
+    const warehouseNameById = useMemo(() => {
+        const m = new Map();
+        const rows = item?.inventoryByWarehouse ?? [];
+        for (const w of rows) {
+            const wid = w.warehouseId ?? w.WarehouseId;
+            if (wid != null && w.warehouseName) m.set(Number(wid), w.warehouseName);
+        }
+        return m;
+    }, [item]);
+
+    const lotsForItem = useMemo(() => {
+        if (!item?.itemId) return [];
+        const iid = Number(item.itemId);
+        return MOCK_INVENTORY_LOTS.filter((l) => Number(l.itemId) === iid);
+    }, [item?.itemId]);
+
+    useLayoutEffect(() => {
+        setHistoryPage(1);
+    }, [id]);
+
+    // ─── Load item + lịch sử tồn kho (phân trang server) ───────────────────
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const previous = itemRef.current;
+            const paginationOnly = previous != null && Number(previous.itemId) === Number(id);
+            const pageToFetch = paginationOnly ? historyPage : 1;
+            try {
+                setFetchError(null);
+                if (!paginationOnly) {
+                    setLoading(true);
+                    setItem(null);
+                } else {
+                    setHistoryRefreshing(true);
+                }
+                const data = await getItemDetail(Number(id), pageToFetch, ITEM_HISTORY_PAGE_SIZE);
+                if (!cancelled) setItem(data);
+            } catch (err) {
+                console.error('[ViewItemDetail] fetch error:', err);
+                if (!cancelled) {
+                    setFetchError(err?.response?.data?.message || err.message || 'Không thể tải chi tiết vật tư');
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                    setHistoryRefreshing(false);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [id, historyPage]);
+
+    useEffect(() => {
+        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }, []);
+
+    useEffect(() => {
+        if (uoms) {
+            setLocalUomOptions(
+                uoms
+                    .filter(isActiveOption)
+                    .map((u) => ({ id: u.uomId ?? u.id, code: u.uomCode ?? u.code, name: u.uomName ?? u.name })),
+            );
+        }
+    }, [uoms]);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                // Backend ItemParameterService: pageSize tối đa 100 — dùng 200 sẽ 400 và danh sách rỗng.
+                const res = await getItemParameterList({ page: 1, pageSize: 100 });
+                const rows = Array.isArray(res?.items) ? res.items : [];
+                if (!cancelled) {
+                    setLocalSpecOptions(
+                        rows
+                            .filter(isActiveOption)
+                            .map((s) => ({
+                                id: s.specificationId ?? s.paramId ?? s.ParamId ?? s.specId ?? s.id,
+                                name: s.specificationName ?? s.specName ?? s.paramName ?? s.name ?? '',
+                            })),
+                    );
+                }
+            } catch { /* giữ rỗng nếu lỗi */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        setStockSectionTab('warehouse');
+    }, [id]);
+
+    // ─── Edit handlers ───────────────────────────────────────────────────
+    const handleEdit = () => {
+        if (!item) return;
+        setFormData({
+            itemName: item.itemName ?? '',
+            itemType: item.itemType ?? DEFAULT_ITEM_TYPE,
+            description: item.description ?? '',
+            categoryId: item.categoryId ?? item.CategoryId ?? '',
+            brandId: item.brandId ?? item.BrandId ?? '',
+            baseUomId: item.baseUomId ?? item.BaseUomId ?? '',
+            packagingSpecId: item.packagingSpecId ?? item.PackagingSpecId ?? '',
+            specId: item.specId ?? item.SpecId ?? '',
+            requiresCO: item.requiresCO ?? false,
+            requiresCQ: item.requiresCQ ?? false,
+        });
+        // Bổ sung option cho dropdown nếu danh sách master/API chưa có (tránh hiển thị placeholder dù đã có giá trị)
+        const packId = item.packagingSpecId ?? item.PackagingSpecId;
+        const packName = item.packagingSpecName ?? item.PackagingSpecName;
+        if (packId != null && packId !== '') {
+            const n = Number(packId);
+            if (Number.isFinite(n) && n > 0) {
+                setLocalPackOptions((prev) =>
+                    (prev.some((o) => Number(o.id) === n) ? prev : [...prev, { id: n, name: packName || `QCĐG #${n}` }]));
+            }
+        }
+        const specIdVal = item.specId ?? item.SpecId;
+        const specNameVal = item.specName ?? item.SpecName;
+        if (specIdVal != null && specIdVal !== '') {
+            const n = Number(specIdVal);
+            if (Number.isFinite(n) && n > 0) {
+                setLocalSpecOptions((prev) =>
+                    (prev.some((o) => Number(o.id) === n) ? prev : [...prev, { id: n, name: specNameVal || `Thông số #${n}` }]));
+            }
+        }
+        const uomIdVal = item.baseUomId ?? item.BaseUomId;
+        const uomNameVal = item.baseUomName ?? item.BaseUomName;
+        if (uomIdVal != null && uomIdVal !== '') {
+            const n = Number(uomIdVal);
+            if (Number.isFinite(n) && n > 0) {
+                setLocalUomOptions((prev) =>
+                    (prev.some((o) => Number(o.id) === n) ? prev : [...prev, { id: n, code: '', name: uomNameVal || `ĐVT #${n}` }]));
+            }
+        }
+        setIsEditing(true);
+        setIsDirty(false);
+    };
+
+    const handleCancel = () => {
+        if (isDirty) {
+            if (!window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn hủy?')) return;
+        }
+        setIsEditing(false);
+        setIsDirty(false);
+        setFormData({});
+    };
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        let nextValue;
+        if (type === 'checkbox') nextValue = checked;
+        else if (NUMBER_FIELDS.has(name)) nextValue = value === '' ? '' : Number(value);
+        else nextValue = value;
+        setFormData((prev) => ({ ...prev, [name]: nextValue }));
+        setIsDirty(true);
+    };
+
+    const handleSave = async () => {
+        if (!item) return;
+        try {
+            setSaving(true);
+            await updateItem(item.itemId, {
+                itemName: formData.itemName,
+                itemType: formData.itemType,
+                description: formData.description,
+                categoryId: formData.categoryId,
+                brandId: formData.brandId || null,
+                baseUomId: formData.baseUomId,
+                packagingSpecId: formData.packagingSpecId || null,
+                specId: formData.specId !== '' && formData.specId != null ? Number(formData.specId) : null,
+                requiresCo: formData.requiresCO,
+                requiresCq: formData.requiresCQ,
+                defaultWarehouseId: item.defaultWarehouseId ?? null,
+            });
+            showToast('Cập nhật vật tư thành công!', 'success');
+            setIsEditing(false);
+            setIsDirty(false);
+            const updated = await getItemDetail(Number(id), historyPage, ITEM_HISTORY_PAGE_SIZE);
+            setItem(updated);
+        } catch (err) {
+            showToast(err?.response?.data?.message || err.message || 'Không thể cập nhật vật tư', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleBack = () => {
+        if (isDirty && isEditing) {
+            if (!window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn rời đi?')) return;
+        }
+        navigate('/products');
+    };
+
+    const allUomOptions = [...localUomOptions];
+    const allPackOptions = [...localPackOptions];
+    const allSpecOptions = [...localSpecOptions];
+
+    const categorySelectOptions = useMemo(() => masterCategories
+        .filter(isActiveOption)
+        .map((o) => ({
+            value: String(o.categoryId),
+            label: o.categoryCode ? `${o.categoryCode} - ${o.categoryName}` : o.categoryName,
+        })), [masterCategories]);
+
+    const brandSelectOptions = useMemo(() => masterBrands
+        .filter(isActiveOption)
+        .map((o) => ({
+            value: String(o.brandId),
+            label: o.brandName,
+        })), [masterBrands]);
+
+    const uomSelectOptions = useMemo(() => allUomOptions.filter(isActiveOption).map((o) => ({
+        value: String(o.id),
+        label: o.name,
+    })), [allUomOptions]);
+
+    const packSelectOptions = useMemo(() => allPackOptions.map((o) => ({
+        value: String(o.id),
+        label: o.name,
+    })), [allPackOptions]);
+
+    const specSelectOptions = useMemo(() => allSpecOptions.filter(isActiveOption).map((o) => ({
+        value: String(o.id),
+        label: o.name,
+    })), [allSpecOptions]);
+
+    const itemTypeViewLabel = useMemo(() => getItemTypeLabel(item?.itemType), [item?.itemType]);
+
+    // ─── Render helpers ───────────────────────────────────────────────────
+    if (loading) {
+        return (
+            <div style={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
+                <div className="spinner" style={{ width: 32, height: 32, border: '3px solid #e5e7eb', borderTopColor: '#2196F3', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            </div>
+        );
+    }
+
+    if (fetchError) {
+        return (
+            <div style={{ minHeight: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 48, backgroundColor: '#f8fafc' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Package size={32} color="#ef4444" />
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#ef4444' }}>{fetchError}</div>
+                <button type="button" onClick={() => navigate('/products')} className="btn btn-primary">
+                    <ArrowLeft size={16} />
+                    Quay lại danh sách
+                </button>
+            </div>
+        );
+    }
+
+    if (item == null) {
+        return (
+            <div style={{ minHeight: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 48, backgroundColor: '#f8fafc' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Package size={32} color="#9ca3af" />
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#6b7280' }}>Không tìm thấy vật tư</div>
+                <button type="button" onClick={() => navigate('/products')} className="btn btn-primary">
+                    <ArrowLeft size={16} />
+                    Quay lại danh sách
+                </button>
+            </div>
+        );
+    }
+
+    const stockHistory = item.inventoryHistory ?? [];
+    const historyTotal = item.historyTotalCount ?? 0;
+    const historyRangeStart = historyTotal === 0 ? 0 : (historyPage - 1) * ITEM_HISTORY_PAGE_SIZE + 1;
+    const historyRangeEnd = Math.min(historyPage * ITEM_HISTORY_PAGE_SIZE, historyTotal);
+    const canPrevHistory = historyPage > 1;
+    const canNextHistory = historyRangeEnd < historyTotal;
+
+    const itemWarehouses =
+        (item.inventoryByWarehouse ?? []).length > 0
+            ? item.inventoryByWarehouse
+            : [{ warehouseName: '—', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 }];
+
+    const statusConfig = item.isActive
+        ? { label: 'Đang giao dịch', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> }
+        : { label: 'Tạm dừng', color: '#b91c1c', bg: 'rgba(239,68,68,0.15)', icon: <X size={16} /> };
+
+    return (
+        <div className="create-supplier-page view-item-detail-page">
+            {/* ─── PAGE HEADER ─── */}
+            <div className="page-header">
+                <div className="page-header-left">
+                    <button type="button" onClick={handleBack} className="back-button">
+                        <ArrowLeft size={20} />
+                        <span>Quay lại danh sách</span>
+                    </button>
+                </div>
+                <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {canEdit && !isEditing && (
+                        <button type="button" className="btn btn-primary" onClick={handleEdit}>
+                            <Edit3 size={15} />
+                            Chỉnh sửa
+                        </button>
+                    )}
+                    {isEditing && (
+                        <>
+                            <button type="button" className="btn btn-outline" onClick={handleCancel} disabled={saving}>
+                                <X size={15} />
+                                Hủy
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                                {saving ? <CircularProgress size={14} color="inherit" /> : <Save size={15} />}
+                                Lưu
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="form-card">
+                <div className="form-wrapper">
+                    {/* ─── PAGE INTRO ─── */}
+                    <div className="form-card-intro">
+                        <div>
+                            <h1 className="page-title">{isEditing ? 'Chỉnh sửa vật tư' : 'Chi tiết vật tư'}</h1>
+                            {!isEditing && (
+                                <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
+                                    Mã vật tư:{' '}
+                                    <span style={{ fontWeight: 600, color: '#2196F3' }}>{item.itemCode}</span>
+                                    {item.brandName || item.categoryName ? (
+                                        <>&nbsp;&bull;&nbsp;{item.brandName || item.categoryName}</>
+                                    ) : null}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ─── MAIN GRID: 6-4 như trang Create ─── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '60% 40%', gap: '24px', alignItems: 'stretch' }}>
+                        {/* LEFT CARD: Thông tin chung */}
+                        <div className="info-section" style={{ margin: 0, height: '100%', boxSizing: 'border-box' }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Thông tin chung</h2>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: FIELD_GAP, alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                                    <div style={{
+                                        width: 160, minWidth: 160, height: 160, borderRadius: 12,
+                                        border: '1px solid #e5e7eb', backgroundColor: '#f1f5f9',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        overflow: 'hidden', flexShrink: 0,
+                                    }}>
+                                        <Package size={72} color="#cbd5e1" />
+                                    </div>
+                                </div>
+
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                    <div style={FIELD_WRAPPER}>
+                                        <div style={LABEL_STYLE}>Tên vật tư</div>
+                                        {isEditing ? (
+                                            <EditUnderline
+                                                name="itemName"
+                                                value={formData.itemName}
+                                                onChange={handleChange}
+                                                placeholder="Nhập tên vật tư"
+                                            />
+                                        ) : (
+                                            <ReadOnlyBox highlight>{item.itemName || '—'}</ReadOnlyBox>
+                                        )}
+                                    </div>
+
+                                    <div style={FIELD_WRAPPER}>
+                                        <div style={LABEL_STYLE}>{ITEM_TYPE_FIELD_LABEL}</div>
+                                        {isEditing ? (
+                                            <EditSelectUnderline
+                                                name="itemType"
+                                                value={formData.itemType || DEFAULT_ITEM_TYPE}
+                                                onChange={handleChange}
+                                                options={getItemTypeSelectOptions(formData.itemType)}
+                                                placeholder={ITEM_TYPE_PLACEHOLDER}
+                                            />
+                                        ) : (
+                                            <ReadOnlyBox>{itemTypeViewLabel}</ReadOnlyBox>
+                                        )}
+                                    </div>
+
+                                    <div style={FIELD_WRAPPER}>
+                                        <div style={LABEL_STYLE}>Thương hiệu</div>
+                                        {isEditing ? (
+                                            <EditSelectUnderline
+                                                name="brandId"
+                                                value={String(formData.brandId ?? '')}
+                                                onChange={handleChange}
+                                                options={brandSelectOptions}
+                                                placeholder="Chọn nhãn hiệu"
+                                            />
+                                        ) : (
+                                            <ReadOnlyBox>{item.brandName || item.brandId || '—'}</ReadOnlyBox>
+                                        )}
+                                    </div>
+
+                                    <div style={FIELD_WRAPPER}>
+                                        <div style={LABEL_STYLE}>Mô tả</div>
+                                        {isEditing ? (
+                                            <DescriptionEditBlock
+                                                value={formData.description}
+                                                onChange={handleChange}
+                                            />
+                                        ) : item.description ? (
+                                            <DescriptionBlock>{item.description}</DescriptionBlock>
+                                        ) : (
+                                            <DescriptionBlock />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT CARD: Thông tin hệ thống */}
+                        <div className="info-section" style={{ margin: 0, height: '100%', boxSizing: 'border-box' }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Thông tin hệ thống</h2>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={FIELD_WRAPPER}>
+                                    <div style={LABEL_STYLE}>Trạng thái</div>
+                                    <div style={{ minHeight: ROW_HEIGHT, display: 'flex', alignItems: 'center' }}>
+                                        <StatusBadge config={statusConfig} />
+                                    </div>
+                                </div>
+
+                                <div style={FIELD_WRAPPER}>
+                                    <div style={LABEL_STYLE}>Danh mục</div>
+                                    {isEditing ? (
+                                        <EditSelectUnderline
+                                            name="categoryId"
+                                            value={String(formData.categoryId ?? '')}
+                                            onChange={handleChange}
+                                            options={categorySelectOptions}
+                                            placeholder="Chọn danh mục"
+                                        />
+                                    ) : (
+                                        <ReadOnlyBox>{item.categoryName || item.categoryId || '—'}</ReadOnlyBox>
+                                    )}
+                                </div>
+
+                                <div style={FIELD_WRAPPER}>
+                                    <div style={LABEL_STYLE}>Đơn vị tính</div>
+                                    {isEditing ? (
+                                        <EditSelectUnderline
+                                            name="baseUomId"
+                                            value={String(formData.baseUomId ?? '')}
+                                            onChange={handleChange}
+                                            options={uomSelectOptions}
+                                            placeholder="Chọn đơn vị tính"
+                                            onAddNew={() => setCreateUomOpen(true)}
+                                        />
+                                    ) : (
+                                        <ReadOnlyBox>{item.baseUomName || item.baseUomId || '—'}</ReadOnlyBox>
+                                    )}
+                                </div>
+
+                                <div style={FIELD_WRAPPER}>
+                                    <div style={LABEL_STYLE}>Quy cách đóng gói</div>
+                                    {isEditing ? (
+                                        <EditSelectUnderline
+                                            name="packagingSpecId"
+                                            value={String(formData.packagingSpecId ?? '')}
+                                            onChange={handleChange}
+                                            options={packSelectOptions}
+                                            placeholder="Chọn quy cách đóng gói"
+                                            onAddNew={() => setCreatePackOpen(true)}
+                                        />
+                                    ) : (
+                                        <ReadOnlyBox>{item.packagingSpecName || item.packagingSpecId || '—'}</ReadOnlyBox>
+                                    )}
+                                </div>
+
+                                <div style={FIELD_WRAPPER}>
+                                    <div style={LABEL_STYLE}>Thông số sản phẩm</div>
+                                    {isEditing ? (
+                                        <EditSelectUnderline
+                                            name="specId"
+                                            value={String(formData.specId ?? '')}
+                                            onChange={handleChange}
+                                            options={specSelectOptions}
+                                            placeholder="Chọn thông số sản phẩm"
+                                        />
+                                    ) : (Array.isArray(item.parameterValues) && item.parameterValues.length > 0 ? (
+                                        <div style={{
+                                            borderBottom: '1px solid #cbd5e1',
+                                            padding: '2px 0 8px 0',
+                                            fontSize: '14px',
+                                            color: '#1e293b',
+                                            lineHeight: 1.6,
+                                        }}
+                                        >
+                                            <ul style={{ margin: 0, paddingLeft: 18 }}>
+                                                {item.parameterValues.map((pv) => (
+                                                    <li key={pv.itemParamValueId ?? `${pv.paramId}-${pv.paramValue}`}>
+                                                        <span style={{ fontWeight: 600 }}>{pv.paramName || `Thông số #${pv.paramId}`}</span>
+                                                        {pv.paramValue != null && pv.paramValue !== ''
+                                                            ? `: ${pv.paramValue}`
+                                                            : ''}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : (
+                                        <ReadOnlyBox>{item.specName || item.specId || '—'}</ReadOnlyBox>
+                                    ))}
+                                </div>
+
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '10px 20px' }}>
+                                    <div style={{ ...FIELD_WRAPPER, flex: '0 0 auto', minWidth: 0 }}>
+                                        <div style={LABEL_STYLE}>Yêu cầu CO</div>
+                                        {isEditing ? (
+                                            <CheckboxToggle
+                                                name="requiresCO"
+                                                checked={Boolean(formData.requiresCO)}
+                                                onChange={handleChange}
+                                                labelTrue="Có"
+                                                labelFalse="Không"
+                                            />
+                                        ) : (
+                                            <PillBadge value={item.requiresCO} />
+                                        )}
+                                    </div>
+                                    <div style={{ ...FIELD_WRAPPER, flex: '0 0 auto', minWidth: 0 }}>
+                                        <div style={LABEL_STYLE}>Yêu cầu CQ</div>
+                                        {isEditing ? (
+                                            <CheckboxToggle
+                                                name="requiresCQ"
+                                                checked={Boolean(formData.requiresCQ)}
+                                                onChange={handleChange}
+                                                labelTrue="Có"
+                                                labelFalse="Không"
+                                            />
+                                        ) : (
+                                            <PillBadge value={item.requiresCQ} />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─── TỒN KHO TABLE ─── */}
+                    {showStockBlock && itemWarehouses.length > 0 && (
+                        <div className="info-section" style={{ marginTop: '24px' }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">
+                                    <Package size={16} style={{ marginRight: 6 }} />
+                                    Tồn kho & lô hàng
+                                </h2>
+                            </div>
+                            <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb', marginBottom: 16 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setStockSectionTab('warehouse')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: stockSectionTab === 'warehouse' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: stockSectionTab === 'warehouse' ? '#2196F3' : '#6b7280',
+                                        fontWeight: stockSectionTab === 'warehouse' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <Package size={16} />
+                                    Số lượng theo kho
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setStockSectionTab('lots')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: stockSectionTab === 'lots' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: stockSectionTab === 'lots' ? '#2196F3' : '#6b7280',
+                                        fontWeight: stockSectionTab === 'lots' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <Layers size={16} />
+                                    Các lô đang có ({lotsForItem.length})
+                                </button>
+                            </div>
+
+                            {stockSectionTab === 'warehouse' && (
+                                <div className="table-container" style={{ overflowY: 'auto', maxHeight: 320 }}>
+                                    <table className="product-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 50 }}></th>
+                                                <th>Mã Vật tư</th>
+                                                <th>Tên Vật Tư</th>
+                                                <th style={{ textAlign: 'right' }}>Tồn kho</th>
+                                                <th style={{ textAlign: 'right' }}>Có thể bán</th>
+                                                <th style={{ textAlign: 'right' }}>Đặt trước</th>
+                                                <th>Kho</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {itemWarehouses.map((wh, idx) => {
+                                                const onHand = wh.onHandQty ?? 0;
+                                                const reserved = wh.reservedQty ?? 0;
+                                                const available = wh.availableQty ?? Math.max(0, onHand - reserved);
+                                                const preOrder = wh.preOrderQty ?? 0;
+                                                const isDefault = wh.isDefaultWarehouse ?? false;
+                                                return (
+                                                    <tr key={idx}>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Package size={18} color="#9ca3af" />
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ fontWeight: 500 }}>{wh.sku || item.itemCode}</td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                <span style={{ fontWeight: 500, color: '#2196F3' }}>{wh.variantName || item.itemName}</span>
+                                                                {isDefault && (
+                                                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: 9999, backgroundColor: '#e0f2fe', color: '#2196F3' }}>Mặc định</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{onHand.toLocaleString('vi-VN')}</td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 700, color: '#10b981', fontVariantNumeric: 'tabular-nums' }}>{available.toLocaleString('vi-VN')}</td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: preOrder > 0 || reserved > 0 ? '#d97706' : '#9ca3af', fontVariantNumeric: 'tabular-nums' }}>
+                                                            {preOrder > 0 ? preOrder.toLocaleString('vi-VN') : reserved > 0 ? reserved.toLocaleString('vi-VN') : '—'}
+                                                        </td>
+                                                        <td>{wh.warehouseName}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {stockSectionTab === 'lots' && (
+                                <div>
+                                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px 0' }}>
+                                        Các lô của vật tư này (dữ liệu mẫu — chờ API InventoryLots).
+                                    </p>
+                                    {lotsForItem.length === 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', color: '#9ca3af' }}>
+                                            <Layers size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
+                                            <p style={{ fontSize: '14px', margin: 0 }}>Không có lô mẫu cho mã vật tư này</p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <table className="product-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: 56, textAlign: 'center' }}>STT</th>
+                                                        <th style={{ minWidth: 140 }}>Mã phiếu nhập kho</th>
+                                                        <th style={{ minWidth: 160 }}>Kho</th>
+                                                        <th style={{ minWidth: 130 }}>Ngày nhập kho</th>
+                                                        <th style={{ width: 110, textAlign: 'right' }}>Số lượng</th>
+                                                        {showFullPrices && <th style={{ width: 120, textAlign: 'right' }}>Giá lô</th>}
+                                                        <th style={{ minWidth: 130 }}>Hạn dùng</th>
+                                                        <th style={{ width: 88, textAlign: 'center' }}>Hoạt động</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {lotsForItem.map((lot, idx) => {
+                                                        const grnCode = getGrnCodeFromLineId(lot.grnLineId);
+                                                        const whLabel = warehouseNameById.get(Number(lot.warehouseId)) ?? `Kho #${lot.warehouseId}`;
+                                                        return (
+                                                            <tr key={lot.lotId}>
+                                                                <td style={{ textAlign: 'center', fontSize: 13 }}>{idx + 1}</td>
+                                                                <td style={{ fontSize: 13, color: grnCode ? '#374151' : '#9ca3af', fontWeight: grnCode ? 600 : 400 }}>
+                                                                    {grnCode ?? '—'}
+                                                                </td>
+                                                                <td style={{ fontSize: 13, color: '#374151' }}>{whLabel}</td>
+                                                                <td style={{ fontSize: 12, color: '#374151' }}>{fmtLotDateOnly(lot.receiptDate)}</td>
+                                                                <td style={{ textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{formatLotQuantityInt(lot.quantity)}</td>
+                                                                {showFullPrices && (
+                                                                    <td style={{ textAlign: 'right', fontSize: 13 }}>{formatLotMoney(lot.unitCost)}</td>
+                                                                )}
+                                                                <td style={{ fontSize: 12, color: '#374151' }}>{formatDateTimeFull(lot.expiryDate)}</td>
+                                                                <td style={{ textAlign: 'center', fontSize: 13, color: lot.isActive ? '#059669' : '#6b7280', fontWeight: 600 }}>
+                                                                    {lot.isActive ? 'Có' : 'Không'}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ─── LỊCH SỬ TỒN KHO ─── */}
+                    {canViewItemHistory && (
+                        <div className="info-section" style={{ marginTop: '24px' }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Lịch sử tồn kho</h2>
+                                {historyTotal > 0 && (
+                                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                        {historyTotal.toLocaleString('vi-VN')} bản ghi
+                                    </span>
+                                )}
+                            </div>
+                            {historyTotal === 0 && !stockHistory.length ? (
+                                <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>Chưa có lịch sử tồn kho.</div>
+                            ) : (
+                                <div style={{ position: 'relative' }}>
+                                    {historyRefreshing && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                background: 'rgba(255,255,255,0.65)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                zIndex: 2,
+                                                borderRadius: 8,
+                                            }}
+                                        >
+                                            <CircularProgress size={28} />
+                                        </div>
+                                    )}
+                                    <div className="table-container item-history-table-wrap" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+                                        <table className="product-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Mã phiếu</th>
+                                                    <th>Loại phiếu</th>
+                                                    <th style={{ textAlign: 'center' }}>+/-</th>
+                                                    <th style={{ textAlign: 'right' }}>Số lượng</th>
+                                                    <th>Người thực hiện</th>
+                                                    <th>Thời gian</th>
+                                                    <th>Ghi chú</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {stockHistory.map((h, idx) => {
+                                                    const sign = h.movementSign ?? '+';
+                                                    const isIn = sign === '+' || sign === 'IN';
+                                                    const isOut = sign === '-' || sign === 'OUT';
+                                                    const signColor = isIn ? '#10b981' : isOut ? '#ef4444' : '#374151';
+                                                    const signBg = isIn ? '#f0fdf4' : isOut ? '#fef2f2' : 'transparent';
+                                                    const sourceLabel = { GRN: 'Nhập kho', GDN: 'Xuất kho', ADJ: 'Điều chỉnh', STK: 'Kiểm kê' }[h.sourceType] ?? h.sourceType ?? '—';
+                                                    const sourceColor = { GRN: '#2563eb', GDN: '#d97706', ADJ: '#7c3aed', STK: '#0891b2' }[h.sourceType] ?? '#6b7280';
+                                                    const rowKey = `${h.docNo ?? ''}-${h.transactionAt ?? ''}-${idx}`;
+                                                    return (
+                                                        <tr key={rowKey}>
+                                                            <td style={{ fontWeight: 500, color: '#2196F3' }}>{h.docNo ?? '—'}</td>
+                                                            <td>
+                                                                <span style={{
+                                                                    fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
+                                                                    backgroundColor: `${sourceColor}15`, color: sourceColor, border: `1px solid ${sourceColor}40`,
+                                                                }}>
+                                                                    {sourceLabel}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', fontWeight: 700, color: signColor, backgroundColor: signBg }}>{sign}</td>
+                                                            <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Number(h.qty ?? 0).toLocaleString('vi-VN')}</td>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>{h.actorName ?? '—'}</td>
+                                                            <td style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>{formatDateTimeFull(h.transactionAt)}</td>
+                                                            <td style={{ fontSize: '12px', color: '#6b7280', maxWidth: 160 }}>
+                                                                {h.note ? <span style={{ wordBreak: 'break-word' }}>{h.note}</span> : '—'}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {historyTotal > 0 && (
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'flex-end',
+                                                gap: 12,
+                                                marginTop: 12,
+                                                flexWrap: 'wrap',
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                {historyRangeStart}–{historyRangeEnd} / {historyTotal.toLocaleString('vi-VN')}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                                                disabled={!canPrevHistory || historyRefreshing}
+                                                style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: 6,
+                                                    fontSize: 12,
+                                                    opacity: !canPrevHistory ? 0.4 : 1,
+                                                    cursor: !canPrevHistory ? 'not-allowed' : 'pointer',
+                                                }}
+                                            >
+                                                Trước
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => setHistoryPage((p) => p + 1)}
+                                                disabled={!canNextHistory || historyRefreshing}
+                                                style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: 6,
+                                                    fontSize: 12,
+                                                    opacity: !canNextHistory ? 0.4 : 1,
+                                                    cursor: !canNextHistory ? 'not-allowed' : 'pointer',
+                                                }}
+                                            >
+                                                Sau
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Dialogs */}
+            <InlineCreateUomDialog
+                open={createUomOpen}
+                onClose={() => setCreateUomOpen(false)}
+                onSubmit={(newUom) => {
+                    setLocalUomOptions((prev) => [...prev, { id: newUom.id, code: newUom.code, name: newUom.name }]);
+                    handleChange({ target: { name: 'baseUomId', value: newUom.id } });
+                    setCreateUomOpen(false);
+                }}
+            />
+            <InlineCreatePackagingSpecDialog
+                open={createPackOpen}
+                onClose={() => setCreatePackOpen(false)}
+                onSubmit={(newItem) => {
+                    const newId = newItem.id ?? newItem.packagingSpecId;
+                    setLocalPackOptions((prev) => [...prev, { id: newId, name: newItem.specName ?? newItem.name }]);
+                    handleChange({ target: { name: 'packagingSpecId', value: newId } });
+                    setCreatePackOpen(false);
+                }}
+            />
+
+            {toast && (
+                <Toast message={toast.message} type={toast.type} onClose={clearToast} />
+            )}
+        </div>
+    );
+}

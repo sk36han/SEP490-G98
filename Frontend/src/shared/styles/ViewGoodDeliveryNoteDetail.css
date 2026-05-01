@@ -1,0 +1,98 @@
+/* ViewGoodDeliveryNoteDetail — scoped; layout nền / form-card xem CreateSupplier.css */
+
+.gdn-detail-intro .gdn-detail-intro-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.gdn-detail-page .gdn-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.gdn-detail-page .gdn-left-column,
+.gdn-detail-page .gdn-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+
+.gdn-detail-page .gdn-table-wrap {
+    overflow: auto;
+    border: 1px solid var(--slate-200, #e5e7eb);
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.gdn-detail-page .gdn-table-wrap .product-table {
+    min-width: 680px;
+}
+
+.gdn-detail-page .gdn-table-wrap .product-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+}
+
+.gdn-detail-page .gdn-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.gdn-detail-page .gdn-lines-summary-divider {
+    margin: 14px 0 12px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #e5e7eb 15%, #e5e7eb 85%, transparent);
+    border: none;
+}
+
+.gdn-detail-page .gdn-lines-summary-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 12px;
+}
+
+.gdn-detail-page .gdn-note-box {
+    min-height: 72px;
+    padding: 12px;
+    border: 1px solid var(--slate-200, #e5e7eb);
+    border-radius: 12px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.gdn-detail-page .gdn-empty-state {
+    padding: 28px 12px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+    .gdn-detail-page .gdn-main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .gdn-detail-page .gdn-table-wrap .product-table {
+        min-width: 620px;
+    }
+
+    .gdn-detail-page .gdn-summary-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Supplier API – maps to backend SupplierController / SupplierResponse.
@@ -16,6 +17,9 @@ import apiClient from './axios';
  * @param {boolean|null} [params.isActive]
  * @param {string} [params.fromDate] - ISO date
  * @param {string} [params.toDate] - ISO date
+ * @param {string} [params.provinceCode] - Tỉnh/Thành phố
+ * @param {string} [params.districtCode] - Quận/Huyện
+ * @param {string} [params.wardCode] - Phường/Xã
  */
 export async function getSuppliers(params = {}) {
     const {
@@ -27,6 +31,9 @@ export async function getSuppliers(params = {}) {
         isActive = null,
         fromDate = null,
         toDate = null,
+        provinceCode = '',
+        districtCode = '',
+        wardCode = '',
     } = params;
     const query = new URLSearchParams();
     query.set('page', String(page));
@@ -38,6 +45,9 @@ export async function getSuppliers(params = {}) {
     if (isActive === false) query.set('isActive', 'false');
     if (fromDate && typeof fromDate === 'string') query.set('fromDate', fromDate);
     if (toDate && typeof toDate === 'string') query.set('toDate', toDate);
+    if (provinceCode && String(provinceCode).trim() !== '') query.set('provinceCode', String(provinceCode).trim());
+    if (districtCode && String(districtCode).trim() !== '') query.set('districtCode', String(districtCode).trim());
+    if (wardCode && String(wardCode).trim() !== '') query.set('wardCode', String(wardCode).trim());
 
     const response = await apiClient.get(`/Supplier/list-all?${query.toString()}`);
     const data = response?.data;
@@ -51,10 +61,10 @@ export async function getSuppliers(params = {}) {
         : Array.isArray(payload?.Items)
             ? payload.Items
             : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.Items)
-            ? data.Items
-            : [];
+                ? data.items
+                : Array.isArray(data?.Items)
+                    ? data.Items
+                    : [];
     const items = rawItems
         .filter((row) => row != null && typeof row === 'object')
         .map((row) => ({
@@ -66,8 +76,13 @@ export async function getSuppliers(params = {}) {
             email: row.email ?? row.Email ?? '',
             address: row.address ?? row.Address ?? '',
             city: row.city ?? row.City ?? '',
+            district: row.district ?? row.District ?? '',
             ward: row.ward ?? row.Ward ?? '',
+            provinceCode: row.provinceCode ?? row.ProvinceCode ?? '',
+            districtCode: row.districtCode ?? row.DistrictCode ?? '',
+            wardCode: row.wardCode ?? row.WardCode ?? '',
             isActive: row.isActive ?? row.IsActive ?? true,
+            createdDate: row.createdDate ?? row.CreatedDate ?? row.createdAt ?? row.CreatedAt ?? null,
         }));
     return {
         page: payload.page ?? payload.Page ?? 1,
@@ -119,12 +134,16 @@ export async function createSupplier(data) {
             phone: data.phone || null,
             email: data.email || null,
             address: data.address || null,
+            city: data.city || null,
+            district: data.district || null,
+            ward: data.ward || null,
         };
-        
+
         // Don't send supplierCode, let backend generate it
         console.log('Supplier API payload:', payload);
-        
+
         const response = await apiClient.post('/Supplier/create', payload);
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         console.error('Supplier API error response:', error.response?.data);
@@ -161,8 +180,12 @@ export async function updateSupplier(id, data) {
             phone: data.phone || null,
             email: data.email || null,
             address: data.address || null,
+            city: data.city || null,
+            district: data.district || null,
+            ward: data.ward || null,
             isActive: data.isActive,
         });
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
@@ -188,6 +211,7 @@ export async function toggleSupplierStatus(id, isActive) {
         const response = await apiClient.patch(`/Supplier/change-status/${id}`, null, {
             params: { isActive: !!isActive },
         });
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         if (error.response?.status === 401) {
@@ -197,5 +221,52 @@ export async function toggleSupplierStatus(id, isActive) {
         } else {
             throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi đổi trạng thái.');
         }
+    }
+}
+
+/**
+ * Lấy thông tin chi tiết nhà cung cấp theo ID
+ * GET /api/Supplier/get-supplier-by-id/{id}
+ */
+export async function getSupplierById(id) {
+    try {
+        const response = await apiClient.get(`/Supplier/get-supplier-by-id/${id}`);
+        const data = response?.data;
+        if (!data) {
+            throw new Error('Không tìm thấy nhà cung cấp');
+        }
+        return data;
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhà cung cấp');
+        } else if (error.response?.status === 401) {
+            throw new Error('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.message === 'Network Error') {
+            throw new Error('Không thể kết nối đến server.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tải thông tin nhà cung cấp.');
+        }
+    }
+}
+
+/**
+ * Lấy lịch sử giao dịch của nhà cung cấp
+ * GET /api/Supplier/view-transaction-history/{id}
+ */
+export async function getSupplierTransactions(id, params = {}) {
+    try {
+        const { page = 1, pageSize = 20, transactionType, status, fromDate, toDate } = params;
+        const query = new URLSearchParams();
+        query.set('page', String(page));
+        query.set('pageSize', String(pageSize));
+        if (transactionType) query.set('transactionType', transactionType);
+        if (status) query.set('status', status);
+        if (fromDate) query.set('fromDate', fromDate);
+        if (toDate) query.set('toDate', toDate);
+
+        const response = await apiClient.get(`/Supplier/view-transaction-history/${id}?${query.toString()}`);
+        return response?.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tải lịch sử giao dịch.');
     }
 }

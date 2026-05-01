@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { parseDate } from '../lib/dateUtils';
+import { usePolling } from '../hooks/usePolling';
 import {
     Table,
     TableBody,
@@ -22,8 +24,9 @@ import {
     FormControl,
     Select,
     MenuItem,
+    Chip,
 } from '@mui/material';
-import { Search, Edit, Power, Download, Columns, RefreshCw, Filter } from 'lucide-react';
+import { Search, Edit, Power, Download, Columns, RefreshCw, Filter, Users } from 'lucide-react';
 import adminService from '../lib/adminService';
 import authService from '../lib/authService';
 import Toast from '../../components/Toast/Toast';
@@ -46,6 +49,28 @@ const USER_ACCOUNT_COLUMNS = [
 const DEFAULT_VISIBLE_USER_COLUMN_IDS = USER_ACCOUNT_COLUMNS.map((c) => c.id);
 const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
+
 const getColumnWeight = (colId) => {
     switch (colId) {
         case 'stt': return 0.6;
@@ -65,7 +90,7 @@ const getColumnCellSx = (colId, widthPct) => {
     return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
 };
 
-const DeactivatedUsersList = () => {
+const ViewDeactivatedUsersList = () => {
     const { toast, showToast, clearToast } = useToast();
     const currentUserId = authService.getCurrentUserId();
     const [allUsers, setAllUsers] = useState([]);
@@ -111,7 +136,7 @@ const DeactivatedUsersList = () => {
     const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
     const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         setLoading(true);
         try {
             const response = await adminService.getUserList({
@@ -126,11 +151,14 @@ const DeactivatedUsersList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showToast]);
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    useEffect(() => { loadUsers(); }, [loadUsers]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const loadUsersRef = useRef(loadUsers);
+    useEffect(() => { loadUsersRef.current = loadUsers; }, [loadUsers]);
+    usePolling('users', () => loadUsersRef.current?.());
 
     // Chỉ lấy người dùng đã vô hiệu hóa, sau đó áp dụng search + filter
     useEffect(() => {
@@ -152,16 +180,14 @@ const DeactivatedUsersList = () => {
         }
         if (filterValues.fromDate || filterValues.toDate) {
             result = result.filter((user) => {
-                const createdAt = user.createdAt ? new Date(user.createdAt) : null;
-                if (!createdAt || isNaN(createdAt.getTime())) return false;
+                const createdAt = user.createdAt ? parseDate(user.createdAt) : null;
+                if (!createdAt || Number.isNaN(createdAt.getTime())) return false;
                 if (filterValues.fromDate) {
-                    const from = new Date(filterValues.fromDate);
-                    from.setHours(0, 0, 0, 0);
+                    const from = new Date(filterValues.fromDate + 'T00:00:00Z');
                     if (createdAt < from) return false;
                 }
                 if (filterValues.toDate) {
-                    const to = new Date(filterValues.toDate);
-                    to.setHours(23, 59, 59, 999);
+                    const to = new Date(filterValues.toDate + 'T23:59:59.999Z');
                     if (createdAt > to) return false;
                 }
                 return true;
@@ -276,7 +302,7 @@ const DeactivatedUsersList = () => {
                 maxWidth: '100%',
                 ml: 0,
                 mr: 0,
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'visible',
@@ -320,6 +346,11 @@ const DeactivatedUsersList = () => {
                 >
                     Thống kê danh sách tài khoản đã bị vô hiệu hóa. Có thể chỉnh sửa hoặc kích hoạt lại từng tài khoản.
                 </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={Users} label="Tổng tài khoản đã khóa" value={(totalCount || allUsers.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Users} label="Tài khoản bị khóa" value={allUsers.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                </Box>
             </Box>
 
             <Paper
@@ -673,4 +704,5 @@ const DeactivatedUsersList = () => {
     );
 };
 
-export default DeactivatedUsersList;
+export default ViewDeactivatedUsersList;
+

@@ -1,4 +1,5 @@
-﻿using FluentAssertions;
+﻿extern alias api;
+using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -6,13 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Xunit;
 
-namespace Warehouse.Api.Tests.Admin
+namespace WarehouseTests.Admin
 {
 	public class AdminControllerTests
 	{
@@ -58,7 +59,7 @@ namespace Warehouse.Api.Tests.Admin
 		}
 
 		// =========================================================
-		// 1️ CreateUser — 11 test cases
+		// 1. CreateUser — 11 test cases
 		//    TC1:  Thành công → 201 Created + ApiResponse chứa CreateUserResponse
 		//    TC2:  Verify response trả về đầy đủ fields (UserId, Email, FullName, Username, GeneratedPassword, RoleName, CreatedAt)
 		//    TC3:  ModelState invalid (thiếu Email) → 400 BadRequest
@@ -249,7 +250,7 @@ namespace Warehouse.Api.Tests.Admin
 			var claims = new List<Claim>
 			{
 				new Claim(ClaimTypes.NameIdentifier, "not-a-number"), // giá trị không hợp lệ
-                new Claim(ClaimTypes.Role, "ADMIN")
+				new Claim(ClaimTypes.Role, "ADMIN")
 			};
 			var identity = new ClaimsIdentity(claims, "TestAuth");
 			controller.ControllerContext = new ControllerContext
@@ -437,7 +438,7 @@ namespace Warehouse.Api.Tests.Admin
 		#endregion
 
 		// =========================================================
-		// 2️⃣ GetUsers — 6 test cases
+		// 2. GetUsers — 6 test cases
 		//    TC1: Lấy danh sách thành công (có data) → 200 OK
 		//    TC2: Danh sách rỗng → 200 OK + empty Items
 		//    TC3: Verify response data chứa đúng thông tin user
@@ -684,11 +685,9 @@ namespace Warehouse.Api.Tests.Admin
 			var result = await controller.UpdateUser(1, request);
 
 			// Assert
-			result.Should().BeOfType<OkObjectResult>(); //
+			result.Should().BeOfType<OkObjectResult>();
 		}
 		#endregion
-
-		
 
 		#region UTCID 03: UpdateUser — Abnormal — Tên trống
 		[Fact]
@@ -704,7 +703,7 @@ namespace Warehouse.Api.Tests.Admin
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 			var response = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
-			response.Message.Should().Be("Dữ liệu không hợp lệ."); //
+			response.Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
@@ -724,7 +723,7 @@ namespace Warehouse.Api.Tests.Admin
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ."); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
@@ -740,7 +739,7 @@ namespace Warehouse.Api.Tests.Admin
 
 			// Assert
 			var unauth = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
-			((ApiResponse<object>)unauth.Value!).Message.Should().Be("Không xác định được danh tính người dùng."); //
+			((ApiResponse<object>)unauth.Value!).Message.Should().Be("Không xác định được danh tính người dùng.");
 		}
 		#endregion
 
@@ -758,7 +757,7 @@ namespace Warehouse.Api.Tests.Admin
 
 			// Assert
 			var nf = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-			((ApiResponse<object>)nf.Value!).Message.Should().Be("Người dùng không tồn tại."); //
+			((ApiResponse<object>)nf.Value!).Message.Should().Be("Người dùng không tồn tại.");
 		}
 		#endregion
 
@@ -776,7 +775,7 @@ namespace Warehouse.Api.Tests.Admin
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Contain("Bạn không được phép thay đổi trạng thái"); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Contain("Bạn không được phép thay đổi trạng thái");
 		}
 		#endregion
 
@@ -794,7 +793,7 @@ namespace Warehouse.Api.Tests.Admin
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Contain("đã tồn tại"); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Contain("đã tồn tại");
 		}
 		#endregion
 
@@ -812,7 +811,7 @@ namespace Warehouse.Api.Tests.Admin
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Role không tồn tại."); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Role không tồn tại.");
 		}
 		#endregion
 
@@ -831,11 +830,12 @@ namespace Warehouse.Api.Tests.Admin
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống."); //
+			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
+
 		// =========================================================
-		// 4️ ToggleUserStatus — 6 test cases 
+		// 4. ToggleUserStatus — 6 test cases 
 		// =========================================================
 
 		#region UTCID 01: Toggle Disable thành công
@@ -990,7 +990,7 @@ namespace Warehouse.Api.Tests.Admin
 		#endregion
 
 		// =========================================================
-		// 5️ ExportUsersExcel — 3 test cases
+		// 5. ExportUsersExcel — 3 test cases
 		//    TC1: Export thành công → FileContentResult
 		//    TC2: Exception → 500 InternalServerError
 		//    TC3: Verify đúng content-type và filename

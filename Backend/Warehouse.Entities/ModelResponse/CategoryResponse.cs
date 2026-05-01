@@ -8,5 +8,8 @@ namespace Warehouse.Entities.ModelResponse
         public long? ParentId { get; set; }
         public string? ParentName { get; set; }
         public bool IsActive { get; set; }
+
+        /// <summary>Số vật tư (Items) đang gán vào danh mục này.</summary>
+        public int ItemCount { get; set; }
     }
 }

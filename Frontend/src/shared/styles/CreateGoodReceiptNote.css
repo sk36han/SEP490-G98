@@ -1,0 +1,317 @@
+/* ============================================
+   Styles for CreateGoodReceiptNote Page
+   ============================================ */
+
+/* Header Actions */
+.grn-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Form Layout */
+.grn-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 24px;
+    align-items: start;
+}
+
+.grn-section {
+    margin: 0;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Product Table */
+.grn-table-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.grn-product-row {
+    transition: background-color 0.15s;
+}
+
+.grn-product-row:hover {
+    background-color: #f9fafb;
+}
+
+/* Search Dropdown */
+.grn-search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 100;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.grn-search-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    background-color: #f9fafb;
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.grn-search-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.grn-search-item:hover {
+    background-color: #f9fafb;
+}
+
+.grn-search-item-image {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.grn-search-item-image-placeholder {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background-color: #f3f4f6;
+    flex-shrink: 0;
+}
+
+.grn-search-item-info {
+    flex: 1;
+}
+
+.grn-search-item-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.grn-search-item-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.grn-search-item-price {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2196F3;
+    margin-left: 12px;
+}
+
+.grn-selected-footer {
+    padding: 12px 16px;
+    border-top: 2px solid #e5e7eb;
+    background-color: #f9fafb;
+    position: sticky;
+    bottom: 0;
+}
+
+/* Summary Card */
+.grn-summary-card {
+    margin-top: 24px;
+    padding: 20px;
+    background-color: #f0f9ff;
+    border-radius: 12px;
+    border-left: 4px solid #2196F3;
+}
+
+.grn-summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.grn-summary-label {
+    color: #64748b;
+}
+
+.grn-summary-value {
+    font-weight: 600;
+}
+
+.grn-summary-discount {
+    color: #ef4444;
+}
+
+.grn-summary-total {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid #d1d5db;
+}
+
+.grn-summary-total-label {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2196F3;
+}
+
+.grn-summary-total-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2196F3;
+}
+
+/* Info Section */
+.grn-info-section {
+    margin: 0;
+}
+
+.grn-info-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.grn-info-detail {
+    font-size: 13px;
+    color: #374151;
+}
+
+.grn-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.grn-info-grid-item {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 2px;
+    font-weight: 600;
+}
+
+.grn-info-grid-value {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+}
+
+/* Buttons */
+.grn-btn-add-product {
+    padding: 8px 16px;
+}
+
+.grn-btn-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ef4444;
+}
+
+.grn-btn-remove:hover {
+    color: #dc2626;
+}
+
+/* Input Styles */
+.grn-input-number {
+    text-align: center;
+}
+
+.grn-input-center {
+    text-align: center;
+    font-weight: 600;
+    color: #2196F3;
+}
+
+/* Checkbox */
+.grn-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.grn-checkbox-disabled {
+    width: 18px;
+    height: 18px;
+    cursor: default;
+    margin: 0;
+}
+
+/* Loading State */
+.grn-loading-container {
+    padding: 24px;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.grn-loading-spinner {
+    margin: 0 auto 8px;
+    animation: spin 1s linear infinite;
+}
+
+/* Empty State */
+.grn-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 60px 20px;
+    color: #9ca3af;
+}
+
+.grn-empty-state-icon {
+    opacity: 0.5;
+}
+
+.grn-empty-state-text {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.grn-empty-state-hint {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Error Message */
+.grn-error-message {
+    margin-bottom: 16px;
+}
+
+/* Input error state for line qty inputs */
+.product-table input.form-input.error {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.product-table input.form-input.error:focus {
+    outline: none;
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}

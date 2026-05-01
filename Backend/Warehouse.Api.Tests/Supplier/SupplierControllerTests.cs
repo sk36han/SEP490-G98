@@ -1,3 +1,4 @@
+﻿extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -6,19 +7,19 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class SupplierControllerTests
 {
 	private readonly Mock<ISupplierService> _supplierServiceMock = new();
 
 	/// <summary>
-	/// Gán fake HttpContext với UserId claim để tránh NullReferenceException khi controller gọi User.FindFirst().
+	/// GÃ¡n fake HttpContext vá»›i UserId claim Ä‘á»ƒ trÃ¡nh NullReferenceException khi controller gá»i User.FindFirst().
 	/// </summary>
 	private static void SetupUserClaims(ControllerBase controller, long userId = 1)
 	{
@@ -276,7 +277,7 @@ public class SupplierControllerTests
 	public async Task UpdateSupplier_ShouldReturnBadRequest_WhenSupplierNameIsBlank()
 	{
 		var controller = new SupplierController(_supplierServiceMock.Object);
-		controller.ModelState.AddModelError("SupplierName", "Tên nhà cung cấp không được để trống");
+		controller.ModelState.AddModelError("SupplierName", "TÃªn nhÃ  cung cáº¥p khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
 
 		var request = new UpdateSupplierRequest { SupplierName = "   " };
 		var result = await controller.UpdateSupplier(1, request);
@@ -287,7 +288,7 @@ public class SupplierControllerTests
 	public async Task UpdateSupplier_ShouldReturnBadRequest_WhenPhoneIsInvalidRegex()
 	{
 		var controller = new SupplierController(_supplierServiceMock.Object);
-		controller.ModelState.AddModelError("Phone", "Số điện thoại không hợp lệ");
+		controller.ModelState.AddModelError("Phone", "Sá»‘ Ä‘iá»‡n thoáº¡i khÃ´ng há»£p lá»‡");
 
 		var request = new UpdateSupplierRequest { SupplierName = "Valid Name", Phone = "abc-123-invalid" };
 		var result = await controller.UpdateSupplier(1, request);
@@ -298,7 +299,7 @@ public class SupplierControllerTests
 	public async Task UpdateSupplier_ShouldReturnBadRequest_WhenEmailIsInvalid()
 	{
 		var controller = new SupplierController(_supplierServiceMock.Object);
-		controller.ModelState.AddModelError("Email", "Email không đúng định dạng");
+		controller.ModelState.AddModelError("Email", "Email khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng");
 
 		var request = new UpdateSupplierRequest { SupplierName = "Valid Name", Email = "not-an-email" };
 		var result = await controller.UpdateSupplier(1, request);

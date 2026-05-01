@@ -1,14 +1,15 @@
+extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System.Security.Claims;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class UserControllerChangePasswordTests
 {

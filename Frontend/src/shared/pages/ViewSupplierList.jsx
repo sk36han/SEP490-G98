@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Box,
     Button,
@@ -20,17 +20,16 @@ import {
     FormControlLabel,
     Checkbox,
     Paper,
-    Chip,
     FormControl,
     Select,
     MenuItem,
 } from '@mui/material';
-import { Filter, CloudOff, Columns, Plus, GripVertical } from 'lucide-react';
+import { StatusBadge } from '@ui/badges';
+import { Filter, CloudOff, Columns, Plus, GripVertical, Truck } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
-import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
-import ViewSupplierDetail from '../components/ViewSupplierDetail';
+import { formatDateOnlyUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
@@ -40,11 +39,29 @@ const LS_SORT       = 'supplierSortConfig';
 // ── Constants ──────────────────────────────────────────────────────────────
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const STATUS_STYLE = {
-    true:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Hoạt động', dot: '•' },
-    false: { bgColor: 'rgba(239,68,68,0.15)',   label: 'Ngừng HĐ',  dot: '•' },
-};
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            {React.createElement(icon, { size: 22, color })}
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
 
+// SUPPLIER_COLUMNS uses StatusBadge via <StatusBadge status={row.isActive} />
 const SUPPLIER_COLUMNS = [
     { id: 'stt',          label: 'STT',              sortable: false },
     { id: 'supplierCode', label: 'Mã NCC',            sortable: true  },
@@ -56,10 +73,13 @@ const SUPPLIER_COLUMNS = [
     { id: 'district',     label: 'Quận/Huyện',         sortable: false },
     { id: 'ward',         label: 'Phường/Xã',          sortable: false },
     { id: 'isActive',     label: 'Trạng thái',         sortable: true  },
+    { id: 'createdDate',  label: 'Ngày tạo',           sortable: true  },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS        = SUPPLIER_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
+const DEFAULT_PAGE_SIZE = 10;
+const POLLING_INTERVAL_MS = 15000;
 
 // ── Shared cell sx (matches ViewPurchaseOrderList exactly) ─────────────────
 const BODY_CELL_SX = {
@@ -84,6 +104,36 @@ export default function ViewSupplierList() {
     const theme    = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const buildStateFromQuery = useCallback(() => {
+        const pageParam = Number.parseInt(searchParams.get('page') || '1', 10);
+        const pageSizeParam = Number.parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+        const sortByParam = searchParams.get('sortBy');
+        const orderParam = searchParams.get('order');
+        const isActiveParam = searchParams.get('isActive');
+
+        return {
+            page: Number.isFinite(pageParam) && pageParam > 0 ? pageParam - 1 : 0,
+            pageSize: ROWS_PER_PAGE_OPTIONS.includes(pageSizeParam) ? pageSizeParam : DEFAULT_PAGE_SIZE,
+            searchTerm: searchParams.get('q') || '',
+            orderBy: SORTABLE_COLUMN_IDS.includes(sortByParam) ? sortByParam : null,
+            order: orderParam === 'desc' ? 'desc' : 'asc',
+            filterValues: {
+                supplierCode: searchParams.get('supplierCode') || '',
+                supplierName: searchParams.get('supplierName') || '',
+                taxCode: searchParams.get('taxCode') || '',
+                isActive: isActiveParam === 'true' ? true : isActiveParam === 'false' ? false : null,
+                fromDate: searchParams.get('fromDate') || null,
+                toDate: searchParams.get('toDate') || null,
+                provinceCode: searchParams.get('provinceCode') || '',
+                districtCode: searchParams.get('districtCode') || '',
+                wardCode: searchParams.get('wardCode') || '',
+            },
+        };
+    }, [searchParams]);
+
+    const initialQueryStateRef = useRef(buildStateFromQuery());
 
     // Data / loading
     const [rows, setRows]           = useState([]);
@@ -92,13 +142,13 @@ export default function ViewSupplierList() {
     const [error, setError]         = useState(null);
 
     // Pagination
-    const [page, setPage]         = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [page, setPage]         = useState(initialQueryStateRef.current.page);
+    const [pageSize, setPageSize] = useState(initialQueryStateRef.current.pageSize);
 
     // Search & filter
-    const [searchTerm, setSearchTerm]     = useState('');
+    const [searchTerm, setSearchTerm]     = useState(initialQueryStateRef.current.searchTerm);
     const [filterOpen, setFilterOpen]     = useState(false);
-    const [filterValues, setFilterValues] = useState({});
+    const [filterValues, setFilterValues] = useState(initialQueryStateRef.current.filterValues);
     const activeFilterCount = useMemo(
         () => Object.values(filterValues).filter((v) => v !== undefined && v !== null && v !== '').length,
         [filterValues],
@@ -106,9 +156,11 @@ export default function ViewSupplierList() {
 
     // Sorting — 3-state: asc → desc → null (reset)
     const [orderBy, setOrderBy] = useState(() => {
+        if (initialQueryStateRef.current.orderBy) return initialQueryStateRef.current.orderBy;
         try { const s = JSON.parse(localStorage.getItem(LS_SORT)); return s?.orderBy || null; } catch { return null; }
     });
     const [order, setOrder] = useState(() => {
+        if (initialQueryStateRef.current.orderBy) return initialQueryStateRef.current.order;
         try { const s = JSON.parse(localStorage.getItem(LS_SORT)); return s?.order || 'asc'; } catch { return 'asc'; }
     });
 
@@ -138,10 +190,6 @@ export default function ViewSupplierList() {
     const [draggedColumn, setDraggedColumn]           = useState(null);
     // Drag within popup
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
-
-    // Detail popup
-    const [detailOpen, setDetailOpen]         = useState(false);
-    const [detailSupplier, setDetailSupplier] = useState(null);
 
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
@@ -247,7 +295,6 @@ export default function ViewSupplierList() {
     // ── API fetch ─────────────────────────────────────────────────
     const getApiParams = useCallback(() => {
         const fv = filterValues || {};
-        const normalize = (s) => (s ? removeDiacritics(String(s).toLowerCase()) : '');
         const supplierName =
             fv.supplierName?.trim()
                 ? fv.supplierName.trim()
@@ -261,17 +308,23 @@ export default function ViewSupplierList() {
             isActive:     fv.isActive   ?? null,
             fromDate:     fv.fromDate   || null,
             toDate:       fv.toDate     || null,
+            provinceCode: fv.provinceCode || '',
+            districtCode: fv.districtCode || '',
+            wardCode:     fv.wardCode     || '',
         };
     }, [page, pageSize, searchTerm, filterValues]);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             const res = await getSuppliers(getApiParams());
             setRows(Array.isArray(res?.items) ? res.items : []);
             setTotalRows(res?.totalItems ?? 0);
         } catch (err) {
+            if (silent) return;
             const status = err?.response?.status;
             let msg = err?.response?.data?.message ?? err?.message;
             if (status === 404)                   msg = 'API trả 404. Kiểm tra backend đang chạy.';
@@ -280,12 +333,51 @@ export default function ViewSupplierList() {
             setRows([]);
             setTotalRows(0);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [getApiParams]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-    useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [searchTerm, filterValues]);
+    const hasMountedSearchFilterRef = useRef(false);
+    useEffect(() => {
+        if (!hasMountedSearchFilterRef.current) {
+            hasMountedSearchFilterRef.current = true;
+            return;
+        }
+        setPage(0);
+        setSelectedIds(new Set());
+    }, [searchTerm, filterValues]);
+
+    // ── Sync list state to URL query ───────────────────────────────
+    useEffect(() => {
+        const next = new URLSearchParams();
+        if (page > 0) next.set('page', String(page + 1));
+        if (pageSize !== DEFAULT_PAGE_SIZE) next.set('pageSize', String(pageSize));
+        if (searchTerm.trim()) next.set('q', searchTerm.trim());
+        if (orderBy) {
+            next.set('sortBy', orderBy);
+            next.set('order', order);
+        }
+
+        Object.entries(filterValues || {}).forEach(([key, value]) => {
+            if (value === undefined || value === null || value === '') return;
+            next.set(key, String(value));
+        });
+
+        if (next.toString() !== searchParams.toString()) {
+            setSearchParams(next, { replace: true });
+        }
+    }, [page, pageSize, searchTerm, orderBy, order, filterValues, searchParams, setSearchParams]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    useEffect(() => {
+        const id = setInterval(() => {
+            fetchDataRef.current?.({ silent: true });
+        }, POLLING_INTERVAL_MS);
+        return () => clearInterval(id);
+    }, []);
 
     // Client-side sort on current page data
     const sortedRows = useMemo(() => {
@@ -313,19 +405,16 @@ export default function ViewSupplierList() {
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
     const showEmpty  = !loading && !error && rows.length === 0;
 
+    const summaryBreakdownReliable = totalRows > 0 && rows.length >= totalRows;
+
     // ── Render ────────────────────────────────────────────────────
     return (
         <Box sx={{
-            height: '100%', minHeight: 0, minWidth: 0,
+            flex: 1, minHeight: 0, minWidth: 0,
             overflow: 'hidden', display: 'flex', flexDirection: 'column',
             bgcolor: '#fafafa',
         }}>
             {/* Popups */}
-            <ViewSupplierDetail
-                open={detailOpen}
-                onClose={() => { setDetailOpen(false); setDetailSupplier(null); }}
-                supplier={detailSupplier}
-            />
             <SupplierFilterPopup
                 open={filterOpen}
                 onClose={() => setFilterOpen(false)}
@@ -341,6 +430,12 @@ export default function ViewSupplierList() {
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Suppliers
                 </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={Truck} label="Tổng nhà cung cấp" value={totalRows.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Truck} label="Đang hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Truck} label="Ngưng hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                </Box>
             </Box>
 
             {/* Main Content Wrapper */}
@@ -713,15 +808,15 @@ export default function ViewSupplierList() {
                                                         );
                                                     }
 
-                                                    // Supplier name — simple blue link (same color as orderCode in ViewPO)
-                                                    if (col.id === 'supplierName') {
+                                                    // Supplier code — clickable link to detail
+                                                    if (col.id === 'supplierCode') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
                                                                         href="#"
-                                                                        onClick={(e) => { e.preventDefault(); setDetailSupplier(row); setDetailOpen(true); }}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/suppliers/${row.supplierId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6',
                                                                             textDecoration: 'none',
@@ -730,6 +825,27 @@ export default function ViewSupplierList() {
                                                                             textOverflow: 'ellipsis',
                                                                             whiteSpace: 'nowrap',
                                                                             '&:hover': { textDecoration: 'underline' },
+                                                                        }}
+                                                                        title={row.supplierCode ?? ''}
+                                                                    >
+                                                                        {row.supplierCode ?? ''}
+                                                                    </Box>
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    // Supplier name — plain text
+                                                    if (col.id === 'supplierName') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Box
+                                                                        sx={{
+                                                                            color: '#374151',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap',
                                                                         }}
                                                                         title={row.supplierName ?? ''}
                                                                     >
@@ -740,35 +856,33 @@ export default function ViewSupplierList() {
                                                         );
                                                     }
 
-                                                    // Status chip
                                                     if (col.id === 'isActive') {
-                                                        const style = STATUS_STYLE[String(row.isActive)] ?? { bgColor: 'rgba(107,114,128,0.15)', label: '-', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip
-                                                                        label={`${style.dot} ${style.label}`}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            fontWeight: 500,
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 90,
-                                                                            height: '26px',
-                                                                            bgcolor: style.bgColor,
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-                                                                        }}
-                                                                    />
+                                                                    <StatusBadge status={row.isActive} dot="•" variant="dot" />
                                                                 </Box>
                                                             </TableCell>
                                                         );
                                                     }
 
                                                     // Default text columns
+                                                    // Format createdDate if present
+                                                    if (col.id === 'createdDate') {
+                                                        const dateValue = row.createdDate;
+                                                        const displayValue = dateValue ? formatDateOnlyUtc(dateValue) : '';
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                title={displayValue}
+                                                            >
+                                                                {displayValue}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
                                                     return (
                                                         <TableCell
                                                             key={col.id}

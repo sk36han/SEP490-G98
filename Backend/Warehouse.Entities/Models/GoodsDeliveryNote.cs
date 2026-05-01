@@ -27,11 +27,23 @@ public partial class GoodsDeliveryNote
 
     public string? Note { get; set; }
 
+    public decimal ShippingFee { get; set; }
+
+    public bool IsPaid { get; set; }
+
+    public string? PaymentMethod { get; set; }
+
+    public decimal TotalDeliveredQty { get; set; }
+
+    public decimal TotalDeliveredAmount { get; set; }
+
     public virtual User CreatedByNavigation { get; set; } = null!;
 
     public virtual ICollection<GoodsDeliveryNoteLine> GoodsDeliveryNoteLines { get; set; } = new List<GoodsDeliveryNoteLine>();
 
     public virtual ReleaseRequest ReleaseRequest { get; set; } = null!;
+
+    public virtual TransportInfo? TransportInfo { get; set; }
 
     public virtual Warehouse Warehouse { get; set; } = null!;
 }

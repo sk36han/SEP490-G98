@@ -3,20 +3,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
     public class ApprovalService : IApprovalService
     {
         private readonly Mkiwms5Context _context;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
-        public ApprovalService(Mkiwms5Context context)
+        public ApprovalService(Mkiwms5Context context, IServiceProvider serviceProvider)
         {
             _context = context;
+            _serviceProvider = serviceProvider;
+            _notificationService = serviceProvider.GetRequiredService<INotificationService>();
+            _auditLogService = serviceProvider.GetRequiredService<IAuditLogService>();
         }
 
         public async Task<PagedResult<ApprovalQueueResponse>> GetPendingApprovalsAsync(ApprovalQueueFilterRequest filter)
@@ -140,7 +148,7 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<ApprovalResult> ApproveRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
         {
-            return await ProcessDecisionAsync(requestType, requestId, currentUserId, "APPROVED", null);
+            return await ProcessDecisionAsync(requestType, requestId, currentUserId, "APPROVED", reason);
         }
 
         public async Task<ApprovalResult> RejectRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
@@ -152,6 +160,9 @@ namespace Warehouse.DataAcces.Service
         {
             if (string.IsNullOrWhiteSpace(requestType))
                 return ApprovalResult.Failed("Loại yêu cầu (RequestType) không được để trống.");
+
+            if (decision == "REJECTED" && string.IsNullOrWhiteSpace(reason))
+                return ApprovalResult.Failed("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
 
             bool IsPending(string status) =>
                 !string.IsNullOrEmpty(status) &&
@@ -180,19 +191,26 @@ namespace Warehouse.DataAcces.Service
                     break;
 
                 case "release":
-                    var release = await _context.ReleaseRequests.FindAsync(requestId);
-                    if (release != null)
+                    // Delegate to ReleaseRequestService for full business logic (2-stage, inventory)
+                    try
                     {
-                        found = true;
-                        currentStatus = release.Status ?? "NULL";
-                        if (IsPending(release.Status))
+                        var rrService = _serviceProvider.GetRequiredService<IReleaseRequestService>();
+                        var rrApproveRequest = new ApproveReleaseRequest
                         {
-                            release.Status = decision;
-                            docType = "GIR";
-                        }
+                            IsApproved = decision == "APPROVED",
+                            Reason = reason
+                        };
+                        await rrService.ApproveReleaseRequestAsync(requestId, currentUserId, rrApproveRequest);
+                        return ApprovalResult.Succeeded($"Thực hiện thành công: Đã xử lý yêu cầu xuất kho.");
                     }
-                    else return ApprovalResult.Failed($"Không tìm thấy đơn ReleaseRequest với ID {requestId}.", 404);
-                    break;
+                    catch (KeyNotFoundException ex)
+                    {
+                        return ApprovalResult.Failed(ex.Message, 404);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return ApprovalResult.Failed(ex.Message, 400);
+                    }
 
                 case "goodsreceipt":
                     var grn = await _context.GoodsReceiptNotes.FindAsync(requestId);
@@ -210,19 +228,7 @@ namespace Warehouse.DataAcces.Service
                     break;
 
                 case "goodsdelivery":
-                    var gdn = await _context.GoodsDeliveryNotes.FindAsync(requestId);
-                    if (gdn != null)
-                    {
-                        found = true;
-                        currentStatus = gdn.Status ?? "NULL";
-                        if (IsPending(gdn.Status))
-                        {
-                            gdn.Status = decision;
-                            docType = "GDN";
-                        }
-                    }
-                    else return ApprovalResult.Failed($"Không tìm thấy đơn GoodsDeliveryNote với ID {requestId}.", 404);
-                    break;
+                    return ApprovalResult.Failed("Phiếu xuất kho (GDN) không còn yêu cầu phê duyệt trong quy trình mới.", 400);
 
                 case "inventoryadjustment":
                     var adjustment = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
@@ -267,11 +273,105 @@ namespace Warehouse.DataAcces.Service
                     Decision = dbDecision,
                     Reason = reason,
                     ActionBy = currentUserId,
-                    ActionAt = DateTime.UtcNow
+                    ActionAt = DateTime.UtcNow,
                 };
 
                 _context.DocumentApprovals.Add(log);
                 await _context.SaveChangesAsync();
+
+                // Lưu AuditLog
+                string auditAction = decision == "APPROVED" ? AuditAction.Approve : AuditAction.Reject;
+                string auditEntity = normalizedType switch
+                {
+                    "purchaseorder" => AuditEntity.PurchaseOrder,
+                    "release" => AuditEntity.ReleaseRequest,
+                    "goodsdelivery" => AuditEntity.GoodsDeliveryNote,
+                    "stocktake" => AuditEntity.Stocktake,
+                    _ => normalizedType.ToUpper()
+                };
+
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    auditAction,
+                    auditEntity,
+                    requestId,
+                    $"{auditAction} yêu cầu {requestType} ID: {requestId}. {(!string.IsNullOrEmpty(reason) ? $"Lý do: {reason}" : "")}"
+                );
+
+                // Gửi thông báo cho người tạo đơn (trừ Release và GoodsDelivery đã được xử lý ở Service riêng)
+                if (normalizedType != "release" && normalizedType != "goodsdelivery")
+                {
+                    long? requesterId = null;
+                    string code = "";
+                    string displayType = "";
+                    PurchaseOrder? purchaseOrderForNotify = null;
+
+                    if (normalizedType == "purchaseorder")
+                    {
+                        purchaseOrderForNotify = await _context.PurchaseOrders.FindAsync(requestId);
+                        requesterId = purchaseOrderForNotify?.RequestedBy;
+                        code = purchaseOrderForNotify?.Pocode ?? "";
+                        displayType = "Đơn mua hàng";
+                    }
+                    else if (normalizedType == "goodsreceipt")
+                    {
+                        var grn = await _context.GoodsReceiptNotes.FindAsync(requestId);
+                        requesterId = grn?.CreatedBy;
+                        code = grn?.Grncode ?? "";
+                        displayType = "Phiếu nhập kho";
+                    }
+                    else if (normalizedType == "inventoryadjustment")
+                    {
+                        var adj = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
+                        requesterId = adj?.SubmittedBy;
+                        code = adj?.AdjustmentCode ?? "";
+                        displayType = "Phiếu kiểm kê/điều chỉnh";
+                    }
+
+                    if (requesterId.HasValue)
+                    {
+                        string statusText = decision == "APPROVED" ? "ĐƯỢC DUYỆT" : "BỊ TỪ CHỐI";
+                        string reasonText = string.IsNullOrEmpty(reason) ? "" : $". Lý do: {reason}";
+                        
+                        await _notificationService.CreateAsync(
+                            requesterId.Value,
+                            $"{displayType} {code} {statusText}",
+                            $"Đơn {code} của bạn đã {statusText.ToLower()}{reasonText}.",
+                            requestType,
+                            requestId,
+                            NotificationTypes.ApprovalResult,
+                            (byte)(decision == "APPROVED" ? NotificationSeverity.Warning : NotificationSeverity.Error)
+                        );
+                    }
+
+                    // Khi KT duyệt PO thì phát thêm thông báo cho Sale Support để theo dõi xử lý tiếp.
+                    if (normalizedType == "purchaseorder" && decision == "APPROVED")
+                    {
+                        var approverRoleCodes = await _context.UserRoles
+                            .Include(ur => ur.Role)
+                            .Where(ur => ur.UserId == currentUserId)
+                            .Select(ur => ur.Role.RoleCode)
+                            .ToListAsync();
+
+                        var approvedByAccountant = approverRoleCodes
+                            .Any(rc => string.Equals(rc, UserRoleConstants.Accountant, StringComparison.OrdinalIgnoreCase));
+
+                        if (approvedByAccountant)
+                        {
+                            await _notificationService.CreateForRolesAsync(
+                                new[] { UserRoleConstants.SaleSupport },
+                                "Đơn mua hàng đã được Kế toán duyệt",
+                                $"Đơn mua hàng {code} đã được Kế toán duyệt. Vui lòng theo dõi và xử lý bước tiếp theo.",
+                                "PurchaseOrder",
+                                requestId,
+                                null,
+                                NotificationTypes.StatusChange,
+                                (byte)NotificationSeverity.Info
+                            );
+                        }
+                    }
+                }
+
                 return ApprovalResult.Succeeded($"Thực hiện thành công: Đã chuyển trạng thái đơn {requestType} sang '{decision}'.");
             }
             catch (Exception ex)
@@ -430,8 +530,10 @@ namespace Warehouse.DataAcces.Service
                 var adjustment = await _context.InventoryAdjustmentRequests
                     .Include(x => x.SubmittedByNavigation)
                     .Include(x => x.Warehouse)
+                    .Include(x => x.Stocktake)
                     .Include(x => x.InventoryAdjustmentLines)
                         .ThenInclude(l => l.Item)
+                            .ThenInclude(i => i.BaseUom)
                     .FirstOrDefaultAsync(x => x.AdjustmentId == requestId);
 
                 if (adjustment == null) return null;
@@ -440,15 +542,21 @@ namespace Warehouse.DataAcces.Service
                 {
                     adjustment.AdjustmentId,
                     adjustment.AdjustmentCode,
+                    StocktakeCode = adjustment.Stocktake?.StocktakeCode,
                     SubmittedBy = adjustment.SubmittedByNavigation?.FullName,
                     WarehouseName = adjustment.Warehouse?.WarehouseName,
+                    WarehouseCode = adjustment.Warehouse?.WarehouseCode,
                     adjustment.Status,
                     adjustment.Reason,
+                    adjustment.SubmittedAt,
+                    adjustment.ApprovedAt,
+                    adjustment.PostedAt,
                     Lines = adjustment.InventoryAdjustmentLines.Select(l => new
                     {
                         l.AdjustmentLineId,
                         ItemCode = l.Item?.ItemCode,
                         ItemName = l.Item?.ItemName,
+                        UomName = l.Item?.BaseUom?.UomName,
                         l.SystemQty,
                         l.CountedQty,
                         l.QtyChange,

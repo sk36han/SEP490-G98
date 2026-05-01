@@ -25,9 +25,27 @@ public partial class ReleaseRequest
 
     public DateTime? SubmittedAt { get; set; }
 
+    public DateOnly? ExpectedDate { get; set; }
+
+    public string LifecycleStatus { get; set; } = null!;
+
+    public bool IsPartialDeliveryAllowed { get; set; }
+
+    public bool IsQuotationFlow { get; set; }
+
+    public string? QuotationStatus { get; set; }
+
+    public DateTime? QuotationSentAt { get; set; }
+
+    public DateTime? QuotationConfirmedAt { get; set; }
+
+    public int QuotationVersion { get; set; }
+
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
 
     public virtual Receiver Receiver { get; set; } = null!;
+
+    public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
 
     public virtual ICollection<ReleaseRequestLine> ReleaseRequestLines { get; set; } = new List<ReleaseRequestLine>();
 

@@ -1,21 +1,34 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
     public class PurchaseOrderService : IPurchaseOrderService
     {
         private readonly Mkiwms5Context _context;
+        private readonly IAuditLogService _auditLogService;
+        private readonly INotificationService _notificationService;
+        private readonly IDocumentAttachmentService _documentAttachmentService;
 
-        public PurchaseOrderService(Mkiwms5Context context)
+        public PurchaseOrderService(
+            Mkiwms5Context context,
+            IAuditLogService auditLogService,
+            INotificationService notificationService,
+            IDocumentAttachmentService documentAttachmentService)
         {
             _context = context;
+            _auditLogService = auditLogService;
+            _notificationService = notificationService;
+            _documentAttachmentService = documentAttachmentService;
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
@@ -81,6 +94,9 @@ namespace Warehouse.DataAcces.Service
                 .Include(po => po.ResponsibleUser)
                 .Include(po => po.PurchaseOrderLines)
                     .ThenInclude(line => line.Item)
+                        .ThenInclude(item => item.BaseUom)
+                .Include(po => po.PurchaseOrderLines)
+                    .ThenInclude(line => line.Uom)
                 .FirstOrDefaultAsync(po => po.PurchaseOrderId == id);
 
             if (po == null)
@@ -89,6 +105,22 @@ namespace Warehouse.DataAcces.Service
             }
 
             var totalOrderedQty = po.PurchaseOrderLines.Sum(line => line.OrderedQty);
+            var attachments = await _context.DocumentAttachments
+                .Where(x => x.DocType == "PR" && x.DocId == id)
+                .OrderByDescending(x => x.UploadedAt)
+                .ToListAsync();
+
+            var quotationFileUrl = attachments
+                .FirstOrDefault(x =>
+                    x.AttachmentType == "QUOTATION" ||
+                    x.AttachmentType == "GENERAL")
+                ?.FileUrlOrPath;
+
+            var contractAppendixFileUrl = attachments
+                .FirstOrDefault(x =>
+                    x.AttachmentType == "CONTRACT_APPENDIX" ||
+                    x.AttachmentType == "OTHER")
+                ?.FileUrlOrPath;
 
             return new PurchaseOrderDetailResponse
             {
@@ -115,6 +147,8 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = po.CreatedAt,
                 SubmittedAt = po.SubmittedAt,
                 UpdatedAt = po.UpdatedAt,
+                QuotationFileUrl = quotationFileUrl,
+                ContractAppendixFileUrl = contractAppendixFileUrl,
                 Lines = po.PurchaseOrderLines.Select(line => new PurchaseOrderLineResponse
                 {
                     PurchaseOrderLineId = line.PurchaseOrderLineId,
@@ -122,6 +156,7 @@ namespace Warehouse.DataAcces.Service
                     ItemCode = line.Item?.ItemCode,
                     ItemName = line.Item?.ItemName,
                     UomId = line.UomId,
+                    UomName = line.Uom != null ? line.Uom.UomName : line.Item?.BaseUom?.UomName,
                     OrderedQty = line.OrderedQty,
                     ReceivedQty = line.ReceivedQty,
                     UnitPrice = line.UnitPrice ?? 0,
@@ -182,8 +217,15 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy người tạo đơn.");
             }
 
+            // Validate ExpectedDeliveryDate
+            if (request.ExpectedDeliveryDate.HasValue && request.ExpectedDeliveryDate.Value < DateOnly.FromDateTime(DateTime.Today))
+            {
+                throw new InvalidOperationException("Ngày giao hàng dự kiến không được trong quá khứ.");
+            }
+
             var itemIds = request.Lines.Select(x => x.ItemId).Distinct().ToList();
             var items = await _context.Items
+                .Include(i => i.BaseUom)
                 .Where(i => itemIds.Contains(i.ItemId))
                 .ToDictionaryAsync(i => i.ItemId, i => i);
 
@@ -209,12 +251,12 @@ namespace Warehouse.DataAcces.Service
             var po = new PurchaseOrder
             {
                 Pocode = poCode,
-                RequestedBy = requestedByUserId,
-                SupplierId = request.SupplierId,
+                    RequestedBy = requestedByUserId,
+                    SupplierId = request.SupplierId,
                 RequestedDate = DateOnly.FromDateTime(now),
-                Justification = request.Justification,
+                    Justification = request.Justification,
                 // Sử dụng Status từ request, nếu null thì để database tự set default
-        Status = request.Status,
+                   Status = request.Status ?? "PENDING",
                 CurrentStageNo = 1,
                 CreatedAt = now,
                 SubmittedAt = now,
@@ -270,17 +312,27 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             // Ghi audit log khi tạo PO
-            var auditLog = new AuditLog
+            await _auditLogService.LogAsync(
+                requestedByUserId,
+                AuditAction.Create,
+                AuditEntity.PurchaseOrder,
+                po.PurchaseOrderId,
+                $"Tạo đơn mua hàng {po.Pocode}");
+
+            // Gửi thông báo cho nhóm duyệt khi đơn ở trạng thái chờ duyệt.
+            // Đơn mua cần thông báo cho Sale Support.
+            if (po.Status == "PENDING")
             {
-                ActorUserId = requestedByUserId,
-                Action = "CREATE",
-                EntityType = "PurchaseOrder",
-                EntityId = po.PurchaseOrderId,
-                Detail = $"Tạo đơn mua hàng {po.Pocode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
-            await _context.SaveChangesAsync();
+                await _notificationService.CreateForRolesAsync(
+                    new[] { UserRoleConstants.Admin, UserRoleConstants.Director, UserRoleConstants.SaleSupport },
+                    "Đơn mua hàng mới cần duyệt",
+                    $"Đơn mua hàng {po.Pocode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt.",
+                    "PurchaseOrder",
+                    po.PurchaseOrderId,
+                    requestedByUserId,
+                    NotificationTypes.NewRequest
+                );
+            }
 
             return new PurchaseOrderDetailResponse
             {
@@ -313,6 +365,7 @@ namespace Warehouse.DataAcces.Service
                     ItemCode = items[x.ItemId].ItemCode,
                     ItemName = items[x.ItemId].ItemName,
                     UomId = x.UomId,
+                    UomName = items[x.ItemId].BaseUom?.UomName,
                     OrderedQty = x.OrderedQty,
                     ReceivedQty = x.ReceivedQty,
                     UnitPrice = x.UnitPrice ?? 0,
@@ -327,6 +380,164 @@ namespace Warehouse.DataAcces.Service
         public Task<bool> CancelPurchaseOrderAsync(long id)
         {
             throw new NotImplementedException();
+        }
+
+        public async Task<PurchaseOrderDetailResponse> UpdatePurchaseOrderAsync(long poId, long userId, UpdatePurchaseOrderRequest request)
+        {
+            // Lấy PO cùng với lines
+            var po = await _context.PurchaseOrders
+                .Include(p => p.PurchaseOrderLines)
+                .FirstOrDefaultAsync(p => p.PurchaseOrderId == poId);
+
+            if (po == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy đơn mua hàng.");
+            }
+
+            // Chỉ cho sửa khi PO còn ở trạng thái chờ duyệt
+            var pendingStatuses = new[] { "PENDING", "DRAFT", "PENDING_DIR", "PENDING_ACC" };
+            if (!pendingStatuses.Contains(po.Status))
+            {
+                throw new InvalidOperationException("Chỉ có thể sửa đơn mua hàng đang ở trạng thái chờ duyệt.");
+            }
+
+            // Kiểm tra không cho sửa nếu đã có GRN
+            var hasGrn = await _context.GoodsReceiptNotes
+                .AnyAsync(g => g.PurchaseOrderId == poId && g.Status == "POSTED");
+            if (hasGrn)
+            {
+                throw new InvalidOperationException("Không thể sửa đơn mua hàng đã có đơn nhập kho.");
+            }
+
+            // Cập nhật thông tin chung (chỉ khi có giá trị)
+            if (request.SupplierId.HasValue)
+            {
+                po.SupplierId = request.SupplierId.Value;
+            }
+
+            if (request.WarehouseId.HasValue)
+            {
+                po.WarehouseId = request.WarehouseId.Value;
+            }
+
+            if (request.ExpectedDeliveryDate.HasValue)
+            {
+                po.ExpectedDeliveryDate = request.ExpectedDeliveryDate;
+            }
+
+            if (request.Justification != null)
+            {
+                po.Justification = request.Justification;
+            }
+
+            if (request.ResponsibleUserId.HasValue)
+            {
+                po.ResponsibleUserId = request.ResponsibleUserId.Value;
+            }
+
+            if (request.DiscountAmount.HasValue)
+            {
+                po.DiscountAmount = request.DiscountAmount.Value;
+            }
+
+            // Cập nhật lines nếu có
+            if (request.Lines != null && request.Lines.Any())
+            {
+                foreach (var lineRequest in request.Lines)
+                {
+                    var line = po.PurchaseOrderLines.FirstOrDefault(l => l.PurchaseOrderLineId == lineRequest.LineId);
+                    if (line == null)
+                    {
+                        throw new KeyNotFoundException($"Không tìm thấy dòng đơn với ID = {lineRequest.LineId}");
+                    }
+
+                    line.OrderedQty = lineRequest.OrderedQty;
+                    line.UnitPrice = lineRequest.UnitPrice;
+                    line.LineTotal = lineRequest.OrderedQty * lineRequest.UnitPrice;
+                    line.Note = lineRequest.Note;
+                }
+            }
+
+            // Tính lại TotalAmount và NetAmount
+            po.TotalAmount = po.PurchaseOrderLines.Sum(l => l.LineTotal ?? 0);
+            po.NetAmount = po.TotalAmount - po.DiscountAmount;
+            if (po.NetAmount < 0) po.NetAmount = 0;
+
+            po.UpdatedAt = DateTime.UtcNow;
+
+            // Audit log
+            await _auditLogService.LogAsync(
+                userId,
+                AuditAction.Update,
+                AuditEntity.PurchaseOrder,
+                po.PurchaseOrderId,
+                $"Cập nhật đơn mua hàng {po.Pocode}");
+
+            await _context.SaveChangesAsync();
+
+            return await GetPurchaseOrderByIdAsync(poId) ?? throw new Exception("Lỗi khi lấy thông tin PO");
+        }
+
+        public async Task<PurchaseOrderAttachmentUploadResponse> UploadPurchaseOrderAttachmentsAsync(
+            long purchaseOrderId,
+            long currentUserId,
+            IFormFile? quotationFile,
+            IFormFile? contractAppendixFile)
+        {
+            var po = await GetPurchaseOrderByIdAsync(purchaseOrderId);
+            if (po == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy đơn mua hàng.");
+            }
+
+            if (quotationFile == null && contractAppendixFile == null)
+            {
+                throw new InvalidOperationException("Vui lòng chọn ít nhất 1 tệp để tải lên.");
+            }
+
+            if (string.Equals(po.Status, "PENDING_ACC", StringComparison.OrdinalIgnoreCase)
+                && (quotationFile == null || contractAppendixFile == null))
+            {
+                throw new InvalidOperationException("Đơn gửi duyệt bắt buộc phải có đủ File báo giá và Hợp đồng nguyên tắc.");
+            }
+
+            string? quotationFileUrl = null;
+            string? contractAppendixFileUrl = null;
+
+            if (quotationFile != null)
+            {
+                quotationFileUrl = await _documentAttachmentService.UploadAttachmentAsync(
+                    "PR",
+                    purchaseOrderId,
+                    quotationFile,
+                    currentUserId,
+                    "QUOTATION");
+            }
+
+            if (contractAppendixFile != null)
+            {
+                contractAppendixFileUrl = await _documentAttachmentService.UploadAttachmentAsync(
+                    "PR",
+                    purchaseOrderId,
+                    contractAppendixFile,
+                    currentUserId,
+                    "CONTRACT_APPENDIX");
+            }
+
+            var uploadedFlags = $"quotation={(quotationFile != null ? "yes" : "no")}, contractAppendix={(contractAppendixFile != null ? "yes" : "no")}";
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.PurchaseOrder,
+                purchaseOrderId,
+                $"Tải tệp đính kèm cho đơn mua hàng {po.POCode}: {uploadedFlags}");
+
+            return new PurchaseOrderAttachmentUploadResponse
+            {
+                Message = "Tải tệp đính kèm thành công.",
+                QuotationFileUrl = quotationFileUrl,
+                ContractAppendixFileUrl = contractAppendixFileUrl
+            };
         }
 
         private async Task<string> GenerateNextPoCodeAsync()
@@ -350,7 +561,5 @@ namespace Warehouse.DataAcces.Service
 
             return $"PO{maxNumber + 1}";
         }
-
-       
     }
 }

@@ -1,14 +1,6 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import {
-    Box,
-    Paper,
-    Typography,
-    TextField,
-    Button,
-    IconButton,
-    Autocomplete,
-} from '@mui/material';
-import { X } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Box, Typography, TextField, Autocomplete } from '@mui/material';
+import { ListFilterPopupShell, LIST_FILTER_INPUT_SX, LIST_FILTER_LABEL_SX } from './listFilterPopup';
 
 const STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
@@ -16,10 +8,6 @@ const STATUS_OPTIONS = [
     { value: 'false', label: 'Ngưng' },
 ];
 
-/**
- * Popup bộ lọc người nhận – nhỏ gọn, draggable, dùng chung layout với SupplierFilterPopup.
- * UI only (lọc trên dữ liệu đã tải).
- */
 export default function ReceiverFilterPopup({ open, onClose, initialValues = {}, onApply }) {
     const [receiverCode, setReceiverCode] = useState('');
     const [receiverName, setReceiverName] = useState('');
@@ -32,9 +20,6 @@ export default function ReceiverFilterPopup({ open, onClose, initialValues = {},
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
 
-    const boxRef = useRef(null);
-    const dragRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
-
     useEffect(() => {
         if (!open) return;
         setReceiverCode(initialValues.receiverCode ?? '');
@@ -46,9 +31,7 @@ export default function ReceiverFilterPopup({ open, onClose, initialValues = {},
         setCountry(initialValues.country ?? '');
         const isActive = initialValues.isActive;
         setStatusOption(
-            isActive === true ? STATUS_OPTIONS[1]
-                : isActive === false ? STATUS_OPTIONS[2]
-                    : STATUS_OPTIONS[0]
+            isActive === true ? STATUS_OPTIONS[1] : isActive === false ? STATUS_OPTIONS[2] : STATUS_OPTIONS[0]
         );
         setFromDate(initialValues.fromDate ?? '');
         setToDate(initialValues.toDate ?? '');
@@ -58,16 +41,16 @@ export default function ReceiverFilterPopup({ open, onClose, initialValues = {},
         initialValues.receiverName,
         initialValues.phone,
         initialValues.email,
+        initialValues.ward,
+        initialValues.province,
+        initialValues.country,
         initialValues.isActive,
         initialValues.fromDate,
         initialValues.toDate,
     ]);
 
     const handleApply = useCallback(() => {
-        const isActive =
-            statusOption.value === ''
-                ? null
-                : statusOption.value === 'true';
+        const isActive = statusOption.value === '' ? null : statusOption.value === 'true';
         onApply({
             receiverCode: receiverCode.trim() || undefined,
             receiverName: receiverName.trim() || undefined,
@@ -81,7 +64,7 @@ export default function ReceiverFilterPopup({ open, onClose, initialValues = {},
             toDate: toDate || undefined,
         });
         onClose();
-    }, [receiverCode, receiverName, phone, email, statusOption, fromDate, toDate, onApply, onClose]);
+    }, [receiverCode, receiverName, phone, email, ward, province, country, statusOption, fromDate, toDate, onApply, onClose]);
 
     const handleClear = useCallback(() => {
         setReceiverCode('');
@@ -109,142 +92,103 @@ export default function ReceiverFilterPopup({ open, onClose, initialValues = {},
         onClose();
     }, [onApply, onClose]);
 
-    const handleMouseDown = useCallback((e) => {
-        if (!boxRef.current) return;
-        const rect = boxRef.current.getBoundingClientRect();
-        dragRef.current = { x: rect.left, y: rect.top, startX: e.clientX, startY: e.clientY };
-        const onMouseMove = (ev) => {
-            const dx = ev.clientX - dragRef.current.startX;
-            const dy = ev.clientY - dragRef.current.startY;
-            dragRef.current.x += dx;
-            dragRef.current.y += dy;
-            dragRef.current.startX = ev.clientX;
-            dragRef.current.startY = ev.clientY;
-            boxRef.current.style.left = `${dragRef.current.x}px`;
-            boxRef.current.style.top = `${dragRef.current.y}px`;
-        };
-        const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        };
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-    }, []);
-
-    if (!open) return null;
-
-    const compactSx = {
-        fontSize: '0.8125rem',
-        '& .MuiInputBase-input': { fontSize: '0.8125rem' },
-        '& .MuiInputLabel-root': { fontSize: '0.8125rem' },
-    };
-
     return (
-        <Paper
-            ref={boxRef}
-            elevation={8}
-            sx={{
-                position: 'fixed',
-                left: 280,
-                top: 120,
-                width: 260,
-                maxHeight: 'min(85vh, 420px)',
-                borderRadius: 2,
-                overflow: 'hidden',
-                zIndex: 1300,
-                display: 'flex',
-                flexDirection: 'column',
-            }}
-        >
-            <Box
-                onMouseDown={handleMouseDown}
-                sx={{
-                    cursor: 'move',
-                    px: 1,
-                    py: 0.5,
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    backgroundColor: 'grey.50',
-                }}
-            >
-                <Typography variant="caption" fontWeight={600} sx={{ fontSize: '0.75rem' }}>
-                    Bộ lọc người nhận
+        <ListFilterPopupShell open={open} onClose={onClose} onClear={handleClear} onApply={handleApply} title="Bộ lọc người nhận" width={360}>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Mã người nhận
                 </Typography>
-                <IconButton size="small" onClick={onClose} aria-label="Đóng" sx={{ p: 0.25 }}>
-                    <X size={16} />
-                </IconButton>
-            </Box>
-            <Box
-                sx={{
-                    p: 1.25,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1.5,
-                    overflowY: 'auto',
-                    flex: 1,
-                    minHeight: 0,
-                }}
-            >
                 <TextField
                     size="small"
-                    label="Mã người nhận"
                     value={receiverCode}
                     onChange={(e) => setReceiverCode(e.target.value)}
                     fullWidth
-                    sx={compactSx}
+                    placeholder="Mã người nhận"
+                    sx={LIST_FILTER_INPUT_SX}
                 />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Tên người nhận
+                </Typography>
                 <TextField
                     size="small"
-                    label="Tên người nhận"
                     value={receiverName}
                     onChange={(e) => setReceiverName(e.target.value)}
                     fullWidth
-                    sx={compactSx}
+                    placeholder="Tên người nhận"
+                    sx={LIST_FILTER_INPUT_SX}
                 />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Số điện thoại
+                </Typography>
                 <TextField
                     size="small"
-                    label="Số điện thoại"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     fullWidth
-                    sx={compactSx}
+                    placeholder="Số điện thoại"
+                    sx={LIST_FILTER_INPUT_SX}
                 />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Email
+                </Typography>
                 <TextField
                     size="small"
-                    label="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     fullWidth
-                    sx={compactSx}
+                    placeholder="Email"
+                    sx={LIST_FILTER_INPUT_SX}
                 />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Phường
+                </Typography>
                 <TextField
                     size="small"
-                    label="Phường"
                     value={ward}
                     onChange={(e) => setWard(e.target.value)}
                     fullWidth
-                    sx={compactSx}
+                    placeholder="Phường"
+                    sx={LIST_FILTER_INPUT_SX}
                 />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Tỉnh
+                </Typography>
                 <TextField
                     size="small"
-                    label="Tỉnh"
                     value={province}
                     onChange={(e) => setProvince(e.target.value)}
                     fullWidth
-                    sx={compactSx}
+                    placeholder="Tỉnh"
+                    sx={LIST_FILTER_INPUT_SX}
                 />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Quốc gia
+                </Typography>
                 <TextField
                     size="small"
-                    label="Quốc gia"
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                     fullWidth
-                    sx={compactSx}
+                    placeholder="Quốc gia"
+                    sx={LIST_FILTER_INPUT_SX}
                 />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Trạng thái
+                </Typography>
                 <Autocomplete
                     size="small"
                     options={STATUS_OPTIONS}
@@ -252,49 +196,41 @@ export default function ReceiverFilterPopup({ open, onClose, initialValues = {},
                     value={statusOption}
                     onChange={(_, v) => setStatusOption(v || STATUS_OPTIONS[0])}
                     isOptionEqualToValue={(a, b) => a.value === b.value}
-                    renderInput={(params) => <TextField {...params} label="Trạng thái" />}
-                    sx={compactSx}
+                    renderInput={(params) => (
+                        <TextField {...params} placeholder="Chọn trạng thái" sx={LIST_FILTER_INPUT_SX} />
+                    )}
                 />
-                <TextField
-                    size="small"
-                    label="Từ ngày tạo"
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    sx={compactSx}
-                />
-                <TextField
-                    size="small"
-                    label="Đến ngày tạo"
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    sx={compactSx}
-                />
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.25 }}>
-                    <Button
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <Box>
+                    <Typography variant="body2" sx={{ ...LIST_FILTER_LABEL_SX, mb: 0.5, fontSize: '11px' }}>
+                        Từ ngày tạo
+                    </Typography>
+                    <TextField
                         size="small"
-                        variant="contained"
-                        onClick={handleApply}
-                        sx={{ flex: 1, textTransform: 'none', fontSize: '0.8125rem', py: 0.5 }}
-                    >
-                        Áp dụng
-                    </Button>
-                    <Button
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        fullWidth
+                        sx={LIST_FILTER_INPUT_SX}
+                    />
+                </Box>
+                <Box>
+                    <Typography variant="body2" sx={{ ...LIST_FILTER_LABEL_SX, mb: 0.5, fontSize: '11px' }}>
+                        Đến ngày tạo
+                    </Typography>
+                    <TextField
                         size="small"
-                        variant="outlined"
-                        onClick={handleClear}
-                        sx={{ flex: 1, textTransform: 'none', fontSize: '0.8125rem', py: 0.5 }}
-                    >
-                        Xóa lọc
-                    </Button>
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        fullWidth
+                        sx={LIST_FILTER_INPUT_SX}
+                    />
                 </Box>
             </Box>
-        </Paper>
+        </ListFilterPopupShell>
     );
 }
-

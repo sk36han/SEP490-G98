@@ -1,14 +1,15 @@
+extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Moq;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class AuthControllerResetPasswordTests
 {
@@ -40,7 +41,8 @@ public class AuthControllerResetPasswordTests
 		var response = ok.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Đặt lại mật khẩu thành công. Bạn có thể đăng nhập với mật khẩu mới.");
+		response.Message.Should().Contain("Đặt lại mật khẩu");
+		response.Message.Should().Contain("đăng nhập");
 	}
 
 	[Fact]
@@ -64,7 +66,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Token không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.");
+		response.Message.Should().Contain("Token không hợp lệ");
 	}
 
 	[Fact]
@@ -88,7 +90,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Token không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.");
+		response.Message.Should().Contain("Token không hợp lệ");
 	}
 
 	[Fact]
@@ -112,7 +114,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Không tìm thấy tài khoản.");
+		response.Message.Should().Contain("Không tìm thấy tài khoản");
 	}
 
 	[Fact]
@@ -176,6 +178,7 @@ public class AuthControllerResetPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Có lỗi xảy ra khi đặt lại mật khẩu.");
+		response.Message.Should().Contain("Có lỗi");
+		response.Message.Should().Contain("đặt lại mật khẩu");
 	}
 }

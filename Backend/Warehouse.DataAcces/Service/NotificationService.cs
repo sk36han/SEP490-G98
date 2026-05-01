@@ -13,8 +13,11 @@ namespace Warehouse.DataAcces.Service
 {
 	public class NotificationService : GenericRepository<Notification>, INotificationService
 	{
-		public NotificationService(Mkiwms5Context context) : base(context)
+		private readonly IClientNotificationService _clientNotificationService;
+
+		public NotificationService(Mkiwms5Context context, IClientNotificationService clientNotificationService) : base(context)
 		{
+			_clientNotificationService = clientNotificationService;
 		}
 
 		public async Task CreateAsync(long userId, string title, string message, string? refType = null, long? refId = null, string? type = null, byte severity = 0, DateTime? expiresAt = null)
@@ -36,13 +39,35 @@ namespace Warehouse.DataAcces.Service
 
 			_context.Notifications.Add(notification);
 			await _context.SaveChangesAsync();
+
+			var response = new NotificationResponse
+			{
+				NotificationId = notification.NotificationId,
+				Title = notification.Title,
+				Message = notification.Message,
+				RefType = notification.RefType,
+				RefId = notification.RefId,
+				IsRead = notification.IsRead,
+				CreatedAt = notification.CreatedAt,
+				Type = notification.Type,
+				Severity = notification.Severity,
+				IsDeleted = notification.IsDeleted,
+				ExpiresAt = notification.ExpiresAt
+			};
+
+			await _clientNotificationService.SendNotificationAsync(userId, response);
+
+			// Push unread count
+			var unreadCount = await GetUnreadCountAsync(userId);
+			await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 		}
 
 		public async Task<PagedResponse<NotificationResponse>> GetByUserAsync(long userId, NotificationFilterRequest filter)
 		{
+			var now = DateTime.UtcNow;
 			var query = _context.Notifications
 				.AsNoTracking()
-				.Where(x => x.UserId == userId && !x.IsDeleted);
+				.Where(x => x.UserId == userId && !x.IsDeleted && (x.ExpiresAt == null || x.ExpiresAt > now));
 
 			// === Filter ===
 			if (!string.IsNullOrWhiteSpace(filter.Type))
@@ -73,6 +98,8 @@ namespace Warehouse.DataAcces.Service
 					NotificationId = x.NotificationId,
 					Title = x.Title,
 					Message = x.Message,
+					RefType = x.RefType,
+					RefId = x.RefId,
 					IsRead = x.IsRead,
 					CreatedAt = x.CreatedAt,
 					Type = x.Type,
@@ -93,8 +120,9 @@ namespace Warehouse.DataAcces.Service
 
 		public async Task<int> GetUnreadCountAsync(long userId)
 		{
+			var now = DateTime.UtcNow;
 			return await _context.Notifications
-				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted);
+				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted && (x.ExpiresAt == null || x.ExpiresAt > now));
 		}
 
 		public async Task MarkAsReadAsync(long notificationId, long userId)
@@ -112,6 +140,9 @@ namespace Warehouse.DataAcces.Service
 				noti.IsRead = true;
 				noti.ReadAt = DateTime.UtcNow;
 				await _context.SaveChangesAsync();
+
+				var unreadCount = await GetUnreadCountAsync(userId);
+				await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 			}
 		}
 
@@ -128,6 +159,9 @@ namespace Warehouse.DataAcces.Service
 			}
 
 			await _context.SaveChangesAsync();
+
+			var unreadCount = await GetUnreadCountAsync(userId);
+			await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 		}
 
 		public async Task CreateForRolesAsync(IEnumerable<string> roleCodes, string title, string message, string? refType = null, long? refId = null, long? excludeUserId = null, string? type = null, byte severity = 0, DateTime? expiresAt = null)
@@ -149,9 +183,11 @@ namespace Warehouse.DataAcces.Service
 			if (!userIds.Any()) return;
 
 			var now = DateTime.UtcNow;
+			var notifications = new List<Notification>();
+
 			foreach (var userId in userIds)
 			{
-				_context.Notifications.Add(new Notification
+				var noti = new Notification
 				{
 					UserId = userId,
 					Title = title,
@@ -164,10 +200,35 @@ namespace Warehouse.DataAcces.Service
 					Severity = severity,
 					IsDeleted = false,
 					ExpiresAt = expiresAt
-				});
+				};
+				notifications.Add(noti);
+				_context.Notifications.Add(noti);
 			}
 
 			await _context.SaveChangesAsync();
+
+			foreach (var noti in notifications)
+			{
+				var response = new NotificationResponse
+				{
+					NotificationId = noti.NotificationId,
+					Title = noti.Title,
+					Message = noti.Message,
+					RefType = noti.RefType,
+					RefId = noti.RefId,
+					IsRead = noti.IsRead,
+					CreatedAt = noti.CreatedAt,
+					Type = noti.Type,
+					Severity = noti.Severity,
+					IsDeleted = noti.IsDeleted,
+					ExpiresAt = noti.ExpiresAt
+				};
+				await _clientNotificationService.SendNotificationAsync(noti.UserId, response);
+
+				// Push unread count
+				var unreadCount = await GetUnreadCountAsync(noti.UserId);
+				await _clientNotificationService.SendUnreadCountAsync(noti.UserId, unreadCount);
+			}
 		}
 
 	

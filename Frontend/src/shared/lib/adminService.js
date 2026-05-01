@@ -24,7 +24,8 @@ const adminService = {
             const body = response.data;
             const paged = body?.data ?? body;
             const list = paged?.items ?? paged?.Items ?? [];
-            return { data: { ...paged, items: list }, raw: body };
+            const normalizedList = list.map(u => ({ ...u, userId: u.userId ?? u.id ?? u.UserId ?? u.Id }));
+            return { data: { ...paged, items: normalizedList }, raw: body };
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Không thể tải danh sách người dùng');
         }

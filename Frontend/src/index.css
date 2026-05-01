@@ -29,18 +29,18 @@
         'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
         sans-serif;
     --font-size-xs: 12px;
-    --font-size-sm: 13px;
-    --font-size-base: 15px;
-    --font-size-md: 16px;
-    --font-size-lg: 18px;
-    --font-size-xl: 20px;
+    --font-size-sm: 12px;
+    --font-size-base: 14px;
+    --font-size-md: 15px;
+    --font-size-lg: 17px;
+    --font-size-xl: 18px;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
-    --spacing-sm: 8px;
-    --spacing-md: 16px;
-    --spacing-lg: 24px;
-    --spacing-xl: 32px;
-    --spacing-2xl: 40px;
+    --spacing-sm: 6px;
+    --spacing-md: 14px;
+    --spacing-lg: 20px;
+    --spacing-xl: 28px;
+    --spacing-2xl: 36px;
     --border-radius: 8px;
     --transition-normal: 0.2s ease;
     --line-height-normal: 1.5;
@@ -53,8 +53,16 @@
     box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+    height: 100%;
+}
+
 body {
     font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-color: var(--slate-50);

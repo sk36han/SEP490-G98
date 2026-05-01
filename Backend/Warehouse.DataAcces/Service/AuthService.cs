@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
@@ -22,11 +23,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly IConfiguration _configuration;
         private readonly IMemoryCache _cache;
+        private readonly IAuditLogService _auditLogService;
 
-        public AuthService(Mkiwms5Context context, IConfiguration configuration, IMemoryCache cache) : base(context)
+        public AuthService(Mkiwms5Context context, IConfiguration configuration, IMemoryCache cache, IAuditLogService auditLogService) : base(context)
         {
             _configuration = configuration;
             _cache = cache;
+            _auditLogService = auditLogService;
         }
 
         public async Task<User?> ValidateLoginAsync(string identifier, string password)
@@ -39,20 +42,46 @@ namespace Warehouse.DataAcces.Service
             var normalizedIdentifier = identifier.Trim();
 
             var user = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .ThenInclude(ur => ur!.Role)
                 .FirstOrDefaultAsync(u => u.Email == normalizedIdentifier || u.Username == normalizedIdentifier);
 
             if (user == null || !user.IsActive)
             {
+                // Log failed login - user not found or inactive
+                if (user != null)
+                {
+                    await _auditLogService.LogAsync(
+                        user.UserId,
+                        AuditAction.LoginFailed,
+                        AuditEntity.User,
+                        user.UserId,
+                        "Đăng nhập thất bại: tài khoản bị vô hiệu hóa");
+                }
                 return null;
             }
 
             if (!VerifyPasswordHash(password, user.PasswordHash))
             {
+                await _auditLogService.LogAsync(
+                    user.UserId,
+                    AuditAction.LoginFailed,
+                    AuditEntity.User,
+                    user.UserId,
+                    "Đăng nhập thất bại: sai mật khẩu");
                 return null;
             }
 
             user.LastLoginAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            // Log successful login
+            await _auditLogService.LogAsync(
+                user.UserId,
+                AuditAction.Login,
+                AuditEntity.User,
+                user.UserId,
+                $"Đăng nhập thành công từ {user.Email}");
 
             return user;
         }
@@ -80,11 +109,15 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Thiếu cấu hình JWT (SecretKey/Issuer/Audience).");
             }
 
-            var defaultMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "60");
-            var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? defaultMinutes.ToString());
+            var defaultMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "240");
+            var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? "720");
             var expirationMinutes = rememberMe ? rememberMeMinutes : defaultMinutes;
 
-            var roleCode = await GetUserRoleCodeAsync(user.UserId);
+            var roleCode = await _context.UserRoles
+                .Where(ur => ur.UserId == user.UserId)
+                .Include(ur => ur.Role)
+                .Select(ur => ur.Role.RoleCode)
+                .FirstOrDefaultAsync();
 
             var claims = new List<Claim>
             {
@@ -239,6 +272,14 @@ namespace Warehouse.DataAcces.Service
 
             mail.To.Add(account.Email);
             await smtp.SendMailAsync(mail);
+
+            // Audit log for password reset request
+            await _auditLogService.LogAsync(
+                account.UserId,
+                AuditAction.PasswordResetRequest,
+                AuditEntity.User,
+                account.UserId,
+                $"Yêu cầu đặt lại mật khẩu cho {account.Email}");
         }
 
         public async Task ResetPasswordAsync(string token, string newPassword)
@@ -289,6 +330,14 @@ namespace Warehouse.DataAcces.Service
 
                 _context.Update(account);
                 await _context.SaveChangesAsync();
+
+                // Audit log for password reset
+                await _auditLogService.LogAsync(
+                    accountId,
+                    AuditAction.PasswordReset,
+                    AuditEntity.User,
+                    accountId,
+                    $"Đặt lại mật khẩu thành công cho {account.Email}");
             }
             catch (SecurityTokenExpiredException)
             {
@@ -336,6 +385,14 @@ namespace Warehouse.DataAcces.Service
 
             _context.Users.Update(account);
             await _context.SaveChangesAsync();
+
+            // Audit log
+            await _auditLogService.LogAsync(
+                account.UserId,
+                AuditAction.ChangePassword,
+                AuditEntity.User,
+                account.UserId,
+                $"Người dùng {account.FullName} đã đổi mật khẩu qua email");
 
             return true;
         }
@@ -450,9 +507,9 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Kiểm tra số lần nhập sai
-            if (otpData.FailedAttempts >= 5)
+            if (otpData.FailedAttempts >= 3)
             {
-                _cache.Remove(cacheKey); // Xóa cache ngay lập tức nếu vượt quá 5 lần
+                _cache.Remove(cacheKey); // Xóa cache ngay lập tức nếu vượt quá 3 lần
                 return Task.FromResult(false);
             }
 
@@ -464,9 +521,9 @@ namespace Warehouse.DataAcces.Service
                 // Tăng số lần thử nghiệm sai
                 otpData.FailedAttempts++;
 
-                if (otpData.FailedAttempts >= 5)
+                if (otpData.FailedAttempts >= 3)
                 {
-                    _cache.Remove(cacheKey); // Xóa ngay nếu sai quá 5 lần
+                    _cache.Remove(cacheKey); // Xóa ngay nếu sai quá 3 lần
                 }
                 else
                 {

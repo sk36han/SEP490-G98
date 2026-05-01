@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
@@ -13,13 +14,20 @@ namespace Warehouse.DataAcces.Service
     public class StocktakeService : IStocktakeService
     {
         private readonly Mkiwms5Context _context;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
-        private static readonly string[] AllowedStatuses = { "DRAFT", "IN_PROGRESS", "PENDING_APPROVAL", "COMPLETED", "CANCELLED" };
+        private static readonly string[] AllowedStatuses =
+        {
+            "DRAFT", "PENDING_APPROVAL", "APPROVED", "IN_PROGRESS", "PENDING_RESULTADJ", "COMPLETED", "CANCELLED"
+        };
         private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
-        public StocktakeService(Mkiwms5Context context)
+        public StocktakeService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _context = context;
+            _notificationService = notificationService;
+            _auditLogService = auditLogService;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -344,17 +352,14 @@ namespace Warehouse.DataAcces.Service
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // 5. Ghi Audit Log (sử dụng logic thủ công vì có thể chưa có repository cho AuditLog kiểu này)
-                await _context.AuditLogs.AddAsync(new AuditLog
-                {
-                    ActorUserId = currentUserId,
-                    Action = "START_STOCKTAKE",
-                    EntityType = "StocktakeSession",
-                    EntityId = session.StocktakeId,
-                    Detail = $"Bắt đầu kiểm kê kho '{session.Warehouse.WarehouseName}' (Mã phiếu: {session.StocktakeCode}). Snapshot {lines.Count} mặt hàng.",
-                    CreatedAt = DateTime.UtcNow
-                });
-                await _context.SaveChangesAsync();
+                // 5. Ghi Audit Log
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    AuditAction.StartStocktake,
+                    AuditEntity.StocktakeSession,
+                    session.StocktakeId,
+                    $"Bắt đầu kiểm kê kho '{session.Warehouse.WarehouseName}' (Mã phiếu: {session.StocktakeCode}). Snapshot {lines.Count} mặt hàng."
+                );
 
                 // 6. Trả về kết quả mới nhất
                 return await GetStocktakeDetailAsync(session.StocktakeId) 
@@ -500,16 +505,13 @@ namespace Warehouse.DataAcces.Service
                 await _context.SaveChangesAsync();
                 
                 // Ghi Audit Log
-                await _context.AuditLogs.AddAsync(new AuditLog
-                {
-                    ActorUserId = currentUserId,
-                    Action = "BULK_MATCH_STOCKTAKE",
-                    EntityType = "StocktakeSession",
-                    EntityId = stocktakeId,
-                    Detail = $"Đánh dấu {uncountedLines.Count} mặt hàng 'Số thực tế = Tồn hệ thống' cho mã phiếu {session.StocktakeCode}." ,
-                    CreatedAt = DateTime.UtcNow
-                });
-                await _context.SaveChangesAsync();
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    AuditAction.BulkMatchStocktake,
+                    AuditEntity.StocktakeSession,
+                    stocktakeId,
+                    $"Đánh dấu {uncountedLines.Count} mặt hàng 'Số thực tế = Tồn hệ thống' cho mã phiếu {session.StocktakeCode}."
+                );
             }
 
             return await GetStocktakeDetailAsync(stocktakeId) 
@@ -534,22 +536,57 @@ namespace Warehouse.DataAcces.Service
             if (hasUncounted)
                 throw new InvalidOperationException("Vui lòng hoàn tất nhập số đếm cho tất cả các mặt hàng trước khi gửi xác nhận.");
 
-            // Chuyển trạng thái
-            session.Status = "PENDING_APPROVAL";
+            var hasVariance = session.StocktakeLines.Any(l => (l.VarianceQty ?? 0m) != 0m);
 
-            await _context.SaveChangesAsync();
-
-            // Ghi Audit Log
-            await _context.AuditLogs.AddAsync(new AuditLog
+            if (!hasVariance)
             {
-                ActorUserId = currentUserId,
-                Action = "SUBMIT_STOCKTAKE",
-                EntityType = "StocktakeSession",
-                EntityId = stocktakeId,
-                Detail = $"Gửi xác nhận hoàn tất đếm phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Đang chờ phê duyệt.",
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+                // Không chênh lệch → hoàn tất ngay, không cần giám đốc duyệt kết quả
+                session.Status = "COMPLETED";
+                session.EndedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    AuditAction.CompleteStocktake,
+                    AuditEntity.StocktakeSession,
+                    stocktakeId,
+                    $"Gửi kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}: khớp tồn, hoàn tất tự động."
+                );
+
+                await _notificationService.CreateAsync(
+                    session.CreatedBy,
+                    $"Kiểm kê {session.StocktakeCode} HOÀN TẤT",
+                    $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã khớp tồn và được đóng tự động sau khi gửi kết quả.",
+                    "Stocktake",
+                    session.StocktakeId,
+                    NotificationTypes.StatusChange,
+                    (byte)NotificationSeverity.Info);
+            }
+            else
+            {
+                session.Status = "PENDING_RESULTADJ";
+
+                await _context.SaveChangesAsync();
+
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    AuditAction.SubmitStocktake,
+                    AuditEntity.StocktakeSession,
+                    stocktakeId,
+                    $"Gửi xác nhận hoàn tất đếm phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Có chênh lệch — chờ giám đốc phê duyệt."
+                );
+
+                await _notificationService.CreateForRolesAsync(
+                    new[] { UserRoleConstants.Director, UserRoleConstants.Admin },
+                    "Kết quả kiểm kê mới chờ duyệt",
+                    $"Kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} có chênh lệch và đang chờ phê duyệt.",
+                    "Stocktake",
+                    session.StocktakeId,
+                    currentUserId,
+                    NotificationTypes.NewRequest
+                );
+            }
 
             return await GetStocktakeDetailAsync(stocktakeId) 
                    ?? throw new Exception("Lỗi sau khi lưu dữ liệu.");
@@ -572,10 +609,13 @@ namespace Warehouse.DataAcces.Service
 
             // Kiểm tra xem đã duyệt bước 1 chưa (tránh duyệt đè vô lý)
             var existing = await _context.DocumentApprovals
-                .AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+                .AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
 
             if (existing && request.Decision == "APPROVE")
                 throw new InvalidOperationException("Bước 1 (Warehouse Manager) đã được phê duyệt trước đó.");
+
+            if ((request.Decision == "REJECT" || request.Decision == "RECOUNT") && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException($"Bắt buộc phải nhập lý do khi chọn quyết định '{request.Decision}'.");
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -584,7 +624,7 @@ namespace Warehouse.DataAcces.Service
                     // 1. Ghi log phê duyệt
                     var approval = new DocumentApproval
                     {
-                        DocType = "Stocktake",
+                        DocType = "STOCKTAKE",
                         DocId = stocktakeId,
                         StageNo = 1, // Manager
                         Decision = request.Decision,
@@ -607,17 +647,15 @@ namespace Warehouse.DataAcces.Service
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    // Ghi Audit Log tổng quát
-                    await _context.AuditLogs.AddAsync(new AuditLog
-                    {
-                        ActorUserId = currentUserId,
-                        Action = $"STAGE1_{request.Decision}",
-                        EntityType = "StocktakeSession",
-                        EntityId = stocktakeId,
-                        Detail = $"Bước 1 (Manager): {request.Decision}. Lý do: {request.Reason}",
-                        CreatedAt = DateTime.UtcNow
-                    });
-                    await _context.SaveChangesAsync();
+                    // Ghi Audit Log
+                    string auditAction = request.Decision == "APPROVE" ? AuditAction.Approve : (request.Decision == "REJECT" ? AuditAction.Reject : AuditAction.Update);
+                    await _auditLogService.LogAsync(
+                        currentUserId,
+                        auditAction,
+                        AuditEntity.StocktakeSession,
+                        stocktakeId,
+                        $"Bước 1 (Manager): {request.Decision}. Lý do: {request.Reason}"
+                    );
                 }
                 catch
                 {
@@ -625,6 +663,20 @@ namespace Warehouse.DataAcces.Service
                     throw;
                 }
             }
+
+            // Gửi thông báo cho người tạo phiếu
+            string step1StatusText = request.Decision == "APPROVE" ? "ĐÃ ĐƯỢC DUYỆT (Bước 1 - Quản lý)"
+                : (request.Decision == "REJECT" ? "BỊ TỪ CHỐI" : "YÊU CẦU ĐẾM LẠI");
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} {step1StatusText}",
+                $"Phiếu kiểm kê {session.StocktakeCode} đã {step1StatusText.ToLower()}." +
+                    (string.IsNullOrEmpty(request.Reason) ? "" : $" Lý do: {request.Reason}"),
+                "Stocktake",
+                session.StocktakeId,
+                NotificationTypes.ApprovalResult,
+                (byte)(request.Decision == "APPROVE" ? NotificationSeverity.Info : NotificationSeverity.Error)
+            );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
         }
@@ -639,10 +691,13 @@ namespace Warehouse.DataAcces.Service
 
             // PHẢI có Bước 1 APPROVE rồi mới được làm Bước 2
             var step1Approved = await _context.DocumentApprovals
-                .AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+                .AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
 
             if (!step1Approved)
                 throw new InvalidOperationException("Cần Warehouse Manager phê duyệt Bước 1 trước.");
+
+            if ((request.Decision == "REJECT" || request.Decision == "RECOUNT") && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException($"Bắt buộc phải nhập lý do khi chọn quyết định '{request.Decision}'.");
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -650,7 +705,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     var approval = new DocumentApproval
                     {
-                        DocType = "Stocktake",
+                        DocType = "STOCKTAKE",
                         DocId = stocktakeId,
                         StageNo = 2, // Accountant
                         Decision = request.Decision,
@@ -672,6 +727,20 @@ namespace Warehouse.DataAcces.Service
                     throw;
                 }
             }
+
+            // Gửi thông báo cho người tạo phiếu
+            string step2StatusText = request.Decision == "APPROVE" ? "ĐÃ ĐƯỢC DUYỆT (Bước 2 - Kế toán)"
+                : (request.Decision == "REJECT" ? "BỊ TỪ CHỐI" : "YÊU CẦU ĐẾM LẠI");
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} {step2StatusText}",
+                $"Phiếu kiểm kê {session.StocktakeCode} đã {step2StatusText.ToLower()}." +
+                    (string.IsNullOrEmpty(request.Reason) ? "" : $" Lý do: {request.Reason}"),
+                "Stocktake",
+                session.StocktakeId,
+                NotificationTypes.ApprovalResult,
+                (byte)(request.Decision == "APPROVE" ? NotificationSeverity.Info : NotificationSeverity.Error)
+            );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
         }
@@ -699,7 +768,7 @@ namespace Warehouse.DataAcces.Service
         {
             return await _context.DocumentApprovals
                 .Include(a => a.ActionByNavigation)
-                .Where(a => a.DocType == "Stocktake" && a.DocId == stocktakeId)
+                .Where(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId)
                 .OrderBy(a => a.ActionAt)
                 .Select(a => new StocktakeApprovalHistoryResponse
                 {
@@ -727,8 +796,8 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Chỉ có thể ghi sổ khi phiếu ở trạng thái PENDING_APPROVAL.");
 
             // Kiểm tra phê duyệt 2 bước
-            var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
-            var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
+            var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+            var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
 
             if (!step1Approved || !step2Approved)
                 throw new InvalidOperationException("Phiếu cần được phê duyệt đầy đủ bởi Manager và Accountant trước khi ghi sổ.");
@@ -797,16 +866,13 @@ namespace Warehouse.DataAcces.Service
                     await transaction.CommitAsync();
 
                     // Ghi Audit Log
-                    await _context.AuditLogs.AddAsync(new AuditLog
-                    {
-                        ActorUserId = currentUserId,
-                        Action = "POST_ADJUSTMENT",
-                        EntityType = "StocktakeSession",
-                        EntityId = stocktakeId,
-                        Detail = $"Ghi sổ điều chỉnh tồn kho cho phiếu {session.StocktakeCode}. " + (discrepancyLines.Any() ? $"Đã tạo phiếu điều chỉnh tự động." : "Không có chênh lệch."),
-                        CreatedAt = DateTime.UtcNow
-                    });
-                    await _context.SaveChangesAsync();
+                    await _auditLogService.LogAsync(
+                        currentUserId,
+                        AuditAction.PostAdjustment,
+                        AuditEntity.StocktakeSession,
+                        stocktakeId,
+                        $"Ghi sổ điều chỉnh tồn kho cho phiếu {session.StocktakeCode}. " + (discrepancyLines.Any() ? $"Đã tạo phiếu điều chỉnh tự động." : "Không có chênh lệch.")
+                    );
                 }
                 catch
                 {
@@ -814,6 +880,17 @@ namespace Warehouse.DataAcces.Service
                     throw;
                 }
             }
+
+            // Gửi thông báo cho người tạo phiếu
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} ĐÃ GHI SỔ",
+                $"Phiếu kiểm kê {session.StocktakeCode} đã được ghi sổ điều chỉnh tồn kho thành công.",
+                "Stocktake",
+                session.StocktakeId,
+                NotificationTypes.StatusChange,
+                (byte)NotificationSeverity.Info
+            );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
         }
@@ -846,8 +923,8 @@ namespace Warehouse.DataAcces.Service
 
             if (!hasVariance)
             {
-                var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
-                var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
+                var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+                var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
                 if (!step1Approved || !step2Approved)
                     throw new InvalidOperationException("Phiếu cần được phê duyệt đầy đủ trước khi hoàn tất.");
             }
@@ -858,22 +935,32 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             // Ghi Audit Log
-            await _context.AuditLogs.AddAsync(new AuditLog
-            {
-                ActorUserId = currentUserId,
-                Action = "COMPLETE_STOCKTAKE",
-                EntityType = "StocktakeSession",
-                EntityId = stocktakeId,
-                Detail = $"Hoàn tất kiểm kê phiếu {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Kho đã được mở khóa.",
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.CompleteStocktake,
+                AuditEntity.StocktakeSession,
+                stocktakeId,
+                $"Hoàn tất kiểm kê phiếu {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Kho đã được mở khóa."
+            );
+
+            // Gửi thông báo cho người tạo phiếu
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} HOÀN TẤT",
+                $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã hoàn tất. Kho đã được mở khóa.",
+                "Stocktake",
+                session.StocktakeId,
+                NotificationTypes.StatusChange,
+                (byte)NotificationSeverity.Info
+            );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
         }
 
         public async Task<StocktakeDetailResponse> CancelStocktakeAsync(long stocktakeId, string reason, long currentUserId)
         {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Bắt buộc phải nhập lý do khi hủy phiếu.");
             var session = await _context.StocktakeSessions
                 .Include(s => s.Warehouse)
                 .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
@@ -890,16 +977,27 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             // Ghi Audit Log
-            await _context.AuditLogs.AddAsync(new AuditLog
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.CancelStocktakeExecution,
+                AuditEntity.StocktakeSession,
+                stocktakeId,
+                $"Hủy phiếu kiểm kê {session.StocktakeCode}. Lý do: {reason}"
+            );
+
+            // Gửi thông báo cho người tạo phiếu
+            if (session.CreatedBy != currentUserId)
             {
-                ActorUserId = currentUserId,
-                Action = "CANCEL_STOCKTAKE",
-                EntityType = "StocktakeSession",
-                EntityId = stocktakeId,
-                Detail = $"Hủy phiếu kiểm kê {session.StocktakeCode}. Lý do: {reason}",
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+                await _notificationService.CreateAsync(
+                    session.CreatedBy,
+                    $"Kiểm kê {session.StocktakeCode} ĐÃ HỦY",
+                    $"Phiếu kiểm kê {session.StocktakeCode} đã bị hủy. Lý do: {reason}",
+                    "Stocktake",
+                    session.StocktakeId,
+                    NotificationTypes.StatusChange,
+                    (byte)NotificationSeverity.Error
+                );
+            }
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi khi lấy thông tin sau hủy.");
         }

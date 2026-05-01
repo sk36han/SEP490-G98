@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -15,9 +16,12 @@ namespace Warehouse.DataAcces.Service
 	public class RoleService : GenericRepository<Role>, IRoleService
 	{
 		private readonly IConfiguration _configuration;
-		public RoleService(Mkiwms5Context context, IConfiguration configuration) : base(context)
+		private readonly IAuditLogService _auditLogService;
+
+		public RoleService(Mkiwms5Context context, IConfiguration configuration, IAuditLogService auditLogService) : base(context)
 		{
 			_configuration = configuration;
+			_auditLogService = auditLogService;
 		}
 
 		public async Task<List<RoleResponse>> GetAllRolesAsync()
@@ -33,7 +37,7 @@ namespace Warehouse.DataAcces.Service
 				.ToListAsync();
 		}
 
-		public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request)
+		public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request, long currentUserId)
 		{
 			// Kiểm tra RoleCode đã tồn tại chưa
 			var exists = await _context.Roles
@@ -53,6 +57,14 @@ namespace Warehouse.DataAcces.Service
 			_context.Roles.Add(role);
 			await _context.SaveChangesAsync();
 
+			// Audit log
+			await _auditLogService.LogAsync(
+				currentUserId,
+				AuditAction.Create,
+				AuditEntity.Role,
+				role.RoleId,
+				$"Tạo role mới: '{role.RoleName}' (Code: {role.RoleCode})");
+
 			return new RoleResponse
 			{
 				RoleId = role.RoleId,
@@ -61,7 +73,7 @@ namespace Warehouse.DataAcces.Service
 			};
 		}
 
-		public async Task<RoleResponse> UpdateRoleAsync(long roleId, UpdateRoleRequest request)
+		public async Task<RoleResponse> UpdateRoleAsync(long roleId, UpdateRoleRequest request, long currentUserId)
 		{
 			var role = await _context.Roles.FindAsync(roleId);
 			if (role == null)
@@ -80,6 +92,16 @@ namespace Warehouse.DataAcces.Service
 
 			role.RoleCode = request.RoleCode;
 			role.RoleName = request.RoleName;
+
+			await _context.SaveChangesAsync();
+
+			// Audit log
+			await _auditLogService.LogAsync(
+				currentUserId,
+				AuditAction.Update,
+				AuditEntity.Role,
+				role.RoleId,
+				$"Cập nhật role: '{role.RoleName}' (Code: {role.RoleCode})");
 
 			await _context.SaveChangesAsync();
 
@@ -131,6 +153,14 @@ namespace Warehouse.DataAcces.Service
 
 			user.UpdatedAt = DateTime.UtcNow;
 			await _context.SaveChangesAsync();
+
+			// Audit log
+			await _auditLogService.LogAsync(
+				assignedBy,
+				AuditAction.AssignRole,
+				AuditEntity.Role,
+				role.RoleId,
+				$"Gán role '{role.RoleName}' cho người dùng '{user.FullName}' (ID: {user.UserId})");
 
 			return new AdminUserResponse
 			{

@@ -1,32 +1,7 @@
 import apiClient from './axios';
-
-/**
- * Lấy role từ JWT payload (backend gửi ClaimTypes.Role trong token).
- * Tránh phụ thuộc GET /User/profile khi endpoint đó trả 500 (vd: user chưa có role).
- */
-function getRoleFromToken(token) {
-    if (!token || typeof token !== 'string') return null;
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return (
-            payload.role ??
-            payload.Role ??
-            payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
-            null
-        );
-    } catch {
-        return null;
-    }
-}
+import { getRoleFromToken } from '../permissions/roleUtils';
 
 const authService = {
-    /**
-     * Login user with email/username and password
-     * @param {string} identifier - Email or username
-     * @param {string} password - User password
-     * @param {boolean} rememberMe - Remember me option
-     * @returns {Promise<{accessToken, expiresAt, user}>}
-     */
     async login(identifier, password, rememberMe = false) {
         try {
             const response = await apiClient.post('/Auth/login', {
@@ -35,20 +10,43 @@ const authService = {
                 rememberMe,
             });
 
-            const { accessToken, expiresAt, user } = response.data;
+            const data = response.data ?? {};
+            // Backend (ASP.NET) có thể trả PascalCase hoặc camelCase tùy cấu hình JSON
+            const requiresOtp =
+                data.requiresOtp === true ||
+                data.RequiresOtp === true;
+            const rawUserId = data.userId ?? data.UserId;
+            const accessToken = data.accessToken ?? data.AccessToken;
+            const expiresAt = data.expiresAt ?? data.ExpiresAt;
+            const message = data.message ?? data.Message;
+            const user = data.user ?? data.User;
 
-            // Store token first (needed for authenticated API calls)
+            if (requiresOtp) {
+                if (rawUserId == null) {
+                    throw new Error('Phien dang nhap OTP khong hop le. Vui long thu lai.');
+                }
+                localStorage.setItem('pendingUserId', String(rawUserId));
+                localStorage.setItem('pendingEmail', identifier);
+                // Do NOT store token here — wait for OTP verification to complete
+                return {
+                    requiresOtp: true,
+                    userId: rawUserId,
+                    message: message || 'Vui long kiem tra email de nhap ma OTP',
+                };
+            }
+
+            if (!accessToken) {
+                throw new Error(message || 'Dang nhap that bai: khong nhan duoc token.');
+            }
+
             localStorage.setItem('token', accessToken);
             localStorage.setItem('tokenExpiresAt', expiresAt);
 
-            // Fetch complete user profile with role from /api/User/profile
             try {
                 const profileResponse = await apiClient.get('/User/profile');
                 const userFromProfile = profileResponse.data;
                 const roleFromToken = getRoleFromToken(accessToken);
 
-                // Đảm bảo luôn có ít nhất một trong các trường roleCode/roleName/role,
-                // ưu tiên dữ liệu từ profile, fallback sang token nếu profile không có.
                 const userWithRole = {
                     ...(userFromProfile || {}),
                     roleCode: userFromProfile?.roleCode ?? userFromProfile?.RoleCode ?? user?.roleCode ?? roleFromToken,
@@ -58,9 +56,8 @@ const authService = {
                 };
 
                 localStorage.setItem('userInfo', JSON.stringify(userWithRole));
-            } catch (profileError) {
-                // Fallback: profile trả 500 (vd: user chưa có role) → dùng user từ login + role từ JWT
-                console.warn('Failed to fetch user profile, using login data and role from token:', profileError?.response?.status);
+            } catch {
+                console.warn('Failed to fetch user profile');
                 const roleFromToken = getRoleFromToken(accessToken);
                 const userForStorage = {
                     ...(user || {}),
@@ -71,147 +68,234 @@ const authService = {
                 localStorage.setItem('userInfo', JSON.stringify(userForStorage));
             }
 
-            return response.data;
+            authService.notifySessionReady();
+            return {
+                requiresOtp: false,
+                accessToken,
+                expiresAt,
+                message,
+                user,
+            };
         } catch (error) {
-            // Re-throw with more specific error message
+            if (!error.response) {
+                if (error.code === 'ECONNABORTED') {
+                    throw new Error('Hết thời gian chờ máy chủ. Vui lòng thử lại.');
+                }
+                throw new Error(
+                    'Không thể kết nối đến hệ thống lúc này. Vui lòng kiểm tra mạng và thử lại sau ít phút.'
+                );
+            }
             if (error.response?.status === 401) {
-                throw new Error('Email/Username hoặc mật khẩu không đúng');
+                throw new Error('Email/Username hoặc mật khẩu không đúng.');
             } else if (error.response?.status === 500) {
                 const detail = error.response?.data?.error || error.response?.data?.message;
-                throw new Error(detail
-                    ? `Lỗi server: ${detail}`
-                    : 'Lỗi server. Có thể do tài khoản chưa được gán vai trò hoặc cấu hình server. Liên hệ quản trị viên.');
-            } else if (error.code === 'ECONNABORTED') {
-                throw new Error('Timeout. Vui lòng kiểm tra kết nối.');
-            } else if (error.message === 'Network Error') {
-                throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra backend API.');
+                throw new Error(detail || 'Loi dang nhap.');
             } else {
-                throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi trong quá trình đăng nhập');
+                throw new Error(error.response?.data?.message || 'Loi dang nhap.');
             }
         }
     },
 
-    /**
-     * Logout user - clear all auth data
-     */
-    logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('userInfo');
-        localStorage.removeItem('tokenExpiresAt');
+    async verifyOtp(otp) {
+        const userId = localStorage.getItem('pendingUserId');
+        
+        if (!userId) {
+            throw new Error('Session expired. Vui long dang nhap lai.');
+        }
+
+        try {
+            const response = await apiClient.post('/Auth/verify-otp', {
+                userId: parseInt(userId, 10),
+                otp,
+                rememberMe: false
+            });
+
+            const verifyData = response.data ?? {};
+            const accessToken = verifyData.accessToken ?? verifyData.AccessToken;
+            const expiresAt = verifyData.expiresAt ?? verifyData.ExpiresAt;
+            const user = verifyData.user ?? verifyData.User;
+
+            if (!accessToken) {
+                throw new Error('Xac thuc thanh cong nhung khong nhan duoc token. Vui long dang nhap lai.');
+            }
+
+            localStorage.setItem('token', accessToken);
+            localStorage.setItem('tokenExpiresAt', expiresAt);
+
+            // Get role from token first
+            let roleFromToken = getRoleFromToken(accessToken);
+            
+            // Try to fetch user profile for complete info
+            try {
+                const profileResponse = await apiClient.get('/User/profile');
+                const userFromProfile = profileResponse.data;
+                
+                const userWithRole = {
+                    ...(userFromProfile || {}),
+                    roleCode: userFromProfile?.roleCode ?? userFromProfile?.RoleCode ?? roleFromToken,
+                    roleName: userFromProfile?.roleName ?? userFromProfile?.RoleName ?? roleFromToken,
+                    role: userFromProfile?.role ?? userFromProfile?.Role ?? roleFromToken,
+                    roleId: userFromProfile?.roleId ?? userFromProfile?.RoleId,
+                };
+
+                localStorage.setItem('userInfo', JSON.stringify(userWithRole));
+            } catch {
+                // Fallback: use user from response and role from token
+                const userWithRole = {
+                    ...(user || {}),
+                    roleCode: user?.roleCode ?? roleFromToken,
+                    roleName: user?.roleName ?? roleFromToken,
+                    role: user?.role ?? roleFromToken,
+                };
+                localStorage.setItem('userInfo', JSON.stringify(userWithRole));
+            }
+
+            localStorage.removeItem('pendingUserId');
+            localStorage.removeItem('pendingEmail');
+
+            authService.notifySessionReady();
+            return response.data;
+        } catch (error) {
+            if (!error.response) {
+                if (error.code === 'ECONNABORTED') {
+                    throw new Error('Hết thời gian chờ máy chủ.');
+                }
+                throw new Error('Không thể kết nối đến hệ thống lúc này. Vui lòng kiểm tra mạng và thử lại sau ít phút.');
+            }
+            if (error.response?.status === 400) {
+                throw new Error(error.response?.data?.message || 'Ma OTP khong hop le.');
+            } else if (error.response?.status === 401) {
+                throw new Error('Mã OTP không đúng.');
+            } else {
+                throw new Error(error.response?.data?.message || 'Xac thuc OTP that bai.');
+            }
+        }
     },
 
-    /**
-     * Get current auth token
-     * @returns {string|null}
-     */
+    logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('tokenExpiresAt');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('pendingUserId');
+        localStorage.removeItem('pendingEmail');
+        try {
+            sessionStorage.removeItem('otpGatePending');
+        } catch {
+            /* ignore */
+        }
+    },
+
+    /** Báo cho MasterData / các listener: đã có JWT hợp lệ sau login hoặc verify OTP. */
+    notifySessionReady() {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('mk-auth-ready'));
+        }
+    },
+
     getToken() {
         return localStorage.getItem('token');
     },
 
-    /**
-     * Get current user data
-     * @returns {object|null}
-     */
     getUser() {
-        const userStr = localStorage.getItem('userInfo');
-        try {
-            return userStr ? JSON.parse(userStr) : null;
-        } catch {
-            return null;
-        }
+        const userInfo = localStorage.getItem('userInfo');
+        return userInfo ? JSON.parse(userInfo) : null;
     },
 
-    /**
-     * Get current user ID (for so sánh với danh sách user). Ưu tiên từ userInfo, fallback decode JWT.
-     * @returns {number|null}
-     */
     getCurrentUserId() {
         const user = this.getUser();
-        const fromUser = user?.userId ?? user?.UserId;
-        if (fromUser != null) return Number(fromUser);
-        try {
-            const token = this.getToken();
-            if (!token) return null;
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const sub = payload.sub ?? payload.nameid;
-            if (sub != null) return Number(sub);
-        } catch {
-            // ignore
+        if (user?.userId != null) return user.userId;
+        if (user?.UserId != null) return user.UserId;
+        if (user?.id != null) return user.id;
+        if (user?.Id != null) return user.Id;
+        // Fallback: decode JWT token để lấy nameidentifier (userId từ backend)
+        const token = this.getToken();
+        if (token) {
+            try {
+                const base64Url = token.split('.')[1];
+                if (base64Url) {
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(
+                        atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+                    );
+                    const payload = JSON.parse(jsonPayload);
+                    const tokenUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+                        ?? payload.nameidentifier
+                        ?? payload.sub
+                        ?? payload.userId
+                        ?? null;
+                    if (tokenUserId != null) return Number(tokenUserId);
+                }
+            } catch {
+                // ignore decode errors
+            }
         }
         return null;
     },
 
-    /**
-     * Check if user is authenticated
-     * @returns {boolean}
-     */
-    isAuthenticated() {
+    getCurrentUserName() {
+        const user = this.getUser();
+        return user?.fullName ?? user?.userName ?? user?.name ?? user?.fullname ?? null;
+    },
+
+    isLoggedIn() {
         const token = this.getToken();
-        const expiresAt = localStorage.getItem('tokenExpiresAt');
-
         if (!token) return false;
-
-        // Check if token is expired
-        if (expiresAt) {
-            const expiryDate = new Date(expiresAt);
-            if (expiryDate < new Date()) {
-                this.logout();
-                return false;
-            }
-        }
-
+        
+        const expiresAt = localStorage.getItem('tokenExpiresAt');
+        if (expiresAt && new Date(expiresAt) < new Date()) return false;
+        
         return true;
     },
 
-    /**
-     * Send forgot password email
-     * @param {string} email - User email
-     */
+    isAuthenticated() {
+        // If OTP is pending, user is NOT fully authenticated yet — do not allow API calls
+        if (localStorage.getItem('pendingUserId')) {
+            return false;
+        }
+        return this.isLoggedIn();
+    },
+
+    isFullyAuthenticated() {
+        return this.isLoggedIn() && !localStorage.getItem('pendingUserId');
+    },
+
+    isTokenExpired() {
+        const expiresAt = localStorage.getItem('tokenExpiresAt');
+        if (!expiresAt) return true;
+        return new Date(expiresAt) < new Date();
+    },
+
     async forgotPassword(email) {
         try {
             const response = await apiClient.post('/Auth/forgot-password', { email });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể gửi email. Vui lòng thử lại.');
+            throw new Error(error.response?.data?.message || 'Khong the gui email.');
         }
     },
 
-    /**
-     * Reset password with token
-     * @param {string} token - Reset token from email
-     * @param {string} newPassword - New password
-     */
     async resetPassword(token, newPassword) {
         try {
             const response = await apiClient.post('/Auth/reset-password', {
                 token,
                 newPassword,
-                confirmPassword: newPassword, // Backend requires confirmPassword for validation
+                confirmPassword: newPassword,
             });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
+            throw new Error(error.response?.data?.message || 'Không thể đặt lại mật khẩu.');
         }
     },
 
-    /**
-     * Get current user profile from API
-     * @returns {Promise<object>}
-     */
     async getProfile() {
         try {
             const response = await apiClient.get('/User/profile');
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể tải thông tin hồ sơ.');
+            throw new Error(error.response?.data?.message || 'Khong tai duoc thong tin.');
         }
     },
 
-    /**
-     * Update user profile. Backend hiện chỉ bắt buộc Phone; gửi thêm gender, dob để sẵn sàng khi backend hỗ trợ.
-     * @param {string|{ phone: string, gender?: string, dob?: string }} payload - Số điện thoại hoặc object { phone, gender?, dob? } (dob format yyyy-MM-dd)
-     * @returns {Promise<object>}
-     */
     async updateProfile(payload) {
         const body = typeof payload === 'string'
             ? { phone: payload }
@@ -231,16 +315,10 @@ const authService = {
             }
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể cập nhật hồ sơ.');
+            throw new Error(error.response?.data?.message || 'Khong cap nhat duoc.');
         }
     },
 
-    /**
-     * Change password
-     * @param {string} oldPassword
-     * @param {string} newPassword
-     * @param {string} confirmPassword
-     */
     async changePassword(oldPassword, newPassword, confirmPassword) {
         try {
             const response = await apiClient.post('/User/change-password', {

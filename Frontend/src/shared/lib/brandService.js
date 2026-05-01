@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Thương hiệu (Brand) – kết nối BrandController.
@@ -9,8 +10,10 @@ function mapBrandRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
         brandId: row.brandId ?? row.BrandId,
+        brandCode: row.brandCode ?? row.BrandCode ?? '',
         brandName: row.brandName ?? row.BrandName ?? '',
         isActive: row.isActive ?? row.IsActive ?? true,
+        createdAt: row.createdAt ?? row.CreatedAt ?? null,
     };
 }
 
@@ -52,6 +55,7 @@ export async function createBrand(payload) {
     const response = await apiClient.post('/Brand/create-brand', {
         brandName: payload.brandName ?? payload.BrandName,
     });
+    invalidate('brand');
     return response?.data?.data ?? response?.data;
 }
 
@@ -63,6 +67,7 @@ export async function updateBrand(id, payload) {
         brandName: payload.brandName ?? payload.BrandName,
         isActive: payload.isActive,
     });
+    invalidate('brand');
     return response?.data?.data ?? response?.data;
 }
 
@@ -73,5 +78,6 @@ export async function toggleBrandStatus(id, isActive) {
     const response = await apiClient.patch(`/Brand/change-status-brand/${id}`, null, {
         params: { isActive: !!isActive },
     });
+    invalidate('brand');
     return response?.data?.data ?? response?.data;
 }

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -13,36 +15,85 @@ namespace Warehouse.DataAcces.Service
 {
     public class ItemService : GenericRepository<Item>, IItemService
     {
-        public ItemService(Mkiwms5Context context) : base(context)
+        private readonly ILogger<ItemService> _logger;
+        private readonly IAuditLogService _auditLogService;
+
+        public ItemService(Mkiwms5Context context, ILogger<ItemService> logger, IAuditLogService auditLogService) : base(context)
         {
+            _logger = logger;
+            _auditLogService = auditLogService;
         }
 
-        public async Task<Item> CreateItemAsync(CreateItemRequest request)
+        public async Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId)
         {
+            var inventoryItems = await _context.InventoryOnHands
+                .Include(ioh => ioh.Item)
+                    .ThenInclude(i => i.BaseUom)
+                .Include(ioh => ioh.Item)
+                    .ThenInclude(i => i.PackagingSpec)
+                .Where(ioh => ioh.WarehouseId == warehouseId && ioh.OnHandQty > 0 && ioh.Item.IsActive)
+                .ToListAsync();
+
+            if (!inventoryItems.Any()) return new List<RRItemLookupResponse>();
+
+            return inventoryItems.Select(ioh => new RRItemLookupResponse
+            {
+                ItemId = ioh.ItemId,
+                ItemCode = ioh.Item.ItemCode,
+                ItemName = ioh.Item.ItemName,
+                UomId = ioh.Item.BaseUomId,
+                UomName = ioh.Item.BaseUom.UomName,
+                OnHandQty = ioh.OnHandQty,
+                ReservedQty = ioh.ReservedQty,
+                AvailableQty = ioh.OnHandQty - ioh.ReservedQty,
+                PackagingSpecId = ioh.Item.PackagingSpecId,
+                PackagingSpecName = ioh.Item.PackagingSpec?.SpecName,
+                // Giá bình quân kho lấy trực tiếp từ InventoryOnHand.UnitCost
+                UnitPrice = ioh.UnitCost
+            }).ToList();
+        }
+
+        public async Task<Item> CreateItemAsync(CreateItemRequest request, long userId = 0)
+        {
+            _logger.LogInformation("[ItemService] Bat dau tao item moi.");
+
             if (request == null)
             {
+                _logger.LogWarning("[ItemService] Request tao item la null.");
                 throw new ArgumentNullException(nameof(request));
             }
 
-            var itemCode = request.ItemCode?.Trim() ?? string.Empty;
+            var itemCode = string.IsNullOrWhiteSpace(request.ItemCode)
+                ? await GenerateNextItemCodeAsync()
+                : request.ItemCode.Trim();
+
             var itemName = request.ItemName?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(itemName))
+            {
+                _logger.LogWarning("[ItemService] ItemName khong duoc de trong.");
+                throw new InvalidOperationException("ItemName khong duoc de trong.");
+            }
+            _logger.LogDebug("[ItemService] ItemCode: {ItemCode}, ItemName: {ItemName}", itemCode, itemName);
 
             var duplicatedCode = _context.Items.Any(i => i.ItemCode == itemCode);
             if (duplicatedCode)
             {
-                throw new InvalidOperationException($"ItemCode '{itemCode}' đã tồn tại.");
+                _logger.LogWarning("[ItemService] ItemCode da ton tai: {ItemCode}", itemCode);
+                throw new InvalidOperationException($"ItemCode '{itemCode}' da ton tai.");
             }
 
             var categoryExists = _context.ItemCategories.Any(c => c.CategoryId == request.CategoryId && c.IsActive);
             if (!categoryExists)
             {
-                throw new InvalidOperationException("Category không tồn tại hoặc đã bị vô hiệu hóa.");
+                _logger.LogWarning("[ItemService] Category khong ton tai hoac inactive: {CategoryId}", request.CategoryId);
+                throw new InvalidOperationException("Category khong ton tai hoac da bi vo hieu hoa.");
             }
 
             var uomExists = _context.UnitOfMeasures.Any(u => u.UomId == request.BaseUomId && u.IsActive);
             if (!uomExists)
             {
-                throw new InvalidOperationException("Đơn vị tính cơ bản không tồn tại hoặc đã bị vô hiệu hóa.");
+                _logger.LogWarning("[ItemService] BaseUom khong ton tai hoac inactive: {BaseUomId}", request.BaseUomId);
+                throw new InvalidOperationException("Don vi tinh co ban khong ton tai hoac da bi vo hieu hoa.");
             }
 
             if (request.BrandId.HasValue)
@@ -50,8 +101,10 @@ namespace Warehouse.DataAcces.Service
                 var brandExists = _context.Brands.Any(b => b.BrandId == request.BrandId.Value && b.IsActive);
                 if (!brandExists)
                 {
-                    throw new InvalidOperationException("Brand không tồn tại hoặc đã bị vô hiệu hóa.");
+                    _logger.LogWarning("[ItemService] Brand khong ton tai hoac inactive: {BrandId}", request.BrandId);
+                    throw new InvalidOperationException("Brand khong ton tai hoac da bi vo hieu hoa.");
                 }
+                _logger.LogDebug("[ItemService] BrandId: {BrandId}", request.BrandId);
             }
 
             if (request.PackagingSpecId.HasValue)
@@ -59,8 +112,10 @@ namespace Warehouse.DataAcces.Service
                 var packagingExists = _context.PackagingSpecs.Any(p => p.PackagingSpecId == request.PackagingSpecId.Value && p.IsActive);
                 if (!packagingExists)
                 {
-                    throw new InvalidOperationException("PackagingSpec không tồn tại hoặc đã bị vô hiệu hóa.");
+                    _logger.LogWarning("[ItemService] PackagingSpec khong ton tai hoac inactive: {PackagingSpecId}", request.PackagingSpecId);
+                    throw new InvalidOperationException("PackagingSpec khong ton tai hoac da bi vo hieu hoa.");
                 }
+                _logger.LogDebug("[ItemService] PackagingSpecId: {PackagingSpecId}", request.PackagingSpecId);
             }
 
             if (request.DefaultWarehouseId.HasValue)
@@ -68,8 +123,10 @@ namespace Warehouse.DataAcces.Service
                 var warehouseExists = _context.Warehouses.Any(w => w.WarehouseId == request.DefaultWarehouseId.Value && w.IsActive);
                 if (!warehouseExists)
                 {
-                    throw new InvalidOperationException("DefaultWarehouse không tồn tại hoặc đã bị vô hiệu hóa.");
+                    _logger.LogWarning("[ItemService] DefaultWarehouse khong ton tai hoac inactive: {DefaultWarehouseId}", request.DefaultWarehouseId);
+                    throw new InvalidOperationException("DefaultWarehouse khong ton tai hoac da bi vo hieu hoa.");
                 }
+                _logger.LogDebug("[ItemService] DefaultWarehouseId: {DefaultWarehouseId}", request.DefaultWarehouseId);
             }
 
             var now = DateTime.UtcNow;
@@ -94,11 +151,15 @@ namespace Warehouse.DataAcces.Service
                 UpdatedAt = now
             };
 
-            await CreateAsync(entity);
+            _logger.LogDebug("[ItemService] Tao item entity: ItemCode={ItemCode}, ItemName={ItemName}, CategoryId={CategoryId}, BaseUomId={BaseUomId}",
+                entity.ItemCode, entity.ItemName, entity.CategoryId, entity.BaseUomId);
 
-            // Tạo giá trị thông số kỹ thuật (đã có ItemParameter từ trước)
+            await CreateAsync(entity);
+            _logger.LogDebug("[ItemService] Item da duoc tao trong DB, ItemId={ItemId}", entity.ItemId);
+
             if (request.ParameterValues != null && request.ParameterValues.Any())
             {
+                _logger.LogDebug("[ItemService] Them {Count} thong so ky thuat cho item {ItemId}", request.ParameterValues.Count, entity.ItemId);
                 foreach (var param in request.ParameterValues)
                 {
                     _context.ItemParameterValues.Add(new ItemParameterValue
@@ -114,6 +175,13 @@ namespace Warehouse.DataAcces.Service
 
             if (request.InitialPurchasePrice.HasValue)
             {
+                if (request.InitialPurchasePrice.Value < 0)
+                {
+                    _logger.LogWarning("[ItemService] InitialPurchasePrice khong duoc am: {Amount}", request.InitialPurchasePrice.Value);
+                    throw new InvalidOperationException("InitialPurchasePrice khong duoc am.");
+                }
+                _logger.LogDebug("[ItemService] Them InitialPurchasePrice={Amount} cho item {ItemId}, EffectiveFrom={EffectiveFrom}",
+                    request.InitialPurchasePrice.Value, entity.ItemId, effectiveFrom);
                 _context.ItemPrices.Add(new ItemPrice
                 {
                     ItemId = entity.ItemId,
@@ -128,12 +196,27 @@ namespace Warehouse.DataAcces.Service
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("[ItemService] Tao item thanh cong: ItemId={ItemId}, ItemCode={ItemCode}, ItemName={ItemName}",
+                entity.ItemId, entity.ItemCode, entity.ItemName);
+
+            // Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Create,
+                    AuditEntity.Item,
+                    entity.ItemId,
+                    $"Tao san pham {entity.ItemCode} - {entity.ItemName}");
+            }
 
             return entity;
         }
 
         public async Task<List<ItemDisplayResponse>> GetAllItemsDisplayAsync()
         {
+            _logger.LogInformation("[ItemService] Lay danh sach item hien thi.");
+
             var items = await _context.Items
                 .Include(i => i.Brand)
                 .Include(i => i.BaseUom)
@@ -142,6 +225,8 @@ namespace Warehouse.DataAcces.Service
                 .Where(i => i.IsActive)
                 .ToListAsync();
 
+            _logger.LogDebug("[ItemService] Tim thay {Count} item active", items.Count);
+
             var result = new List<ItemDisplayResponse>(items.Count);
             foreach (var item in items)
             {
@@ -149,22 +234,31 @@ namespace Warehouse.DataAcces.Service
                 result.Add(mapped);
             }
 
+            _logger.LogInformation("[ItemService] Tra ve {Count} item", result.Count);
             return result;
         }
 
         public async Task<ItemDisplayResponse?> GetItemDisplayByIdAsync(long itemId)
         {
+            _logger.LogInformation("[ItemService] Lay item hien thi theo ID={ItemId}", itemId);
+
             var item = await GetByIdAsync(itemId);
             if (item == null)
             {
+                _logger.LogWarning("[ItemService] Khong tim thay item ID={ItemId}", itemId);
                 return null;
             }
 
-            return await MapToDisplay(item);
+            var mapped = await MapToDisplay(item);
+            _logger.LogDebug("[ItemService] Lay item thanh cong: ItemCode={ItemCode}", mapped.ItemCode);
+            return mapped;
         }
 
         public async Task<ItemDetailResponse?> GetItemDetailByIdAsync(long itemId, int historyPage = 1, int historyPageSize = 20)
         {
+            _logger.LogInformation("[ItemService] Lay chi tiet item ID={ItemId}, HistoryPage={Page}, HistoryPageSize={PageSize}",
+                itemId, historyPage, historyPageSize);
+
             if (historyPage <= 0) historyPage = 1;
             if (historyPageSize <= 0) historyPageSize = 20;
 
@@ -183,16 +277,22 @@ namespace Warehouse.DataAcces.Service
                     i.CreatedAt,
                     i.UpdatedAt,
                     i.ImageUrl,
+                    i.CategoryId,
                     CategoryName = i.Category != null ? i.Category.CategoryName : null,
+                    i.BrandId,
                     BrandName = i.Brand != null ? i.Brand.BrandName : null,
+                    i.BaseUomId,
                     BaseUomName = i.BaseUom.UomName,
+                    i.PackagingSpecId,
                     PackagingSpecName = i.PackagingSpec != null ? i.PackagingSpec.SpecName : null,
-                    i.DefaultWarehouseId
+                    i.DefaultWarehouseId,
+                    DefaultWarehouseName = i.DefaultWarehouse != null ? i.DefaultWarehouse.WarehouseName : null
                 })
                 .FirstOrDefaultAsync();
 
             if (item == null)
             {
+                _logger.LogWarning("[ItemService] Khong tim thay item ID={ItemId}", itemId);
                 return null;
             }
 
@@ -238,6 +338,8 @@ namespace Warehouse.DataAcces.Service
                 .ThenBy(x => x.WarehouseName)
                 .ToList();
 
+            _logger.LogDebug("[ItemService] Tim thay {VariantCount} warehouse variants cho item {ItemId}", variants.Count, itemId);
+
             var history = _context.InventoryTransactionLines
                 .Where(l => l.ItemId == itemId)
                 .OrderByDescending(l => l.InventoryTxn.TxnDate)
@@ -255,6 +357,25 @@ namespace Warehouse.DataAcces.Service
                 })
                 .ToList();
 
+            _logger.LogDebug("[ItemService] Tim thay {HistoryCount} lich su ton kho cho item {ItemId}", history.Count, itemId);
+            _logger.LogInformation("[ItemService] Lay chi tiet item thanh cong: ItemCode={ItemCode}", item.ItemCode);
+
+            var paramValueRows = await _context.ItemParameterValues
+                .AsNoTracking()
+                .Where(v => v.ItemId == itemId)
+                .OrderBy(v => v.ParamId)
+                .Select(v => new ItemParameterValueBriefResponse
+                {
+                    ItemParamValueId = v.ItemParamValueId,
+                    ParamId = v.ParamId,
+                    ParamCode = v.Param.ParamCode,
+                    ParamName = v.Param.ParamName,
+                    ParamValue = v.ParamValue,
+                })
+                .ToListAsync();
+
+            var firstSpec = paramValueRows.FirstOrDefault();
+
             return new ItemDetailResponse
             {
                 ProductInfo = new ItemProductInfoResponse
@@ -264,10 +385,17 @@ namespace Warehouse.DataAcces.Service
                     ItemName = item.ItemName,
                     ItemType = item.ItemType,
                     Description = item.Description,
+                    CategoryId = item.CategoryId,
                     CategoryName = item.CategoryName,
+                    BrandId = item.BrandId,
                     BrandName = item.BrandName,
+                    BaseUomId = item.BaseUomId,
                     BaseUomName = item.BaseUomName,
+                    PackagingSpecId = item.PackagingSpecId,
                     PackagingSpecName = item.PackagingSpecName,
+                    ParameterValues = paramValueRows,
+                    SpecId = firstSpec?.ParamId,
+                    SpecName = firstSpec?.ParamName,
                     RequiresCo = item.RequiresCo,
                     RequiresCq = item.RequiresCq,
                     IsActive = item.IsActive,
@@ -275,36 +403,46 @@ namespace Warehouse.DataAcces.Service
                     UpdatedAt = item.UpdatedAt,
                     ImageUrl = item.ImageUrl,
                     PurchasePrice = purchasePrice,
-                    SalePrice = salePrice
+                    SalePrice = salePrice,
+                    DefaultWarehouseId = item.DefaultWarehouseId,
+                    DefaultWarehouseName = item.DefaultWarehouseName
                 },
                 VariantsByWarehouse = variants,
                 InventoryHistory = history
             };
         }
 
-        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request)
+        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request, long userId = 0)
         {
+            _logger.LogInformation("[ItemService] Bat dau cap nhat item ID={ItemId}", itemId);
+
             if (request == null)
             {
+                _logger.LogWarning("[ItemService] Request cap nhat item la null.");
                 throw new ArgumentNullException(nameof(request));
             }
 
             var item = await GetByIdAsync(itemId);
             if (item == null)
             {
-                throw new KeyNotFoundException($"Không tìm thấy sản phẩm với ID = {itemId}");
+                _logger.LogWarning("[ItemService] Khong tim thay item ID={ItemId}", itemId);
+                throw new KeyNotFoundException($"Khong tim thay san pham voi ID = {itemId}");
             }
+
+            _logger.LogDebug("[ItemService] Tim thay item: ItemCode={ItemCode}, ItemName={ItemName}", item.ItemCode, item.ItemName);
 
             var categoryExists = _context.ItemCategories.Any(c => c.CategoryId == request.CategoryId && c.IsActive);
             if (!categoryExists)
             {
-                throw new InvalidOperationException("Category không tồn tại hoặc đã bị vô hiệu hóa.");
+                _logger.LogWarning("[ItemService] Category khong ton tai hoac inactive: {CategoryId}", request.CategoryId);
+                throw new InvalidOperationException("Category khong ton tai hoac da bi vo hieu hoa.");
             }
 
             var uomExists = _context.UnitOfMeasures.Any(u => u.UomId == request.BaseUomId && u.IsActive);
             if (!uomExists)
             {
-                throw new InvalidOperationException("Đơn vị tính cơ bản không tồn tại hoặc đã bị vô hiệu hóa.");
+                _logger.LogWarning("[ItemService] BaseUom khong ton tai hoac inactive: {BaseUomId}", request.BaseUomId);
+                throw new InvalidOperationException("Don vi tinh co ban khong ton tai hoac da bi vo hieu hoa.");
             }
 
             if (request.BrandId.HasValue)
@@ -312,8 +450,10 @@ namespace Warehouse.DataAcces.Service
                 var brandExists = _context.Brands.Any(b => b.BrandId == request.BrandId.Value && b.IsActive);
                 if (!brandExists)
                 {
-                    throw new InvalidOperationException("Brand không tồn tại hoặc đã bị vô hiệu hóa.");
+                    _logger.LogWarning("[ItemService] Brand khong ton tai hoac inactive: {BrandId}", request.BrandId);
+                    throw new InvalidOperationException("Brand khong ton tai hoac da bi vo hieu hoa.");
                 }
+                _logger.LogDebug("[ItemService] BrandId: {BrandId}", request.BrandId);
             }
 
             if (request.PackagingSpecId.HasValue)
@@ -321,8 +461,10 @@ namespace Warehouse.DataAcces.Service
                 var packagingExists = _context.PackagingSpecs.Any(p => p.PackagingSpecId == request.PackagingSpecId.Value && p.IsActive);
                 if (!packagingExists)
                 {
-                    throw new InvalidOperationException("PackagingSpec không tồn tại hoặc đã bị vô hiệu hóa.");
+                    _logger.LogWarning("[ItemService] PackagingSpec khong ton tai hoac inactive: {PackagingSpecId}", request.PackagingSpecId);
+                    throw new InvalidOperationException("PackagingSpec khong ton tai hoac da bi vo hieu hoa.");
                 }
+                _logger.LogDebug("[ItemService] PackagingSpecId: {PackagingSpecId}", request.PackagingSpecId);
             }
 
             if (request.DefaultWarehouseId.HasValue)
@@ -330,11 +472,19 @@ namespace Warehouse.DataAcces.Service
                 var warehouseExists = _context.Warehouses.Any(w => w.WarehouseId == request.DefaultWarehouseId.Value && w.IsActive);
                 if (!warehouseExists)
                 {
-                    throw new InvalidOperationException("DefaultWarehouse không tồn tại hoặc đã bị vô hiệu hóa.");
+                    _logger.LogWarning("[ItemService] DefaultWarehouse khong ton tai hoac inactive: {DefaultWarehouseId}", request.DefaultWarehouseId);
+                    throw new InvalidOperationException("DefaultWarehouse khong ton tai hoac da bi vo hieu hoa.");
                 }
+                _logger.LogDebug("[ItemService] DefaultWarehouseId: {DefaultWarehouseId}", request.DefaultWarehouseId);
             }
 
-            item.ItemName = request.ItemName?.Trim() ?? string.Empty;
+            var updatedItemName = request.ItemName?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(updatedItemName))
+            {
+                _logger.LogWarning("[ItemService] ItemName khong duoc de trong.");
+                throw new InvalidOperationException("ItemName khong duoc de trong.");
+            }
+            item.ItemName = updatedItemName;
             item.ItemType = request.ItemType?.Trim();
             item.Description = request.Description?.Trim();
             item.CategoryId = request.CategoryId;
@@ -347,17 +497,25 @@ namespace Warehouse.DataAcces.Service
             item.DefaultWarehouseId = request.DefaultWarehouseId;
             item.InventoryAccount = request.InventoryAccount?.Trim();
             item.RevenueAccount = request.RevenueAccount?.Trim();
-            item.UpdatedAt = DateTime.UtcNow;
+                item.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogDebug("[ItemService] Cap nhat thong tin item: ItemName={ItemName}, CategoryId={CategoryId}, BaseUomId={BaseUomId}",
+                item.ItemName, item.CategoryId, item.BaseUomId);
 
             await UpdateAsync(item);
 
-            // Xử lý cập nhật giá
             var effectiveFrom = request.PriceEffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow);
 
-            // Cập nhật giá mua (Purchase)
             if (request.PurchasePrice.HasValue)
             {
-                // Deactive các giá purchase cũ và set EffectiveTo
+                if (request.PurchasePrice.Value < 0)
+                {
+                    _logger.LogWarning("[ItemService] PurchasePrice khong duoc am: {Amount}", request.PurchasePrice.Value);
+                    throw new InvalidOperationException("PurchasePrice khong duoc am.");
+                }
+                _logger.LogDebug("[ItemService] Cap nhat PurchasePrice={Amount} cho item {ItemId}, EffectiveFrom={EffectiveFrom}",
+                    request.PurchasePrice.Value, itemId, effectiveFrom);
+
                 var existingPurchasePrices = _context.ItemPrices
                     .Where(p => p.ItemId == itemId && p.PriceType == "Purchase" && p.IsActive)
                     .ToList();
@@ -366,8 +524,8 @@ namespace Warehouse.DataAcces.Service
                     price.IsActive = false;
                     price.EffectiveTo = effectiveFrom.AddDays(-1);
                 }
+                _logger.LogDebug("[ItemService] Da deactive {Count} PurchasePrice cu", existingPurchasePrices.Count);
 
-                // Thêm giá purchase mới
                 _context.ItemPrices.Add(new ItemPrice
                 {
                     ItemId = itemId,
@@ -381,10 +539,11 @@ namespace Warehouse.DataAcces.Service
                 });
             }
 
-            // Cập nhật giá bán (Sale)
             if (request.SalePrice.HasValue)
             {
-                // Deactive các giá sale cũ và set EffectiveTo
+                _logger.LogDebug("[ItemService] Cap nhat SalePrice={Amount} cho item {ItemId}, EffectiveFrom={EffectiveFrom}",
+                    request.SalePrice.Value, itemId, effectiveFrom);
+
                 var existingSalePrices = _context.ItemPrices
                     .Where(p => p.ItemId == itemId && p.PriceType == "Sale" && p.IsActive)
                     .ToList();
@@ -393,8 +552,8 @@ namespace Warehouse.DataAcces.Service
                     price.IsActive = false;
                     price.EffectiveTo = effectiveFrom.AddDays(-1);
                 }
+                _logger.LogDebug("[ItemService] Da deactive {Count} SalePrice cu", existingSalePrices.Count);
 
-                // Thêm giá sale mới
                 _context.ItemPrices.Add(new ItemPrice
                 {
                     ItemId = itemId,
@@ -409,25 +568,61 @@ namespace Warehouse.DataAcces.Service
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("[ItemService] Cap nhat item thanh cong: ItemId={ItemId}, ItemCode={ItemCode}, ItemName={ItemName}",
+                item.ItemId, item.ItemCode, item.ItemName);
+
+            // Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Update,
+                    AuditEntity.Item,
+                    item.ItemId,
+                    $"Cap nhat san pham {item.ItemCode} - {item.ItemName}");
+            }
 
             return item;
         }
 
-        public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive)
+        public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive, long userId = 0)
         {
+            _logger.LogInformation("[ItemService] Cap nhat trang thai item ID={ItemId}, IsActive={IsActive}", itemId, isActive);
+
             var item = await GetByIdAsync(itemId);
             if (item == null)
             {
-                throw new KeyNotFoundException($"Không tìm thấy sản phẩm với ID = {itemId}");
+                _logger.LogWarning("[ItemService] Khong tim thay item ID={ItemId}", itemId);
+                throw new KeyNotFoundException($"Khong tim thay san pham voi ID = {itemId}");
             }
 
             if (item.IsActive != isActive)
             {
+                _logger.LogDebug("[ItemService] Thay doi trang thai item: {OldStatus} -> {NewStatus}", item.IsActive, isActive);
+                var oldStatus = item.IsActive;
                 item.IsActive = isActive;
                 item.UpdatedAt = DateTime.UtcNow;
                 await UpdateAsync(item);
+
+                // Audit log
+                if (userId > 0)
+                {
+                    await _auditLogService.LogAsync(
+                        userId,
+                        AuditAction.Update,
+                        AuditEntity.Item,
+                        item.ItemId,
+                        $"{(isActive ? "Kich hoat" : "Vo hieu hoa")} san pham {item.ItemCode}",
+                        $"IsActive: {oldStatus}",
+                        $"IsActive: {isActive}");
+                }
+            }
+            else
+            {
+                _logger.LogDebug("[ItemService] Trang thai khong thay doi, bo qua.");
             }
 
+            _logger.LogInformation("[ItemService] Cap nhat trang thai item thanh cong: ItemId={ItemId}, IsActive={IsActive}", item.ItemId, item.IsActive);
             return item;
         }
 
@@ -480,7 +675,6 @@ namespace Warehouse.DataAcces.Service
             var reservedQty = stock?.ReservedQty ?? 0m;
             var availableQty = onHandQty - reservedQty;
 
-            // Lấy thông số kỹ thuật
             var parameters = await _context.ItemParameterValues
                 .Where(pv => pv.ItemId == itemId)
                 .Join(_context.ItemParameters.Where(p => p.IsActive),
@@ -518,6 +712,134 @@ namespace Warehouse.DataAcces.Service
                 AvailableQty = availableQty,
                 Parameters = parameters
             };
+        }
+
+        private async Task<string> GenerateNextItemCodeAsync()
+        {
+            var itemCodes = await _context.Items
+                .Where(i => i.ItemCode.StartsWith("ITM"))
+                .Select(i => i.ItemCode)
+                .ToListAsync();
+
+            var maxNumber = 0;
+            foreach (var code in itemCodes)
+            {
+                if (code == null || code.Length <= 3) continue;
+
+                var numberPart = code.Substring(3);
+                if (int.TryParse(numberPart, out var number) && number > maxNumber)
+                {
+                    maxNumber = number;
+                }
+            }
+
+            var nextNumber = maxNumber + 1;
+            return $"ITM{nextNumber:D6}";
+        }
+
+        public async Task<(byte[] content, string fileName)> ExportItemListExcelAsync()
+        {
+            var items = await _context.Items
+                .Include(i => i.Category)
+                .Include(i => i.Brand)
+                .Include(i => i.BaseUom)
+                .Include(i => i.PackagingSpec)
+                .Include(i => i.InventoryOnHands)
+                .AsNoTracking()
+                .OrderBy(i => i.ItemCode)
+                .ToListAsync();
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Items");
+
+            // ── Header ──
+            var headers = new[]
+            {
+                "STT", "Mã vật tư", "Tên vật tư", "Loại", "Danh mục",
+                "Thương hiệu", "Đơn vị tính", "Quy cách", "Yêu cầu CO",
+                "Yêu cầu CQ", "Giá mua", "Giá bán",
+                "Tồn kho", "Đã đặt", "Khả dụng",
+                "Trạng thái", "Ngày tạo"
+            };
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = worksheet.Cell(1, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#4472C4");
+                cell.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+                cell.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Center;
+            }
+
+            // ── Data ──
+            int row = 2;
+            int stt = 1;
+            foreach (var item in items)
+            {
+                var onHand    = item.InventoryOnHands?.Sum(x => x.OnHandQty) ?? 0;
+                var reserved  = item.InventoryOnHands?.Sum(x => x.ReservedQty) ?? 0;
+                var available = onHand - reserved;
+
+                worksheet.Cell(row, 1).Value  = stt++;
+                worksheet.Cell(row, 2).Value  = item.ItemCode;
+                worksheet.Cell(row, 3).Value  = item.ItemName;
+                worksheet.Cell(row, 4).Value  = item.ItemType ?? "";
+                worksheet.Cell(row, 5).Value  = item.Category?.CategoryName ?? "";
+                worksheet.Cell(row, 6).Value  = item.Brand?.BrandName ?? "";
+                worksheet.Cell(row, 7).Value  = item.BaseUom?.UomName ?? "";
+                worksheet.Cell(row, 8).Value  = item.PackagingSpec?.SpecName ?? "";
+                worksheet.Cell(row, 9).Value  = item.RequiresCo ? "Có" : "Không";
+                worksheet.Cell(row, 10).Value = item.RequiresCq ? "Có" : "Không";
+
+                // Giá mua / bán — lấy giá hiệu lực mới nhất theo PriceType
+                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                var allPrices = await _context.ItemPrices
+                    .Where(p => p.ItemId == item.ItemId && p.IsActive && p.EffectiveFrom <= today)
+                    .ToListAsync();
+
+                var purchasePrice = allPrices
+                    .Where(p => p.PriceType == "Purchase")
+                    .OrderByDescending(p => p.EffectiveFrom)
+                    .FirstOrDefault()?.Amount ?? 0;
+
+                var salePrice = allPrices
+                    .Where(p => p.PriceType == "Sale")
+                    .OrderByDescending(p => p.EffectiveFrom)
+                    .FirstOrDefault()?.Amount ?? 0;
+
+                worksheet.Cell(row, 11).Value = (double)purchasePrice;
+                worksheet.Cell(row, 12).Value = (double)salePrice;
+                worksheet.Cell(row, 11).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(row, 12).Style.NumberFormat.Format = "#,##0";
+
+                worksheet.Cell(row, 13).Value = (double)onHand;
+                worksheet.Cell(row, 14).Value = (double)reserved;
+                worksheet.Cell(row, 15).Value = (double)available;
+
+                worksheet.Cell(row, 16).Value = item.IsActive ? "Hoạt động" : "Ngừng hoạt động";
+                worksheet.Cell(row, 17).Value = item.CreatedAt.ToString("dd/MM/yyyy");
+
+                // Tô màu dòng xen kẽ
+                if (row % 2 == 0)
+                {
+                    worksheet.Row(row).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#F2F2F2");
+                }
+
+                row++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            // Freeze header row
+            worksheet.SheetView.FreezeRows(1);
+
+            using var stream = new System.IO.MemoryStream();
+            workbook.SaveAs(stream);
+            var content = stream.ToArray();
+            var fileName = $"Items_Export_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+            return (content, fileName);
         }
     }
 }

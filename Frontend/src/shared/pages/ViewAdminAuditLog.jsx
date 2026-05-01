@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { formatDateTime } from '../lib/dateUtils';
+import { usePolling } from '../hooks/usePolling';
 import {
     Container,
     Paper,
@@ -28,7 +30,7 @@ const ENTITY_TYPE_OPTIONS = [
     { value: 'Supplier', label: 'Supplier' },
     { value: 'Item', label: 'Item' },
     { value: 'Warehouse', label: 'Warehouse' },
-    { value: 'PurchaseOrder', label: 'Đơn mua hàng (PO)' },
+    { value: 'PurchaseOrder', label: 'Yêu cầu nhập hàng (PO)' },
     { value: 'Receiver', label: 'Receiver' },
     { value: 'Role', label: 'Role' },
 ];
@@ -49,11 +51,7 @@ const actionColor = (action) => {
     return 'default';
 };
 
-const formatDateTime = (iso) => {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return d.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-};
+
 
 const ViewAdminAuditLog = () => {
     const [filterEntityType, setFilterEntityType] = useState('');
@@ -89,6 +87,11 @@ const ViewAdminAuditLog = () => {
     useEffect(() => {
         fetchAuditLogs();
     }, [fetchAuditLogs]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchAuditLogsRef = useRef(fetchAuditLogs);
+    useEffect(() => { fetchAuditLogsRef.current = fetchAuditLogs; }, [fetchAuditLogs]);
+    usePolling('auditLog', () => fetchAuditLogsRef.current?.());
 
     const handlePageChange = (_, newPage) => setPage(newPage);
     const handleRowsPerPageChange = (e) => {

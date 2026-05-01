@@ -1,6 +1,6 @@
 /* Home Page Container */
 .home-page {
-    padding: 32px;
+    padding: 20px;
     max-width: 1400px;
     margin: 0 auto;
     background-color: #f8fafc;
@@ -8,11 +8,11 @@
 
 /* Welcome Section */
 .welcome-section {
-    margin-bottom: 32px;
+    margin-bottom: 20px;
 }
 
 .welcome-title {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 700;
     color: #0f172a;
     margin-bottom: 8px;
@@ -26,19 +26,19 @@
 /* Stats Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-    margin-bottom: 32px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
     background-color: white;
-    padding: 24px;
+    padding: 16px;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -48,8 +48,8 @@
 }
 
 .stat-icon-wrapper {
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -63,7 +63,7 @@
 }
 
 .stat-value {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 700;
     color: #0f172a;
     line-height: 1;
@@ -71,7 +71,7 @@
 }
 
 .stat-label {
-    font-size: 14px;
+    font-size: 13px;
     color: #64748b;
     font-weight: 500;
 }
@@ -101,14 +101,14 @@
 .dashboard-panels {
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: 24px;
-    margin-bottom: 32px;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .panel {
     background: white;
     border-radius: 12px;
-    padding: 24px;
+    padding: 16px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -116,11 +116,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
 }
 
 .panel-header h3 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: #0f172a;
     margin: 0;
@@ -143,7 +143,7 @@
 
 /* Chart Placeholder */
 .chart-placeholder {
-    height: 220px;
+    height: 180px;
     display: flex;
     align-items: flex-end;
     justify-content: space-around;
@@ -171,7 +171,7 @@
 .activity-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
 }
 
 .activity-item {
@@ -181,8 +181,8 @@
 }
 
 .act-icon {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -210,7 +210,7 @@
 }
 
 .act-text p {
-    font-size: 14px;
+    font-size: 13px;
     margin: 0 0 4px 0;
     color: #334155;
     line-height: 1.4;
@@ -224,13 +224,13 @@
 /* Quick Actions */
 .quick-actions-bar {
     background: white;
-    padding: 24px;
+    padding: 16px;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .quick-actions-bar h3 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: #0f172a;
     margin: 0 0 16px 0;
@@ -238,7 +238,7 @@
 
 .quick-buttons {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -246,11 +246,11 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 20px;
+    padding: 10px 14px;
     background-color: white;
-    border: 2px solid #e2e8f0;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: #475569;
     cursor: pointer;
@@ -282,11 +282,11 @@
 
 @media (max-width: 768px) {
     .home-page {
-        padding: 16px;
+        padding: 12px;
     }
 
     .welcome-title {
-        font-size: 24px;
+        font-size: 20px;
     }
 
     .stats-grid {

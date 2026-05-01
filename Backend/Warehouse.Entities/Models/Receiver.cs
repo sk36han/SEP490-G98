@@ -29,5 +29,11 @@ public partial class Receiver
 
     public string? District { get; set; }
 
+    public long? CompanyId { get; set; }
+
+    public string? Position { get; set; }
+
+    public virtual Company? Company { get; set; }
+
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 }

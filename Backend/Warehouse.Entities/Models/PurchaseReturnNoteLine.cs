@@ -21,7 +21,15 @@ public partial class PurchaseReturnNoteLine
 
     public long? RelatedGrnlineId { get; set; }
 
+    public long ItemId { get; set; }
+
+    public long UomId { get; set; }
+
+    public virtual Item Item { get; set; } = null!;
+
     public virtual PurchaseReturnNote PurchaseReturn { get; set; } = null!;
 
     public virtual GoodsReceiptNoteLine? RelatedGrnline { get; set; }
+
+    public virtual UnitOfMeasure Uom { get; set; } = null!;
 }

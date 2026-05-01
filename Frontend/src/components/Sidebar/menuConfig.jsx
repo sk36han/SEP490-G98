@@ -1,188 +1,367 @@
 import {
-    LayoutDashboard,
     Box as BoxIcon,
     Users,
-    User,
     FileText,
     Truck,
     ShoppingCart,
     Bell,
     ClipboardList,
     Warehouse,
-    Briefcase,
+    RotateCcw,
+    BarChart3,
+    DollarSign,
 } from 'lucide-react';
 
-const brandIcon = <Briefcase size={22} />;
+const icon = (Icon) => <Icon size={22} />;
 
-// Hồ sơ cá nhân không hiển thị trong sidebar — mở từ dropdown avatar trên header
-const commonItems = [];
+const COMMON_ITEMS = [];
 
-// Giám đốc: Home Dashboard + Supplier + Receiver
-const directorItems = [
-    { path: '/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
-    { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
-];
+const PRODUCT_MATCH_PATHS = {
+    FULL: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'],
+    BASIC: ['/products', '/categories', '/brands'],
+    SALE_SUPPORT: ['/products', '/categories', '/brands'],
+};
 
-// Admin: Quản lý người dùng (mục cha có dropdown con), Hồ sơ cá nhân, Cài đặt thông báo, Audit Log
-const adminItems = [
-    {
+const createItem = ({ id, path, icon: itemIcon, label, children, matchPaths }) => {
+    const item = { label };
+
+    if (id) item.id = id;
+    if (path) item.path = path;
+    if (itemIcon) item.icon = itemIcon;
+    if (Array.isArray(children) && children.length > 0) item.children = children;
+    if (Array.isArray(matchPaths) && matchPaths.length > 0) item.matchPaths = matchPaths;
+
+    return item;
+};
+
+const createChild = (path, label, extra = {}) => ({
+    path,
+    label,
+    ...extra,
+});
+
+const matchesPath = (pathname, targetPath) => {
+    if (!pathname || !targetPath) return false;
+    return pathname === targetPath || pathname.startsWith(`${targetPath}/`);
+};
+
+const getItemMatchPaths = (item) => {
+    if (!item) return [];
+
+    return [
+        item.path,
+        ...(Array.isArray(item.matchPaths) ? item.matchPaths : []),
+        ...(Array.isArray(item.children) ? item.children.map((child) => child.path) : []),
+    ].filter(Boolean);
+};
+
+export const isSidebarItemMatched = (item, pathname) => {
+    return getItemMatchPaths(item).some((path) => matchesPath(pathname, path));
+};
+
+const dedupeMenuItems = (items) => {
+    const map = new Map();
+
+    items.forEach((item) => {
+        const key = item.id || item.path || item.label;
+        if (!map.has(key)) {
+            map.set(key, item);
+        }
+    });
+
+    return Array.from(map.values());
+};
+
+const menuCatalog = {
+    adminUsers: createItem({
         id: 'user-mgmt',
         path: '/admin/users',
-        icon: <Users size={22} />,
+        icon: icon(Users),
         label: 'Người dùng',
         children: [
-            { path: '/admin/users', label: 'Danh sách người dùng' },
-            { path: '/admin/users', label: 'Thêm người dùng', state: { openCreate: true } },
-            { path: '/admin/users/deactivated', label: 'Người dùng đã vô hiệu hóa' },
+            createChild('/admin/users', 'Danh sách người dùng'),
+            createChild('/admin/users', 'Thêm người dùng', { state: { openCreate: true } }),
+            createChild('/admin/users/deactivated', 'Người dùng đã vô hiệu hóa'),
         ],
-    },
-    { path: '/admin/notifications', icon: <Bell size={22} />, label: 'Cài đặt thông báo' },
-    { path: '/admin/audit-log', icon: <ClipboardList size={22} />, label: 'Audit Log hệ thống' },
-];
+    }),
+    adminAuditLog: createItem({
+        path: '/admin/audit-log',
+        icon: icon(ClipboardList),
+        label: 'Audit Log hệ thống',
+    }),
 
-// Thủ kho: Vật tư (mục cha), Quản lý kho, Nhà cung cấp, Người nhận, Yêu cầu nhập/xuất hàng
-const warehouseKeeperItems = [
-    {
+    warehouseProducts: createItem({
         id: 'products-mgmt',
         path: '/products',
-        icon: <BoxIcon size={22} />,
+        icon: icon(BoxIcon),
         label: 'Vật tư',
+        matchPaths: PRODUCT_MATCH_PATHS.FULL,
         children: [
-            { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/categories', label: 'Danh mục sản phẩm' },
-            { path: '/uom', label: 'Đơn vị tính' },
-            { path: '/packaging-spec', label: 'Quy cách' },
-            { path: '/specs', label: 'Thông số' },
+            createChild('/products', 'Danh sách vật tư'),
+            createChild('/categories', 'Danh mục'),
+            createChild('/uom', 'Đơn vị tính'),
+            createChild('/packaging-spec', 'Quy cách đóng gói'),
+            createChild('/specs', 'Thông số'),
+            createChild('/brands', 'Thương hiệu'),
         ],
-    },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
-    { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
-    { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
-    {
-        id: 'good-receipt-notes-mgmt',
-        path: '/good-receipt-notes',
-        icon: <FileText size={22} />,
-        label: 'Quản lý phiếu nhập kho',
-        children: [
-            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
-            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
-        ],
-    },
-    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
-];
-
-// Sale Support: Vật tư (mục cha), Brand, Nhà cung cấp, Đơn mua (PO)
-const saleSupportItems = [
-    {
+    }),
+    saleSupportProducts: createItem({
         id: 'products-mgmt',
         path: '/products',
-        icon: <BoxIcon size={22} />,
+        icon: icon(BoxIcon),
         label: 'Vật tư',
+        matchPaths: PRODUCT_MATCH_PATHS.SALE_SUPPORT,
         children: [
-            { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/uom', label: 'Đơn vị tính' },
+            createChild('/products', 'Danh sách vật tư'),
+            createChild('/categories', 'Danh mục'),
+            createChild('/brands', 'Thương hiệu'),
         ],
-    },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
-    {
+    }),
+    saleEngineerProducts: createItem({
+        id: 'products-mgmt',
+        path: '/products',
+        icon: icon(BoxIcon),
+        label: 'Vật tư',
+        matchPaths: PRODUCT_MATCH_PATHS.BASIC,
+        children: [
+            createChild('/products', 'Danh sách vật tư'),
+            createChild('/categories', 'Danh mục'),
+            createChild('/brands', 'Thương hiệu'),
+        ],
+    }),
+
+    warehouseInventory: createItem({
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: icon(Warehouse),
+        label: 'Quản lý kho',
+        children: [
+            createChild('/inventory', 'Danh sách kho'),
+            createChild('/inventory/storage-locations', 'Vị trí lưu trữ'),
+            createChild('/inventory/stocktakes', 'Kiểm kê kho'),
+            createChild('/inventory/adjustments', 'Điều chỉnh tồn kho'),
+        ],
+    }),
+    simpleInventory: createItem({
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: icon(Warehouse),
+        label: 'Quản lý kho',
+        children: [
+            createChild('/inventory', 'Danh sách kho'),
+            createChild('/inventory/storage-locations', 'Vị trí lưu trữ'),
+        ],
+    }),
+
+    inventoryAlert: createItem({
+        path: '/mockup/inventory-alert',
+        icon: icon(Bell),
+        label: 'Cảnh báo tồn kho',
+    }),
+
+    suppliersSimple: createItem({
+        path: '/suppliers',
+        icon: icon(Truck),
+        label: 'Nhà cung cấp',
+    }),
+    suppliersManage: createItem({
         id: 'suppliers-mgmt',
         path: '/suppliers',
-        icon: <Truck size={22} />,
-        label: 'Quản lý nhà cung cấp',
+        icon: icon(Truck),
+        label: 'Nhà cung cấp',
         children: [
-            { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
-            { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
+            createChild('/suppliers', 'Danh sách nhà cung cấp'),
         ],
-    },
-    {
+    }),
+
+    receiversSimple: createItem({
+        path: '/receivers',
+        icon: icon(Users),
+        label: 'Người nhận',
+    }),
+    receiversManage: createItem({
+        id: 'receivers-mgmt',
+        path: '/receivers',
+        icon: icon(Users),
+        label: 'Người nhận',
+        children: [
+            createChild('/receivers', 'Danh sách người nhận'),
+        ],
+    }),
+
+    purchaseOrdersList: createItem({
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
-        icon: <ShoppingCart size={22} />,
-        label: 'Quản lý đơn mua',
-        sublabel: 'Purchase Order',
+        icon: icon(ShoppingCart),
+        label: 'Yêu cầu nhập hàng',
         children: [
-            { path: '/purchase-orders', label: 'Danh sách đơn mua hàng' },
-            { path: '/purchase-orders/create', label: 'Tạo đơn mua hàng' },
+            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
         ],
-    },
-];
-
-// Sale Engineer: Vật tư (mục cha), Brand, Người nhận hàng
-const saleEngineerItems = [
-    {
-        id: 'products-mgmt',
-        path: '/products',
-        icon: <BoxIcon size={22} />,
-        label: 'Vật tư',
-        children: [
-            { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/uom', label: 'Đơn vị tính' },
-        ],
-    },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
-    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
-];
-
-// Kế toán: Vật tư (mục cha), Quản lý đơn mua, Yêu cầu nhập/xuất hàng, Báo cáo
-const accountantItems = [
-    {
-        id: 'products-mgmt',
-        path: '/products',
-        icon: <BoxIcon size={22} />,
-        label: 'Vật tư',
-        children: [
-            { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/uom', label: 'Đơn vị tính' },
-        ],
-    },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
-    {
+    }),
+    purchaseOrdersManage: createItem({
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
-        icon: <ShoppingCart size={22} />,
-        label: 'Quản lý đơn mua',
+        icon: icon(ShoppingCart),
+        label: 'Yêu cầu nhập hàng',
         children: [
-            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
+            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
         ],
-    },
-    {
+    }),
+
+    goodReceiptNotesList: createItem({
         id: 'good-receipt-notes-mgmt',
         path: '/good-receipt-notes',
-        icon: <FileText size={22} />,
-        label: 'Quản lý phiếu nhập kho',
+        icon: icon(FileText),
+        label: 'Phiếu nhập kho',
         children: [
-            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
-            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+            createChild('/good-receipt-notes', 'Danh sách phiếu nhập kho'),
         ],
-    },
-    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
-    { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
-];
+    }),
+    goodReceiptNotesManage: createItem({
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: icon(FileText),
+        label: 'Phiếu nhập kho',
+        children: [
+            createChild('/good-receipt-notes', 'Danh sách phiếu nhập kho'),
+        ],
+    }),
 
-/**
- * Get menu items based on user permission role.
- * Roles: ADMIN, DIRECTOR, WAREHOUSE_KEEPER, ACCOUNTANTS, SALE_SUPPORT, SALE_ENGINEER
- */
+    releaseRequestsList: createItem({
+        id: 'release-request-mgmt',
+        path: '/release-request',
+        icon: icon(FileText),
+        label: 'Yêu cầu xuất hàng',
+        children: [
+            createChild('/release-request', 'Danh sách yêu cầu xuất hàng'),
+        ],
+    }),
+    releaseRequestsManage: createItem({
+        id: 'release-request-mgmt',
+        path: '/release-request',
+        icon: icon(FileText),
+        label: 'Yêu cầu xuất hàng',
+        children: [
+            createChild('/release-request', 'Danh sách yêu cầu xuất hàng'),
+        ],
+    }),
+
+    goodsDeliveryNotesManage: createItem({
+        id: 'good-delivery-notes-mgmt',
+        path: '/good-delivery-notes',
+        icon: icon(FileText),
+        label: 'Phiếu xuất hàng',
+        children: [
+            createChild('/good-delivery-notes', 'Danh sách phiếu xuất hàng'),
+        ],
+    }),
+
+    purchaseReturnsList: createItem({
+        id: 'purchase-returns-mgmt',
+        path: '/purchase-returns',
+        icon: icon(RotateCcw),
+        label: 'Trả hàng',
+        children: [
+            createChild('/purchase-returns', 'Danh sách phiếu trả hàng'),
+        ],
+    }),
+
+    /** Tạm ẩn — bật lại: thêm menuCatalog.deliveries vào roleMenus (WAREHOUSE_KEEPER, SALE_ENGINEER, …). */
+    // deliveries: createItem({
+    //     id: 'deliveries-mgmt',
+    //     path: '/deliveries',
+    //     icon: icon(MapPin),
+    //     label: 'Giao hàng',
+    //     children: [
+    //         createChild('/deliveries', 'Danh sách giao hàng'),
+    //     ],
+    // }),
+
+    itemPrices: createItem({
+        path: '/item-prices',
+        icon: icon(DollarSign),
+        label: 'Giá vật tư',
+    }),
+    policy: createItem({
+        id: 'policy-mgmt',
+        icon: icon(Bell),
+        label: 'Chính sách',
+        children: [
+            createChild('/mockup/inventory-alert', 'Chính sách tồn kho'),
+        ],
+    }),
+    reports: createItem({
+        id: 'reports-mgmt',
+        path: '/reports',
+        icon: icon(BarChart3),
+        label: 'Báo cáo',
+        children: [
+            createChild('/reports/sales', 'Báo cáo tài chính'),
+        ],
+    }),
+};
+
+const roleMenus = {
+    ADMIN: [
+        menuCatalog.adminUsers,
+        menuCatalog.adminAuditLog,
+    ],
+    WAREHOUSE_KEEPER: [
+        ...COMMON_ITEMS,
+        menuCatalog.warehouseProducts,
+        menuCatalog.warehouseInventory,
+        menuCatalog.inventoryAlert,
+        menuCatalog.suppliersSimple,
+        menuCatalog.receiversSimple,
+        menuCatalog.purchaseOrdersList,
+        menuCatalog.goodReceiptNotesManage,
+        menuCatalog.releaseRequestsManage,
+        menuCatalog.goodsDeliveryNotesManage,
+        menuCatalog.purchaseReturnsList,
+    ],
+    SALE_SUPPORT: [
+        ...COMMON_ITEMS,
+        menuCatalog.saleSupportProducts,
+        menuCatalog.simpleInventory,
+        menuCatalog.inventoryAlert,
+        menuCatalog.suppliersSimple,
+        menuCatalog.purchaseOrdersManage,
+        menuCatalog.goodReceiptNotesList,
+    ],
+    SALE_ENGINEER: [
+        ...COMMON_ITEMS,
+        menuCatalog.saleEngineerProducts,
+        menuCatalog.simpleInventory,
+        menuCatalog.receiversSimple,
+        menuCatalog.releaseRequestsManage,
+        menuCatalog.goodsDeliveryNotesManage,
+    ],
+    ACCOUNTANTS: [
+        ...COMMON_ITEMS,
+        menuCatalog.saleSupportProducts,
+        menuCatalog.warehouseInventory,
+        menuCatalog.suppliersManage,
+        menuCatalog.receiversManage,
+        menuCatalog.purchaseOrdersList,
+        menuCatalog.goodReceiptNotesList,
+        menuCatalog.purchaseReturnsList,
+        menuCatalog.releaseRequestsList,
+        menuCatalog.goodsDeliveryNotesManage,
+        menuCatalog.itemPrices,
+        menuCatalog.policy,
+    ],
+};
+
+roleMenus.DIRECTOR = dedupeMenuItems([
+    ...roleMenus.ADMIN,
+    ...roleMenus.WAREHOUSE_KEEPER,
+    ...roleMenus.SALE_SUPPORT,
+    ...roleMenus.SALE_ENGINEER,
+    ...roleMenus.ACCOUNTANTS,
+    menuCatalog.reports,
+    ...COMMON_ITEMS,
+]);
+
 export const getMenuItems = (role) => {
-    if (role === 'ADMIN') {
-        return adminItems;
-    }
-    if (role === 'DIRECTOR') {
-        return [...directorItems, ...commonItems];
-    }
-    if (role === 'WAREHOUSE_KEEPER') {
-        return [...commonItems, ...warehouseKeeperItems];
-    }
-    if (role === 'SALE_SUPPORT') {
-        return [...commonItems, ...saleSupportItems];
-    }
-    if (role === 'SALE_ENGINEER') {
-        return [...commonItems, ...saleEngineerItems];
-    }
-    if (role === 'ACCOUNTANTS') {
-        return [...commonItems, ...accountantItems];
-    }
-    return [...commonItems];
+    return roleMenus[role] || [...COMMON_ITEMS];
 };

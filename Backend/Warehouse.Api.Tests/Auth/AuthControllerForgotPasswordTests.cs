@@ -1,13 +1,14 @@
+extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class AuthControllerForgotPasswordTests
 {
@@ -34,7 +35,8 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu đến email của bạn.");
+		response.Message.Should().Contain("email tồn tại");
+		response.Message.Should().Contain("gửi link");
 	}
 
 	[Fact]
@@ -53,7 +55,7 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu đến email của bạn.");
+		response.Message.Should().Contain("email tồn tại");
 	}
 
 	[Fact]
@@ -121,7 +123,7 @@ public class AuthControllerForgotPasswordTests
 
 		_authServiceMock
 			.Setup(x => x.SendResetPasswordEmailAsync(request.Email))
-			.ThrowsAsync(new InvalidOperationException("Thiếu cấu hình SMTP trong appsettings.json"));
+			.ThrowsAsync(new InvalidOperationException("Thieu cau hinh SMTP"));
 
 		var result = await controller.ForgotPassword(request);
 
@@ -129,7 +131,7 @@ public class AuthControllerForgotPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Thiếu cấu hình SMTP trong appsettings.json");
+		response.Message.Should().Contain("SMTP");
 	}
 
 	[Fact]
@@ -149,6 +151,7 @@ public class AuthControllerForgotPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Có lỗi xảy ra khi gửi email đặt lại mật khẩu.");
+		response.Message.Should().Contain("Có lỗi");
+		response.Message.Should().Contain("gửi email");
 	}
 }

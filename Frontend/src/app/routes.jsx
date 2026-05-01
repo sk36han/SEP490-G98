@@ -1,31 +1,29 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+
+// ── Layout ──────────────────────────────────────────────────────────────────────
+import ProtectedRoute from '../components/ProtectedRoute';
+import MainLayout from '../components/Layout/MainLayout';
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
 import Login from '../shared/pages/Login';
 import ForgotPassword from '../shared/pages/ForgotPassword';
 import ResetPassword from '../shared/pages/ResetPassword';
 import Profile from '../shared/pages/Profile';
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+import ViewUserAccountList from '../shared/pages/ViewUserAccountList';
+import ViewDeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
+import ViewAdminAuditLog from '../shared/pages/ViewAdminAuditLog';
+
+// ── Home ───────────────────────────────────────────────────────────────────────
 import Home from '../shared/pages/Home';
-import UserAccountList from '../shared/pages/ViewUserAccountList';
-import DeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
-import ItemList from '../shared/pages/ViewItemList';
+
+// ── Product / Warehouse ────────────────────────────────────────────────────────
+import ViewItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
-import EditItem from '../shared/pages/EditItem';
 import ViewItemDetail from '../shared/pages/ViewItemDetail';
-import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
-import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
-import CreatePurchaseOrder from '../shared/pages/CreatePurchaseOrder';
-import AdminNotifications from '../shared/pages/AdminNotifications';
-import ViewNotifications from '../shared/pages/ViewNotifications';
-import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
-import ViewSupplierList from '../shared/pages/ViewSupplierList';
-import CreateSupplier from '../shared/pages/CreateSupplier';
-import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
-import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
-import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
-import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
-import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
-import ViewReceiver from '../shared/pages/ViewReceiverList';
-import CreateReceiver from '../shared/pages/CreateReceiver';
+import EditItem from '../shared/pages/EditItem';
 import ViewCategoryList from '../shared/pages/ViewCategoryList';
 import CreateCategory from '../shared/pages/CreateCategory';
 import EditCategory from '../shared/pages/EditCategory';
@@ -33,8 +31,81 @@ import ViewPackagingSpecList from '../shared/pages/ViewPackagingSpecList';
 import ViewSpecList from '../shared/pages/ViewSpecList';
 import ViewBrandList from '../shared/pages/ViewBrandList';
 import ViewUomList from '../shared/pages/ViewUomList';
-import ProtectedRoute from '../components/ProtectedRoute';
-import MainLayout from '../components/Layout/MainLayout';
+import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import ViewWarehouseDetail from '../shared/pages/ViewWarehouseDetail';
+import CreateWarehouse from '../shared/pages/CreateWarehouse';
+import ViewStorageLocationList from '../shared/pages/ViewStorageLocationList';
+
+// ── Inventory ──────────────────────────────────────────────────────────────────
+import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
+import CreateStocktake from '../shared/pages/CreateStocktake';
+import ViewStocktakeDetail from '../shared/pages/ViewStocktakeDetail';
+import StocktakeReport from '../shared/pages/StocktakeReport';
+import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustmentList';
+import CreateInventoryAdjustment from '../shared/pages/CreateInventoryAdjustment';
+import ViewInventoryAdjustmentDetail from '../shared/pages/ViewInventoryAdjustmentDetail';
+
+// ── Purchase ───────────────────────────────────────────────────────────────────
+import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
+import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
+import CreatePurchaseOrder from '../shared/pages/CreatePurchaseOrder';
+import ViewPurchaseReturnList from '../shared/pages/ViewPurchaseReturnList';
+import ViewPurchaseReturnDetail from '../shared/pages/ViewPurchaseReturnDetail';
+import CreatePurchaseReturn from '../shared/pages/CreatePurchaseReturn';
+
+// ── Release / Delivery ────────────────────────────────────────────────────────
+import ViewReleaseRequestList from '../shared/pages/ViewReleaseRequestList';
+import ViewReleaseRequestDetail from '../shared/pages/ViewReleaseRequestDetail';
+import CreateReleaseRequest from '../shared/pages/CreateReleaseRequest';
+import EditReleaseRequest from '../shared/pages/EditReleaseRequest';
+import ViewGoodDeliveryNoteList from '../shared/pages/ViewGoodDeliveryNoteList';
+import ViewGoodDeliveryNoteDetail from '../shared/pages/ViewGoodDeliveryNoteDetail';
+import CreateGoodDeliveryNote from '../shared/pages/CreateGoodDeliveryNote';
+
+// ── Delivery ──────────────────────────────────────────────────────────────────
+import ViewDeliveryList from '../shared/pages/ViewDeliveryList';
+import CreateDelivery from '../shared/pages/CreateDelivery';
+
+// ── Receipt ───────────────────────────────────────────────────────────────────
+import ViewGoodReceiptNotesList from '../shared/pages/ViewGoodReceiptNotesList';
+import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
+import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
+
+// ── Others ─────────────────────────────────────────────────────────────────────
+import ViewSupplierList from '../shared/pages/ViewSupplierList';
+import ViewSupplierDetail from '../shared/pages/ViewSupplierDetail';
+import CreateSupplier from '../shared/pages/CreateSupplier';
+import ViewReceiver from '../shared/pages/ViewReceiverList';
+import ViewReceiverDetail from '../shared/pages/ViewReceiverDetail';
+import CreateReceiver from '../shared/pages/CreateReceiver';
+import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
+import ViewNotifications from '../shared/pages/ViewNotificationsLive';
+import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
+import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
+import ViewSalesReportDetail from '../shared/pages/mockup/ViewSalesReportDetail';
+
+const ROLES_WS = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT'];
+/** Danh mục vật tư + tạo/sửa yêu cầu xuất (không gồm kế toán). */
+const ROLES_WSA = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT'];
+/** Phiếu xuất chi tiết / tạo giao hàng: thêm kế toán. */
+const ROLES_WSA_WITH_ACC = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS'];
+const ROLES_ALL = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS'];
+/** Master data kho (danh mục, ĐVT, quy cách, tạo/confirm GRN): chỉ thủ kho. */
+const ROLES_WA_WH = ['WAREHOUSE_KEEPER'];
+/** Trả hàng mua: thủ kho + kế toán. */
+const ROLES_WA_PR = ['WAREHOUSE_KEEPER', 'ACCOUNTANTS'];
+const ROLES_DA = ['DIRECTOR', 'ACCOUNTANTS'];
+const ROLES_DW = ['DIRECTOR', 'WAREHOUSE_KEEPER'];
+/** Tạo/sửa vật tư: giám đốc + thủ kho (không gồm kế toán). */
+const ROLES_WD = ['DIRECTOR', 'WAREHOUSE_KEEPER'];
+const ROLES_WDA = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS'];
+const ROLES_WDAS = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'SALE_SUPPORT'];
+const ROLES_WDSA = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS'];
+const ROLES_SA = ['SALE_ENGINEER', 'ACCOUNTANTS'];
+const ROLES_SSA = ['SALE_SUPPORT', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER'];
+const ROLES_DIRECTOR = ['DIRECTOR'];
+const ROLES_ADMIN = ['ADMIN'];
+const ROLES_ACC = ['ACCOUNTANTS'];
 
 const AppRoutes = () => (
     <Routes>
@@ -44,346 +115,82 @@ const AppRoutes = () => (
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Home Dashboard: chỉ Giám đốc (DIRECTOR) mới có quyền truy cập */}
-        <Route
-            path="/home"
-            element={
-                <ProtectedRoute allowedRoles={['DIRECTOR']}>
-                    <MainLayout>
-                        <Home />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        {/* Home dashboard chỉ dành cho Giám đốc; Admin không có đường /admin/home tới dashboard */}
-        <Route
-            path="/admin/home"
-            element={
-                <ProtectedRoute allowedRoles={['DIRECTOR']}>
-                    <MainLayout>
-                        <Home />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/sale-support/home"
-            element={
-                <ProtectedRoute allowedRoles={['DIRECTOR']}>
-                    <MainLayout>
-                        <Home />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/sale-support/home/suppliers-view"
-            element={
-                <ProtectedRoute>
-                    <MainLayout>
-                        <ViewSupplierList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/profile"
-            element={
-                <ProtectedRoute>
-                    <MainLayout>
-                        <Profile />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/admin/users/deactivated"
-            element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
-                    <MainLayout>
-                        <DeactivatedUsersList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/admin/users"
-            element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
-                    <MainLayout>
-                        <UserAccountList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        {/* Thông báo dùng chung cho mọi role (mockup theo role) */}
-        <Route
-            path="/notifications"
-            element={
-                <ProtectedRoute>
-                    <MainLayout>
-                        <ViewNotifications />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        {/* Cài đặt thông báo (chỉ Admin) */}
-        <Route
-            path="/admin/notifications"
-            element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
-                    <MainLayout>
-                        <AdminNotifications />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/admin/audit-log"
-            element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
-                    <MainLayout>
-                        <AdminAuditLog />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        {/* Items – full quyền: tất cả role trừ ADMIN và Giám đốc (WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER, ACCOUNTANTS) */}
-        <Route
-            path="/products"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <ItemList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/items/create"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <CreateItem />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/items/edit/:id"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <EditItem />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/items/:id"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <ViewItemDetail />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/categories"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewCategoryList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/categories/create"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <CreateCategory />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/categories/edit/:id"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <EditCategory />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/packaging-spec"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewPackagingSpecList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/specs"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewSpecList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
+        <Route path="/home" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/home" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
+        <Route path="/sale-support/home" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
+        <Route path="/sale-support/home/suppliers-view" element={<ProtectedRoute><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><MainLayout><Profile /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/users/deactivated" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewDeactivatedUsersList /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotifications /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewAdminAuditLog /></MainLayout></ProtectedRoute>} />
+        <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA_WITH_ACC}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WD}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WD}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLES_WSA_WITH_ACC}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
+        <Route path="/categories/create" element={<Navigate to="/categories" replace />} />
+        <Route path="/categories/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><EditCategory /></MainLayout></ProtectedRoute>} />
+        <Route path="/packaging-spec" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><ViewPackagingSpecList /></MainLayout></ProtectedRoute>} />
+        <Route path="/specs" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><ViewSpecList /></MainLayout></ProtectedRoute>} />
         <Route path="/item-masters" element={<Navigate to="/categories" replace />} />
-        <Route
-            path="/uom"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'SALE_SUPPORT', 'SALE_ENGINEER']}>
-                    <MainLayout>
-                        <ViewUomList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
+        <Route path="/uom" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><ViewUomList /></MainLayout></ProtectedRoute>} />
         <Route path="/uom/create" element={<Navigate to="/uom" replace />} />
         <Route path="/uom/edit/:id" element={<Navigate to="/uom" replace />} />
-        <Route
-            path="/brands"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'SALE_SUPPORT', 'SALE_ENGINEER']}>
-                    <MainLayout>
-                        <ViewBrandList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/suppliers"
-            element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <ViewSupplierList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/suppliers/create"
-            element={
-                <MainLayout>
-                    <CreateSupplier />
-                </MainLayout>
-            }
-        />
-        {/* Quản lý kho – Director, Thủ kho */}
-        <Route
-            path="/inventory"
-            element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewWarehouseList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        {/* Yêu cầu nhập hàng (GRN) – Kế toán, Thủ kho */}
-        <Route
-            path="/good-receipt-notes"
-            element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewGoodReceiptNotes />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/good-receipt-notes/:id"
-            element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewGoodReceiptNoteDetail />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/good-receipt-notes/create"
-            element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <CreateGoodReceiptNote />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        {/* Yêu cầu xuất hàng (GDN) – Kế toán, Thủ kho */}
-        <Route
-            path="/good-delivery-notes"
-            element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewGoodDeliveryNotes />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/receivers"
-            element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <ViewReceiver />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/receivers/create"
-            element={
-                <ProtectedRoute allowedRoles={['SALE_ENGINEER']}>
-                    <MainLayout>
-                        <CreateReceiver />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        {/* Purchase order: Sale Support, Kế toán (Quản lý đơn mua trong Yêu Cầu) */}
-        <Route
-            path="/purchase-orders"
-            element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <ViewPurchaseOrderList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/purchase-orders/create"
-            element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <CreatePurchaseOrder />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/purchase-orders/:id"
-            element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <ViewPurchaseOrderDetail />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
+        <Route path="/brands" element={<ProtectedRoute allowedRoles={ROLES_WSA_WITH_ACC}><MainLayout><ViewBrandList /></MainLayout></ProtectedRoute>} />
+        <Route path="/suppliers" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
+        <Route path="/suppliers/create" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><CreateSupplier /></MainLayout></ProtectedRoute>} />
+        <Route path="/suppliers/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewSupplierDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/create" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><CreateWarehouse /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/storage-locations" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewStorageLocationList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/adjustments" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/adjustments/create" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><CreateInventoryAdjustment /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/adjustments/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewStocktakeList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/create" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><CreateStocktake /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/report/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><StocktakeReport /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewStocktakeDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><Outlet /></MainLayout></ProtectedRoute>}>
+            <Route path="stocktakes" element={<ViewStocktakeList />} />
+        </Route>
+        <Route path="/good-receipt-notes" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNotesList /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes/create" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><CreateGoodReceiptNote /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes/confirmation/:id" element={<ProtectedRoute allowedRoles={ROLES_WA_WH}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewGoodDeliveryNoteList /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes/create" element={<ProtectedRoute allowedRoles={ROLES_DW}><MainLayout><CreateGoodDeliveryNote /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateReleaseRequest /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request/:id/edit" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><EditReleaseRequest /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA_WITH_ACC}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/goods-delivery-notes" element={<Navigate to="/good-delivery-notes" replace />} />
+        <Route path="/goods-delivery-notes/create" element={<Navigate to="/good-delivery-notes/create" replace />} />
+        <Route path="/goods-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA_WITH_ACC}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/deliveries" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewDeliveryList /></MainLayout></ProtectedRoute>} />
+        <Route path="/deliveries/create" element={<ProtectedRoute allowedRoles={ROLES_WSA_WITH_ACC}><MainLayout><CreateDelivery /></MainLayout></ProtectedRoute>} />
+
+        <Route path="/receivers" element={<ProtectedRoute allowedRoles={ROLES_WDSA}><MainLayout><ViewReceiver /></MainLayout></ProtectedRoute>} />
+        <Route path="/receivers/:id" element={<ProtectedRoute allowedRoles={ROLES_WDSA}><MainLayout><ViewReceiverDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/receivers/create" element={<ProtectedRoute allowedRoles={ROLES_SA}><MainLayout><CreateReceiver /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-orders" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderList /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-orders/create" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><CreatePurchaseOrder /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-orders/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns" element={<ProtectedRoute allowedRoles={ROLES_WA_PR}><MainLayout><ViewPurchaseReturnList /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/create" element={<ProtectedRoute allowedRoles={ROLES_WA_PR}><MainLayout><CreatePurchaseReturn /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/:id" element={<ProtectedRoute allowedRoles={ROLES_WA_PR}><MainLayout><ViewPurchaseReturnDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/item-prices" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><ViewItemPriceList /></MainLayout></ProtectedRoute>} />
+
+        {/* ── Mockup: Inventory Alert Setup ── */}
+        <Route path="/mockup/inventory-alert" element={<ProtectedRoute allowedRoles={ROLES_WDAS}><MainLayout><InventoryAlertSetup /></MainLayout></ProtectedRoute>} />
+
+        {/* ── Mockup: Báo cáo doanh số ── */}
+        <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/year/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/quarter/:quarter/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/month/:month/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
     </Routes>
 );
 

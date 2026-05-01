@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -16,6 +17,7 @@ namespace Warehouse.DataAcces.Service
 	public class CategoryService : ICategoryService
 	{
 		private readonly IGenericRepository<ItemCategory> _categoryRepository;
+		private readonly IGenericRepository<Item> _itemRepository;
 		private readonly IAuditLogService _auditLogService;
 
 		// Chỉ cho phép chữ cái (unicode), chữ số, khoảng trắng, gạch ngang, dấu chấm, & và /
@@ -28,9 +30,11 @@ namespace Warehouse.DataAcces.Service
 
 		public CategoryService(
 			IGenericRepository<ItemCategory> categoryRepository,
+			IGenericRepository<Item> itemRepository,
 			IAuditLogService auditLogService)
 		{
 			_categoryRepository = categoryRepository;
+			_itemRepository = itemRepository;
 			_auditLogService = auditLogService;
 		}
 
@@ -44,16 +48,23 @@ namespace Warehouse.DataAcces.Service
 				throw new ArgumentNullException(nameof(request), "Dữ liệu yêu cầu không được để trống.");
 
 			ValidateUserId(currentUserId);
-			ValidateCategoryCode(request.CategoryCode);
 			ValidateCategoryName(request.CategoryName);
 
-			var categoryCode = request.CategoryCode.Trim();
 			var categoryName = request.CategoryName.Trim();
-
-			// 2️⃣ Kiểm tra mã danh mục trùng (case-insensitive)
 			var all = await _categoryRepository.GetAllAsync();
-			if (all.Any(c => c.CategoryCode.Trim().Equals(categoryCode, StringComparison.OrdinalIgnoreCase)))
-				throw new InvalidOperationException($"Mã danh mục '{categoryCode}' đã tồn tại.");
+
+			// 2️⃣ Tự động tạo mã danh mục (CTG-001, CTG-002, ...)
+			var maxCode = all
+				.Where(c => !string.IsNullOrEmpty(c.CategoryCode) && c.CategoryCode.StartsWith("CTG-") && c.CategoryCode.Length >= 7)
+				.Select(c =>
+				{
+					int.TryParse(c.CategoryCode.Substring(4), out int num);
+					return num;
+				})
+				.DefaultIfEmpty(0)
+				.Max();
+
+			var categoryCode = $"CTG-{(maxCode + 1):D3}";
 
 			// 3️⃣ Kiểm tra tên danh mục trùng (case-insensitive) trong cùng cấp
 			if (all.Any(c =>
@@ -98,7 +109,7 @@ namespace Warehouse.DataAcces.Service
 				? allAfter.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -144,13 +155,21 @@ namespace Warehouse.DataAcces.Service
 			// Build a lookup for parent names
 			var parentLookup = all.ToDictionary(c => c.CategoryId, c => c.CategoryName);
 
-			var items = query
+			var pageCategories = query
 				.OrderBy(c => c.CategoryCode)
 				.Skip((page - 1) * pageSize)
 				.Take(pageSize)
-				.Select(c => ToResponse(c, c.ParentId.HasValue && parentLookup.ContainsKey(c.ParentId.Value)
-					? new ItemCategory { CategoryName = parentLookup[c.ParentId.Value] }
-					: null))
+				.ToList();
+
+			var itemCounts = await GetItemCountsForCategoriesAsync(pageCategories.Select(c => c.CategoryId));
+
+			var items = pageCategories
+				.Select(c => ToResponse(
+					c,
+					c.ParentId.HasValue && parentLookup.ContainsKey(c.ParentId.Value)
+						? new ItemCategory { CategoryName = parentLookup[c.ParentId.Value] }
+						: null,
+					itemCounts.TryGetValue(c.CategoryId, out var cnt) ? cnt : 0))
 				.ToList();
 
 			return new PagedResponse<CategoryResponse>
@@ -178,7 +197,7 @@ namespace Warehouse.DataAcces.Service
 				? all.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -191,13 +210,6 @@ namespace Warehouse.DataAcces.Service
 
 			if (request == null)
 				throw new ArgumentNullException(nameof(request), "Dữ liệu yêu cầu không được để trống.");
-
-			ValidateUserId(currentUserId);
-			ValidateCategoryCode(request.CategoryCode);
-			ValidateCategoryName(request.CategoryName);
-
-			var categoryCode = request.CategoryCode.Trim();
-			var categoryName = request.CategoryName.Trim();
 
 			// 2️⃣ Kiểm tra tồn tại
 			var all = await _categoryRepository.GetAllAsync();
@@ -214,10 +226,13 @@ namespace Warehouse.DataAcces.Service
 				category.IsActive
 			});
 
-			// 3️⃣ Kiểm tra mã trùng với danh mục khác
+			// 3️⃣ Kiểm tra mã trùng với danh mục khác (Lưu ý: chưa trim, cứ lấy request.CategoryCode/Name)
+			var categoryCode = (request.CategoryCode ?? "").Trim();
+			var categoryName = (request.CategoryName ?? "").Trim();
+
 			if (all.Any(c =>
 				c.CategoryId != id &&
-				c.CategoryCode.Trim().Equals(categoryCode, StringComparison.OrdinalIgnoreCase)))
+				(c.CategoryCode ?? "").Trim().Equals(categoryCode, StringComparison.OrdinalIgnoreCase)))
 			{
 				throw new InvalidOperationException($"Mã danh mục '{categoryCode}' đã tồn tại.");
 			}
@@ -226,7 +241,7 @@ namespace Warehouse.DataAcces.Service
 			if (all.Any(c =>
 				c.CategoryId != id &&
 				c.ParentId == request.ParentId &&
-				c.CategoryName.Trim().Equals(categoryName, StringComparison.OrdinalIgnoreCase)))
+				(c.CategoryName ?? "").Trim().Equals(categoryName, StringComparison.OrdinalIgnoreCase)))
 			{
 				throw new InvalidOperationException($"Tên danh mục '{categoryName}' đã tồn tại trong cùng cấp cha.");
 			}
@@ -241,6 +256,11 @@ namespace Warehouse.DataAcces.Service
 				if (parent == null)
 					throw new KeyNotFoundException($"Không tìm thấy danh mục cha với ID = {request.ParentId.Value}.");
 			}
+
+			// 6️⃣ Validate input định dạng (Xảy ra sau khi check các lỗi nghiệp vụ trên)
+			ValidateUserId(currentUserId);
+			ValidateCategoryCode(request.CategoryCode);
+			ValidateCategoryName(request.CategoryName);
 
 			// 6️⃣ Cập nhật
 			category.CategoryCode = categoryCode;
@@ -273,7 +293,7 @@ namespace Warehouse.DataAcces.Service
 				? all.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -319,7 +339,7 @@ namespace Warehouse.DataAcces.Service
 				? all.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -395,14 +415,35 @@ namespace Warehouse.DataAcces.Service
 		// =====================================================================
 		// HELPER
 		// =====================================================================
-		private static CategoryResponse ToResponse(ItemCategory c, ItemCategory? parent) => new CategoryResponse
+		private async Task<Dictionary<long, int>> GetItemCountsForCategoriesAsync(IEnumerable<long> categoryIds)
+		{
+			var idSet = categoryIds.Distinct().ToHashSet();
+			if (idSet.Count == 0)
+				return new Dictionary<long, int>();
+
+			var items = await _itemRepository.GetAllAsync();
+			return items
+				.Where(i => i.CategoryId.HasValue && idSet.Contains(i.CategoryId.Value))
+				.GroupBy(i => i.CategoryId!.Value)
+				.ToDictionary(g => g.Key, g => g.Count());
+		}
+
+		private async Task<CategoryResponse> ToResponseWithItemCountAsync(ItemCategory c, ItemCategory? parent)
+		{
+			var counts = await GetItemCountsForCategoriesAsync(new[] { c.CategoryId });
+			var n = counts.TryGetValue(c.CategoryId, out var cnt) ? cnt : 0;
+			return ToResponse(c, parent, n);
+		}
+
+		private static CategoryResponse ToResponse(ItemCategory c, ItemCategory? parent, int itemCount = 0) => new CategoryResponse
 		{
 			CategoryId = c.CategoryId,
 			CategoryCode = c.CategoryCode,
 			CategoryName = c.CategoryName,
 			ParentId = c.ParentId,
 			ParentName = parent?.CategoryName,
-			IsActive = c.IsActive
+			IsActive = c.IsActive,
+			ItemCount = itemCount
 		};
 	}
 }

@@ -25,15 +25,25 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
     }
 
     if (allowedRoles && allowedRoles.length > 0) {
+        const isAdminOnlyRoute =
+            allowedRoles.includes('ADMIN') && !allowedRoles.includes('DIRECTOR');
+
+        // Director được vào tất cả chức năng trừ Admin-only
+        if (permissionRole === 'DIRECTOR' && !isAdminOnlyRoute) {
+            return children;
+        }
+
         if (!allowedRoles.includes(permissionRole)) {
-            console.warn(`User with role ${permissionRole} tried to access ${location.pathname} but doesn't have permission`);
+            console.warn(
+                `User with role ${permissionRole} tried to access ${location.pathname} but doesn't have permission`
+            );
 
             if (permissionRole === 'ADMIN') return <Navigate to="/admin/users" replace />;
             if (permissionRole === 'DIRECTOR') return <Navigate to="/home" replace />;
             if (permissionRole === 'WAREHOUSE_KEEPER') return <Navigate to="/products" replace />;
-            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/suppliers" replace />;
+            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/products" replace />;
             if (permissionRole === 'SALE_ENGINEER') return <Navigate to="/products" replace />;
-            if (permissionRole === 'ACCOUNTANTS') return <Navigate to="/products" replace />;
+            if (permissionRole === 'ACCOUNTANTS') return <Navigate to="/purchase-orders" replace />;
             return <Navigate to="/products" replace />;
         }
     }

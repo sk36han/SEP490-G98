@@ -1,8 +1,9 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
- * Receiver API – maps to backend ReceiverController / ReceiverResponse.
- * Backend trả data trực tiếp (không bọc ApiResponse): PagedResponse hoặc ReceiverResponse.
+ * Receiver API - maps to backend ReceiverController / ReceiverResponse.
+ * Backend tra ve data truc tiep (khong buc qua ApiResponse): PagedResponse hoac ReceiverResponse.
  * Path: GET list-all, POST create, PUT update/{id}, PATCH change-status/{id}
  */
 
@@ -15,6 +16,7 @@ import apiClient from './axios';
  * @param {boolean|null} [params.isActive]
  * @param {string} [params.fromDate] - ISO date
  * @param {string} [params.toDate] - ISO date
+ * @param {number|null} [params.companyId] - Loc receiver theo cong ty
  */
 export async function getReceivers(params = {}) {
     const {
@@ -25,6 +27,7 @@ export async function getReceivers(params = {}) {
         isActive = null,
         fromDate = null,
         toDate = null,
+        companyId = null,
     } = params;
     const query = new URLSearchParams();
     query.set('page', String(page));
@@ -35,6 +38,7 @@ export async function getReceivers(params = {}) {
     if (isActive === false) query.set('isActive', 'false');
     if (fromDate && typeof fromDate === 'string') query.set('fromDate', fromDate);
     if (toDate && typeof toDate === 'string') query.set('toDate', toDate);
+    if (companyId != null) query.set('companyId', String(companyId));
 
     const response = await apiClient.get(`/Receiver/list-all?${query.toString()}`);
     const data = response?.data;
@@ -47,10 +51,10 @@ export async function getReceivers(params = {}) {
         : Array.isArray(payload?.Items)
             ? payload.Items
             : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.Items)
-            ? data.Items
-            : [];
+                ? data.items
+                : Array.isArray(data?.Items)
+                    ? data.Items
+                    : [];
     const items = rawItems
         .filter((row) => row != null && typeof row === 'object')
         .map((row) => ({
@@ -62,7 +66,11 @@ export async function getReceivers(params = {}) {
             address: row.address ?? row.Address ?? '',
             city: row.city ?? row.City ?? '',
             ward: row.ward ?? row.Ward ?? '',
+            district: row.district ?? row.District ?? '',
             notes: row.notes ?? row.Notes ?? '',
+            position: row.position ?? row.Position ?? '',
+            addressId: row.addressId ?? row.AddressId ?? null,
+            companyId: row.companyId ?? row.CompanyId ?? null,
             isActive: row.isActive ?? row.IsActive ?? true,
         }));
     return {
@@ -74,36 +82,77 @@ export async function getReceivers(params = {}) {
 }
 
 /**
- * Tạo người nhận mới
- * POST /api/Receiver/create – backend trả trực tiếp ReceiverResponse
+ * Lay danh sach nguoi nhan theo cong ty.
+ * GET /api/Receiver/ReceiversByCompany/{companyId}
+ */
+export async function getReceiversByCompany(companyId) {
+    try {
+        const response = await apiClient.get(`/Receiver/ReceiversByCompany/${companyId}`);
+        const data = response?.data ?? {};
+        const raw = Array.isArray(data)
+            ? data
+            : (data.data ?? data.Data ?? data.items ?? data.Items ?? []);
+
+        return raw
+            .filter(row => row != null && typeof row === 'object')
+            .map(row => ({
+                receiverId: row.receiverId ?? row.ReceiverId,
+                receiverCode: row.receiverCode ?? row.ReceiverCode ?? '',
+                receiverName: row.receiverName ?? row.ReceiverName ?? '',
+                phone: row.phone ?? row.Phone ?? '',
+                email: row.email ?? row.Email ?? '',
+                address: row.address ?? row.Address ?? '',
+                city: row.city ?? row.City ?? '',
+                ward: row.ward ?? row.Ward ?? '',
+                district: row.district ?? row.District ?? '',
+                position: row.position ?? row.Position ?? '',
+                addressId: row.addressId ?? row.AddressId ?? null,
+                companyId: row.companyId ?? row.CompanyId ?? null,
+            }));
+    } catch (error) {
+        if (error.response?.status === 404) return [];
+        throw new Error(error.response?.data?.message || 'Khong tai duoc danh sach nguoi nhan.');
+    }
+}
+
+/**
+ * Tao nguoi nhan moi
+ * POST /api/Receiver/create - backend tra ve ReceiverResponse
  */
 export async function createReceiver(data) {
     try {
         const response = await apiClient.post('/Receiver/create', {
-            receiverCode: data.receiverCode,
             receiverName: data.receiverName,
             phone: data.phone || null,
             email: data.email || null,
             address: data.address || null,
             notes: data.notes || null,
+            // Extended fields
+            companyId: data.companyId != null ? Number(data.companyId) : null,
+            addressId: data.addressId != null ? Number(data.addressId) : null,
+            position: data.position?.trim() || null,
+            city: data.city?.trim() || null,
+            district: data.district?.trim() || null,
+            ward: data.ward?.trim() || null,
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
-            throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ.');
+            throw new Error(error.response?.data?.message || 'Du lieu khong hop le.');
         } else if (error.response?.status === 401) {
-            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            throw new Error('Phien dang nhap da het han. Vui long dang nhap lai.');
         } else if (error.message === 'Network Error') {
-            throw new Error('Không thể kết nối đến server.');
+            throw new Error('Khong the ket noi den server.');
         } else {
-            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tạo người nhận.');
+            throw new Error(error.response?.data?.message || 'Da xay ra loi khi tao nguoi nhan.');
         }
     }
 }
 
 /**
- * Cập nhật người nhận
- * PUT /api/Receiver/update/{id} – backend trả trực tiếp ReceiverResponse
+ * Cap nhat nguoi nhan
+ * PUT /api/Receiver/update/{id} - backend tra ve ReceiverResponse
  */
 export async function updateReceiver(id, data) {
     try {
@@ -114,40 +163,154 @@ export async function updateReceiver(id, data) {
             address: data.address || null,
             notes: data.notes || null,
             isActive: data.isActive,
+            // Extended fields
+            companyId: data.companyId != null ? Number(data.companyId) : null,
+            addressId: data.addressId != null ? Number(data.addressId) : null,
+            position: data.position?.trim() || null,
+            city: data.city?.trim() || null,
+            district: data.district?.trim() || null,
+            ward: data.ward?.trim() || null,
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
-            throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ.');
+            throw new Error(error.response?.data?.message || 'Du lieu khong hop le.');
         } else if (error.response?.status === 401) {
-            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            throw new Error('Phien dang nhap da het han. Vui long dang nhap lai.');
         } else if (error.response?.status === 404) {
-            throw new Error('Không tìm thấy người nhận.');
+            throw new Error('Khong tim thay nguoi nhan.');
         } else if (error.message === 'Network Error') {
-            throw new Error('Không thể kết nối đến server.');
+            throw new Error('Khong the ket noi den server.');
         } else {
-            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi cập nhật người nhận.');
+            throw new Error(error.response?.data?.message || 'Da xay ra loi khi cap nhat nguoi nhan.');
         }
     }
 }
 
 /**
- * Bật/tắt trạng thái người nhận
- * PATCH /api/Receiver/change-status/{id}?isActive= – backend trả trực tiếp ReceiverResponse
+ * Lay chi tiet mot nguoi nhan.
+ * GET /api/Receiver/get-receiver-by-id/{id} - backend tra ve ReceiverResponse truc tiep.
+ */
+export async function getReceiverDetail(id) {
+    const response = await apiClient.get(`/Receiver/get-receiver-by-id/${id}`);
+    const data = response?.data ?? {};
+    // Một số endpoint bọc { data } / { Data } / { result }; payload chi tiết có receiverId hoặc ReceiverId
+    let raw = data.data ?? data.Data ?? data.result ?? data.Result ?? data;
+    if (raw && typeof raw === 'object' && raw.receiverId == null && raw.ReceiverId == null) {
+        const inner = raw.data ?? raw.Data ?? raw.result ?? raw.Result;
+        if (inner && typeof inner === 'object' && (inner.receiverId != null || inner.ReceiverId != null)) {
+            raw = inner;
+        }
+    }
+    return {
+        receiverId: raw.receiverId ?? raw.ReceiverId,
+        receiverCode: raw.receiverCode ?? raw.ReceiverCode ?? '',
+        receiverName: raw.receiverName ?? raw.ReceiverName ?? '',
+        phone: raw.phone ?? raw.Phone ?? '',
+        email: raw.email ?? raw.Email ?? '',
+        address: raw.address ?? raw.Address ?? '',
+        city: raw.city ?? raw.City ?? '',
+        ward: raw.ward ?? raw.Ward ?? '',
+        district: raw.district ?? raw.District ?? '',
+        notes: raw.notes ?? raw.Notes ?? '',
+        position: raw.position ?? raw.Position ?? '',
+        isActive: raw.isActive ?? raw.IsActive ?? true,
+        createdAt: raw.createdAt ?? raw.CreatedAt ?? null,
+        updatedAt: raw.updatedAt ?? raw.UpdatedAt ?? null,
+        companyId: raw.companyId ?? raw.CompanyId ?? null,
+        addressId: raw.addressId ?? raw.AddressId ?? null,
+        companyName: raw.companyName ?? raw.CompanyName ?? raw.company?.companyName ?? raw.Company?.CompanyName ?? '',
+        companyCode: raw.companyCode ?? raw.CompanyCode ?? raw.company?.companyCode ?? raw.Company?.CompanyCode ?? '',
+        addressName: raw.addressName ?? raw.AddressName ?? '',
+    };
+}
+
+/**
+ * Bat/tat trang thai nguoi nhan
+ * PATCH /api/Receiver/change-status/{id}?isActive= - backend tra ve ReceiverResponse
  */
 export async function toggleReceiverStatus(id, isActive) {
     try {
         const response = await apiClient.patch(`/Receiver/change-status/${id}`, null, {
             params: { isActive: !!isActive },
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 401) {
-            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            throw new Error('Phien dang nhap da het han. Vui long dang nhap lai.');
         } else if (error.response?.status === 404) {
-            throw new Error('Không tìm thấy người nhận.');
+            throw new Error('Khong tim thay nguoi nhan.');
         } else {
-            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi đổi trạng thái.');
+            throw new Error(error.response?.data?.message || 'Da xay ra loi khi doi trang thai.');
         }
     }
+}
+
+/**
+ * Lay lich su giao dich cua receiver.
+ * GET /api/Receiver/view-transaction-history/{id}
+ */
+export async function getReceiverTransactions(receiverId, params = {}) {
+    const {
+        page = 1,
+        pageSize = 20,
+        transactionType = null,
+        status = null,
+        fromDate = null,
+        toDate = null,
+        detailType = null,
+        detailDocId = null,
+    } = params;
+
+    const response = await apiClient.get(`/Receiver/view-transaction-history/${receiverId}`, {
+        params: {
+            page,
+            pageSize,
+            transactionType: transactionType || undefined,
+            status: status || undefined,
+            fromDate: fromDate || undefined,
+            toDate: toDate || undefined,
+            detailType: detailType || undefined,
+            detailDocId: detailDocId || undefined,
+        },
+    });
+
+    const body = response?.data ?? {};
+    const payload = body?.data ?? body?.Data ?? body;
+    const summaryRaw = payload?.summary ?? payload?.Summary ?? {};
+    const historyRaw = payload?.history ?? payload?.History ?? {};
+    const rawItems = historyRaw?.items ?? historyRaw?.Items ?? [];
+
+    const items = (Array.isArray(rawItems) ? rawItems : [])
+        .filter((row) => row != null && typeof row === 'object')
+        .map((row) => ({
+            transactionId: row.transactionId ?? row.TransactionId ?? null,
+            transactionDate: row.transactionDate ?? row.TransactionDate ?? null,
+            transactionCode: row.transactionCode ?? row.TransactionCode ?? '',
+            transactionType: row.transactionType ?? row.TransactionType ?? '',
+            status: row.status ?? row.Status ?? '',
+            note: row.note ?? row.Note ?? '',
+            warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
+            createdBy: row.createdBy ?? row.CreatedBy ?? '',
+            itemCount: row.itemCount ?? row.ItemCount ?? 0,
+            totalQuantity: row.totalQuantity ?? row.TotalQuantity ?? 0,
+            createdAt: row.createdAt ?? row.CreatedAt ?? null,
+        }));
+
+    return {
+        summary: {
+            totalReleaseRequests: summaryRaw.totalReleaseRequests ?? summaryRaw.TotalReleaseRequests ?? 0,
+            totalGoodsDeliveryNotes: summaryRaw.totalGoodsDeliveryNotes ?? summaryRaw.TotalGoodsDeliveryNotes ?? 0,
+            totalQuantityRequested: summaryRaw.totalQuantityRequested ?? summaryRaw.TotalQuantityRequested ?? 0,
+            totalQuantityDelivered: summaryRaw.totalQuantityDelivered ?? summaryRaw.TotalQuantityDelivered ?? 0,
+        },
+        history: {
+            page: historyRaw.page ?? historyRaw.Page ?? page,
+            pageSize: historyRaw.pageSize ?? historyRaw.PageSize ?? pageSize,
+            totalItems: historyRaw.totalItems ?? historyRaw.TotalItems ?? 0,
+            items,
+        },
+    };
 }

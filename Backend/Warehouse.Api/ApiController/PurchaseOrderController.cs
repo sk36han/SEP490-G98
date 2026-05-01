@@ -1,6 +1,7 @@
 using System;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -20,6 +21,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("list")]
+        [Authorize]
         public async Task<IActionResult> GetPurchaseOrders(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
@@ -36,6 +38,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("detail/{id:long}")]
+        [Authorize]
         public async Task<IActionResult> GetPurchaseOrderDetail(long id)
         {
             try
@@ -54,6 +57,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("create")]
+        [Authorize(Roles = "SP,KT,GD")]
         public async Task<IActionResult> CreatePurchaseOrder([FromBody] CreatePurchaseOrderRequest request)
         {
             if (!ModelState.IsValid)
@@ -79,6 +83,80 @@ namespace Warehouse.Api.ApiController
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("update/{id:long}")]
+        [Authorize(Roles = "SP,KT,GD")]
+        public async Task<IActionResult> UpdatePurchaseOrder(long id, [FromBody] UpdatePurchaseOrderRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+            }
+
+            try
+            {
+                var result = await _purchaseOrderService.UpdatePurchaseOrderAsync(id, currentUserId, request);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        [HttpPost("{id:long}/attachments")]
+        [Authorize(Roles = "SP,KT,GD")]
+        public async Task<IActionResult> UploadPurchaseOrderAttachments(
+            long id,
+            IFormFile? quotationFile,
+            IFormFile? contractAppendixFile)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+            }
+
+            try
+            {
+                var result = await _purchaseOrderService.UploadPurchaseOrderAttachmentsAsync(
+                    id,
+                    currentUserId,
+                    quotationFile,
+                    contractAppendixFile);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Không thể tải tệp đính kèm cho đơn mua hàng." });
             }
         }
     }

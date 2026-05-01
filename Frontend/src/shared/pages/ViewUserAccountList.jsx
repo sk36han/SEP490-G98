@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Table,
     TableBody,
@@ -26,7 +27,7 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Search, Edit, Power, UserPlus, Download, Columns, RefreshCw, Filter } from 'lucide-react';
+import { Search, Edit, Power, UserPlus, Download, Columns, RefreshCw, Filter, Users } from 'lucide-react';
 import adminService from '../lib/adminService';
 import authService from '../lib/authService';
 import Toast from '../../components/Toast/Toast';
@@ -51,7 +52,29 @@ const USER_ACCOUNT_COLUMNS = [
 const DEFAULT_VISIBLE_USER_COLUMN_IDS = USER_ACCOUNT_COLUMNS.map((c) => c.id);
 const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
-const UserAccountList = () => {
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
+
+const ViewUserAccountList = () => {
     const { toast, showToast, clearToast } = useToast();
     const location = useLocation();
     const navigate = useNavigate();
@@ -111,7 +134,7 @@ const UserAccountList = () => {
     const visibleColumns = USER_ACCOUNT_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         setLoading(true);
         try {
             const response = await adminService.getUserList({
@@ -128,11 +151,14 @@ const UserAccountList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showToast]);
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    useEffect(() => { loadUsers(); }, [loadUsers]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const loadUsersRef = useRef(loadUsers);
+    useEffect(() => { loadUsersRef.current = loadUsers; }, [loadUsers]);
+    usePolling('users', () => loadUsersRef.current?.());
 
     // Mở dialog Tạo mới khi điều hướng từ Sidebar với state.openCreate
     useEffect(() => {
@@ -142,7 +168,7 @@ const UserAccountList = () => {
         }
     }, [location.pathname, location.state?.openCreate, navigate]);
 
-    useEffect(() => {
+    const filteredUsers = useMemo(() => {
         let result = allUsers;
         if (searchTerm.trim()) {
             const normalize = (str) => (str ? removeDiacritics(str.toLowerCase()) : '');
@@ -164,7 +190,7 @@ const UserAccountList = () => {
         }
         if (filterValues.fromDate || filterValues.toDate) {
             result = result.filter((user) => {
-                const createdAt = user.createdAt ? new Date(user.createdAt) : null;
+                const createdAt = user.createdAt ? new Date(user.createdAt + 'Z') : null;
                 if (!createdAt || isNaN(createdAt.getTime())) return false;
                 if (filterValues.fromDate) {
                     const from = new Date(filterValues.fromDate);
@@ -179,10 +205,14 @@ const UserAccountList = () => {
                 return true;
             });
         }
-        setTotalCount(result.length);
+        return result;
+    }, [allUsers, searchTerm, filterValues]);
+
+    useEffect(() => {
+        setTotalCount(filteredUsers.length);
         const start = (pageNumber - 1) * pageSize;
-        setUsers(result.slice(start, start + pageSize));
-    }, [allUsers, searchTerm, filterValues, pageNumber, pageSize]);
+        setUsers(filteredUsers.slice(start, start + pageSize));
+    }, [filteredUsers, pageNumber, pageSize]);
 
     useEffect(() => {
         setPageNumber(1);
@@ -321,7 +351,7 @@ const UserAccountList = () => {
                 pt: 2,
                 pb: 2,
                 mx: 'auto',
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 display: 'flex',
                 flexDirection: 'column',
@@ -363,6 +393,12 @@ const UserAccountList = () => {
                 >
                     Quản lý tài khoản, phân quyền và trạng thái hoạt động của nhân viên trong hệ thống.
                 </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={Users} label="Tổng tài khoản" value={filteredUsers.length.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Users} label="Đang hoạt động" value={filteredUsers.filter((r) => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Users} label="Ngưng hoạt động" value={filteredUsers.filter((r) => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                </Box>
             </Box>
 
             <Paper
@@ -759,4 +795,5 @@ const UserAccountList = () => {
     );
 };
 
-export default UserAccountList;
+export default ViewUserAccountList;
+

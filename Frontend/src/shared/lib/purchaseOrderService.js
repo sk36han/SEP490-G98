@@ -1,16 +1,79 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Purchase Order API – kết nối PurchaseOrderController.
- * POST /PurchaseOrder/create – body CreatePurchaseOrderRequest
+ * GET  /PurchaseOrder/list – danh sách yêu cầu nhập hàng (phân trang)
+ * POST /PurchaseOrder/create – tạo yêu cầu nhập hàng
  */
 
 /**
- * Tạo đơn mua.
+ * Lấy danh sách yêu cầu nhập hàng (có phân trang).
+ * Backend trả: PagedResponse<PurchaseOrderResponse>
+ * @param {Object} params
+ * @param {number} params.page - Số trang (bắt đầu từ 1)
+ * @param {number} params.pageSize - Số dòng mỗi trang
+ * @param {string=} params.poCode - Lọc theo mã PO (tùy chọn)
+ * @param {string=} params.supplierName - Lọc theo tên NCC (tùy chọn)
+ * @param {string=} params.warehouseName - Lọc theo tên kho (tùy chọn)
+ * @param {string=} params.status - Lọc theo trạng thái duyệt (tùy chọn)
+ * @param {string=} params.lifecycleStatus - Lọc theo trạng thái nhập hàng (tùy chọn)
+ * @param {string=} params.fromDate - Từ ngày (yyyy-MM-dd)
+ * @param {string=} params.toDate - Đến ngày (yyyy-MM-dd)
+ * @param {string=} params.requestedByName - Lọc theo người tạo (tùy chọn)
+ * @param {string=} params.responsibleUserName - Lọc theo người phụ trách (tùy chọn)
+ * @returns {Promise<{ items: any[], totalItems: number, page: number, pageSize: number, totalPages: number }>}
+ */
+export async function getPurchaseOrders({
+    page = 1,
+    pageSize = 20,
+    poCode,
+    supplierName,
+    warehouseName,
+    status,
+    lifecycleStatus,
+    fromDate,
+    toDate,
+    requestedByName,
+    responsibleUserName,
+} = {}) {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('pageSize', pageSize);
+    if (poCode) params.append('poCode', poCode);
+    if (supplierName) params.append('supplierName', supplierName);
+    if (warehouseName) params.append('warehouseName', warehouseName);
+    if (status) params.append('status', status);
+    if (lifecycleStatus) params.append('lifecycleStatus', lifecycleStatus);
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
+    if (requestedByName) params.append('requestedByName', requestedByName);
+    if (responsibleUserName) params.append('responsibleUserName', responsibleUserName);
+
+    const response = await apiClient.get(`/PurchaseOrder/list?${params.toString()}`);
+    const data = response?.data;
+    
+    // Chuẩn hóa response từ backend
+    if (data && typeof data === 'object') {
+        return {
+            items: data.items ?? data.Data ?? [],
+            totalItems: data.totalItems ?? data.TotalItems ?? 0,
+            page: data.page ?? data.Page ?? 1,
+            pageSize: data.pageSize ?? data.PageSize ?? pageSize,
+            totalPages: data.totalPages ?? data.TotalPages ?? 0,
+        };
+    }
+    
+    return { items: [], totalItems: 0, page: 1, pageSize, totalPages: 0 };
+}
+
+/**
+ * Tạo yêu cầu nhập hàng.
  * @param {{
  *  supplierId: number,
  *  warehouseId: number,
  *  responsibleUserId?: number|null,
+ *  status?: string, // DRAFT, PENDING
  *  expectedDeliveryDate?: string|null, // yyyy-MM-dd
  *  justification?: string|null,
  *  discountAmount?: number|null,
@@ -20,6 +83,76 @@ import apiClient from './axios';
  */
 export async function createPurchaseOrder(payload) {
     const response = await apiClient.post('/PurchaseOrder/create', payload);
+    invalidate('purchase-order');
     return response?.data;
 }
 
+/**
+ * Upload quotation and contract appendix attachments for a purchase order.
+ * @param {number|string} poId
+ * @param {{quotationFile?: File|null, contractAppendixFile?: File|null}} attachments
+ * @returns {Promise<any>}
+ */
+export async function uploadPurchaseOrderAttachments(poId, { quotationFile, contractAppendixFile } = {}) {
+    const formData = new FormData();
+    if (quotationFile) formData.append('quotationFile', quotationFile);
+    if (contractAppendixFile) formData.append('contractAppendixFile', contractAppendixFile);
+
+    if (!quotationFile && !contractAppendixFile) {
+        return null;
+    }
+
+    const response = await apiClient.post(`/PurchaseOrder/${poId}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response?.data;
+}
+
+/**
+ * Lấy danh sách tất cả yêu cầu nhập hàng (dùng cho dropdown chọn PO).
+ * Gọi API với pageSize lớn để lấy đủ danh sách.
+ * @param {string=} status - Lọc theo trạng thái (mặc định lấy Approved)
+ * @returns {Promise<any[]>} Danh sách PO
+ */
+export async function getAllPurchaseOrdersForSelection(status = 'Approved') {
+    try {
+        const result = await getPurchaseOrders({ page: 1, pageSize: 100, status });
+        return result.items ?? [];
+    } catch (err) {
+        console.error('Lỗi khi lấy danh sách PO:', err);
+        return [];
+    }
+}
+
+/**
+ * Lấy chi tiết một yêu cầu nhập hàng theo ID.
+ * @param {number|string} poId
+ * @returns {Promise<any>} Chi tiết PO
+ */
+export async function getPurchaseOrderDetail(poId) {
+    const response = await apiClient.get(`/PurchaseOrder/detail/${poId}`);
+    return response?.data;
+}
+
+/**
+ * Duyệt yêu cầu nhập hàng
+ * @param {number|string} poId - ID của yêu cầu nhập hàng
+ * @param {string=} reason - Lý do duyệt (tùy chọn)
+ * @returns {Promise<any>}
+ */
+export async function approvePurchaseOrder(poId, reason = null) {
+    const payload = reason ? { reason } : {};
+    const response = await apiClient.post(`/approvals/PurchaseOrder/${poId}/approve`, payload);
+    return response?.data;
+}
+
+/**
+ * Từ chối yêu cầu nhập hàng
+ * @param {number|string} poId - ID của yêu cầu nhập hàng
+ * @param {string} reason - Lý do từ chối (bắt buộc)
+ * @returns {Promise<any>}
+ */
+export async function rejectPurchaseOrder(poId, reason) {
+    const response = await apiClient.post(`/approvals/PurchaseOrder/${poId}/reject`, { reason });
+    return response?.data;
+}

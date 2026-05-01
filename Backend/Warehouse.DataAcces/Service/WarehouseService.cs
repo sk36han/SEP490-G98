@@ -66,24 +66,59 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = warehouse.CreatedAt
             };
 
-            // Lấy danh sách vật tư trong kho
-            response.Items = await _context.InventoryOnHands
-                .AsNoTracking()
-                .Where(i => i.WarehouseId == warehouseId)
-                .Select(i => new WarehouseItemDto
+            // Query thẳng từ InventoryOnHand → chỉ lấy items ĐÃ CÓ bản ghi (kể cả OnHandQty = 0)
+            // ✅ Item hết hàng (OnHandQty = 0): vẫn lấy — đã từng nhập, chỉ là hết hàng
+            // ❌ Item chưa bao giờ nhập kho: không có row → không trả về (exclude hoàn toàn)
+            // Logic này khớp hoàn toàn với StartStocktakeExecutionAsync
+            response.Items = await (
+                from inv in _context.InventoryOnHands
+                where inv.WarehouseId == warehouseId
+                join item in _context.Items.Where(i => i.IsActive)
+                    on inv.ItemId equals item.ItemId
+                orderby item.ItemCode
+                select new WarehouseItemDto
                 {
-                    ItemId = i.ItemId,
-                    ItemCode = i.Item.ItemCode,
-                    ItemName = i.Item.ItemName,
-                    CategoryName = i.Item.Category != null ? i.Item.Category.CategoryName : null,
-                    BrandName = i.Item.Brand != null ? i.Item.Brand.BrandName : null,
-                    UnitName = i.Item.BaseUom != null ? i.Item.BaseUom.UomName : null,
-                    OnHandQty = i.OnHandQty,
-                    ReservedQty = i.ReservedQty
+                    ItemId             = item.ItemId,
+                    ItemCode           = item.ItemCode,
+                    ItemName           = item.ItemName,
+                    CategoryName       = item.Category != null ? item.Category.CategoryName : null,
+                    BrandName          = item.Brand    != null ? item.Brand.BrandName       : null,
+                    UnitName           = item.BaseUom  != null ? item.BaseUom.UomName       : null,
+                    OnHandQty          = inv.OnHandQty,
+                    ReservedQty        = inv.ReservedQty,
+                    HasInventoryRecord = true   // luôn true vì đã lọc từ InventoryOnHand
+                }
+            ).ToListAsync();
+
+            response.ItemCount = response.Items.Count;
+
+            // Lấy danh sách lô trong kho (kèm mã GRN và vị trí lưu trữ nếu đã gán)
+            response.Lots = await _context.InventoryLots
+                .AsNoTracking()
+                .Where(l => l.WarehouseId == warehouseId)
+                .Include(l => l.Grnline)
+                    .ThenInclude(gl => gl.Grn)
+                .Include(l => l.Location)
+                .OrderByDescending(l => l.ReceiptDate)
+                .ThenByDescending(l => l.LotId)
+                .Select(l => new WarehouseLotDto
+                {
+                    LotId = l.LotId,
+                    ItemId = l.ItemId,
+                    WarehouseId = l.WarehouseId,
+                    Grnid = l.Grnline != null ? l.Grnline.Grnid : null,
+                    GrnlineId = l.GrnlineId,
+                    GrnCode = l.Grnline != null ? l.Grnline.Grn.Grncode : null,
+                    LocationCode = l.Location != null ? l.Location.LocationCode : null,
+                    LocationName = l.Location != null ? l.Location.LocationName : null,
+                    ReceiptDate = l.ReceiptDate,
+                    Quantity = l.Quantity,
+                    UnitCost = l.UnitCost,
+                    ExpiryDate = l.ExpiryDate,
+                    IsActive = l.IsActive
                 })
                 .ToListAsync();
 
-            response.ItemCount = response.Items.Count;
 
             // Lấy giấy tờ nhập kho (GRN)
             var importPapers = await _context.GoodsReceiptNotes
@@ -270,6 +305,7 @@ namespace Warehouse.DataAcces.Service
                 .ToListAsync();
         }
 
+
         public async Task<PagedResult<WarehouseHistoryResponse>> GetWarehouseHistoryAsync(int pageNumber, int pageSize, long? warehouseId = null)
         {
             var query = _context.InventoryTransactionLines
@@ -308,19 +344,46 @@ namespace Warehouse.DataAcces.Service
                 {
                     var grn = await _context.GoodsReceiptNotes.FindAsync(refId);
                     response.VoucherCode = grn?.Grncode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("GRN", refId);
+                    var approverName = await GetApproverNameAsync("GRN", refId);
+                    if (!string.IsNullOrWhiteSpace(approverName))
+                    {
+                        response.ApproverName = approverName;
+                    }
+                    else
+                    {
+                        var user = grn != null ? await _context.Users.FindAsync(grn.CreatedBy) : null;
+                        response.ApproverName = user?.FullName ?? "Hệ thống";
+                    }
                 }
                 else if (refType == "GDN")
                 {
                     var gdn = await _context.GoodsDeliveryNotes.FindAsync(refId);
                     response.VoucherCode = gdn?.Gdncode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("GDN", refId);
+                    var approverName = await GetApproverNameAsync("GDN", refId);
+                    if (!string.IsNullOrWhiteSpace(approverName))
+                    {
+                        response.ApproverName = approverName;
+                    }
+                    else
+                    {
+                        var user = gdn != null ? await _context.Users.FindAsync(gdn.CreatedBy) : null;
+                        response.ApproverName = user?.FullName ?? "Hệ thống";
+                    }
                 }
                 else if (refType == "ADJ")
                 {
                     var adj = await _context.InventoryAdjustmentRequests.FindAsync(refId);
                     response.VoucherCode = adj?.AdjustmentCode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("ADJ", refId);
+                    var approverName = await GetApproverNameAsync("ADJ", refId);
+                    if (!string.IsNullOrWhiteSpace(approverName))
+                    {
+                        response.ApproverName = approverName;
+                    }
+                    else
+                    {
+                        var user = adj != null ? await _context.Users.FindAsync(adj.SubmittedBy) : null;
+                        response.ApproverName = user?.FullName ?? "Hệ thống";
+                    }
                 }
                 else
                 {
@@ -335,7 +398,7 @@ namespace Warehouse.DataAcces.Service
             return new PagedResult<WarehouseHistoryResponse>(results, totalItems, pageNumber, pageSize);
         }
 
-        private async Task<string> GetApproverNameAsync(string docType, long docId)
+        private async Task<string?> GetApproverNameAsync(string docType, long docId)
         {
             var approval = await _context.DocumentApprovals
                 .Include(a => a.ActionByNavigation)
@@ -343,7 +406,7 @@ namespace Warehouse.DataAcces.Service
                 .OrderByDescending(a => a.ActionAt)
                 .FirstOrDefaultAsync();
 
-            return approval?.ActionByNavigation?.FullName ?? "Chưa được duyệt";
+            return approval?.ActionByNavigation?.FullName;
         }
     }
 }
